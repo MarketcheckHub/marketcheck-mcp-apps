@@ -1944,14 +1944,20 @@ function renderApps() {
         dots.forEach((dot, i) => {
           dot.addEventListener("click", (e) => { e.stopPropagation(); goToSlide(i); });
         });
+
+        // Auto-rotate every 3 seconds
+        let autoTimer = setInterval(() => goToSlide((currentSlide + 1) % totalSlides), 3000);
+        card.querySelector(".app-thumbnail")?.addEventListener("mouseenter", () => clearInterval(autoTimer));
+        card.querySelector(".app-thumbnail")?.addEventListener("mouseleave", () => {
+          autoTimer = setInterval(() => goToSlide((currentSlide + 1) % totalSlides), 3000);
+        });
       }
 
-      // Thumbnail click → lightbox (show current carousel image)
+      // Thumbnail click → lightbox with carousel if available
+      const appImages = hasCarousel ? [screenshotUrl, resultUrl] : [screenshotUrl];
       card.querySelector(".app-thumbnail")?.addEventListener("click", (e) => {
         if ((e.target as HTMLElement).closest(".carousel-nav, .carousel-dot")) return;
-        const currentIdx = carouselImages ? Math.round(Math.abs(parseFloat(carouselImages.style.transform?.replace(/[^0-9.-]/g, "") || "0")) / 100) : 0;
-        const images = [screenshotUrl, resultUrl];
-        showLightbox(hasCarousel ? images[currentIdx] || screenshotUrl : screenshotUrl, app.name);
+        showLightbox(appImages, app.name);
       });
 
       // Share button
@@ -2020,21 +2026,52 @@ function showToast(message: string) {
 
 // ── Lightbox ────────────────────────────────────────────────────────────
 
-function showLightbox(src: string, alt: string) {
+function showLightbox(images: string | string[], alt: string) {
+  const srcs = Array.isArray(images) ? images : [images];
+  let currentIdx = 0;
   const overlay = document.createElement("div");
   overlay.className = "lightbox-overlay";
+
+  const isCarousel = srcs.length > 1;
+
   overlay.innerHTML = `
     <button class="lightbox-close">&times;</button>
-    <img src="${src}" alt="${alt}" />
+    <div style="position:relative;max-width:92vw;max-height:88vh;display:flex;align-items:center;">
+      ${isCarousel ? `<button class="carousel-nav carousel-prev" style="position:absolute;left:-40px;opacity:1;width:36px;height:36px;font-size:18px;z-index:2;">&#8249;</button>` : ""}
+      <img id="lightbox-img" src="${srcs[0]}" alt="${alt}" style="max-width:92vw;max-height:88vh;border-radius:8px;box-shadow:0 16px 64px rgba(0,0,0,0.5);cursor:default;transition:opacity 0.2s;" />
+      ${isCarousel ? `<button class="carousel-nav carousel-next" style="position:absolute;right:-40px;opacity:1;width:36px;height:36px;font-size:18px;z-index:2;">&#8250;</button>` : ""}
+    </div>
+    ${isCarousel ? `<div style="position:fixed;bottom:24px;display:flex;gap:8px;">${srcs.map((_, i) => `<span class="carousel-dot ${i === 0 ? "active" : ""}" data-idx="${i}" style="width:8px;height:8px;cursor:pointer;"></span>`).join("")}</div>` : ""}
   `;
   document.body.appendChild(overlay);
+
+  const img = document.getElementById("lightbox-img") as HTMLImageElement;
+  const dots = overlay.querySelectorAll(".carousel-dot");
+
+  const goTo = (idx: number) => {
+    currentIdx = ((idx % srcs.length) + srcs.length) % srcs.length;
+    img.style.opacity = "0";
+    setTimeout(() => { img.src = srcs[currentIdx]; img.style.opacity = "1"; }, 150);
+    dots.forEach((d, i) => d.classList.toggle("active", i === currentIdx));
+  };
+
+  // Auto-rotate
+  let autoTimer = isCarousel ? setInterval(() => goTo(currentIdx + 1), 3500) : 0;
+
+  overlay.querySelector(".carousel-prev")?.addEventListener("click", (e) => { e.stopPropagation(); clearInterval(autoTimer); goTo(currentIdx - 1); });
+  overlay.querySelector(".carousel-next")?.addEventListener("click", (e) => { e.stopPropagation(); clearInterval(autoTimer); goTo(currentIdx + 1); });
+  dots.forEach(d => d.addEventListener("click", (e) => { e.stopPropagation(); clearInterval(autoTimer); goTo(parseInt((d as HTMLElement).getAttribute("data-idx")!)); }));
+
   overlay.addEventListener("click", (e) => {
     if (e.target === overlay || (e.target as HTMLElement).classList.contains("lightbox-close")) {
+      clearInterval(autoTimer);
       overlay.remove();
     }
   });
   document.addEventListener("keydown", function handler(e) {
-    if (e.key === "Escape") { overlay.remove(); document.removeEventListener("keydown", handler); }
+    if (e.key === "Escape") { clearInterval(autoTimer); overlay.remove(); document.removeEventListener("keydown", handler); }
+    if (e.key === "ArrowRight") { clearInterval(autoTimer); goTo(currentIdx + 1); }
+    if (e.key === "ArrowLeft") { clearInterval(autoTimer); goTo(currentIdx - 1); }
   });
 }
 

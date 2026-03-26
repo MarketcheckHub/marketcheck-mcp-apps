@@ -44,9 +44,8 @@ function _proxyBase(): string {
 async function _callTool(toolName: string, args: Record<string, any>): Promise<any> {
   if (_safeApp) {
     try {
-      const r = await _safeApp.callServerTool({ name: toolName, arguments: args });
-      const t = r?.content?.find((c: any) => c.type === "text")?.text;
-      if (t) return JSON.parse(t);
+      const r = await _safeApp.callServerTool({ name: toolName, arguments: args }); return r;
+            
     } catch {}
   }
   const auth = _getAuth();
@@ -57,7 +56,7 @@ async function _callTool(toolName: string, args: Record<string, any>): Promise<a
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...args, _auth_mode: auth.mode, _auth_value: auth.value }),
       });
-      if (r.ok) return r.json();
+      if (r.ok) { const d = await r.json(); return { content: [{ type: "text", text: JSON.stringify(d) }] }; }
     } catch {}
   }
   return null;
@@ -535,10 +534,7 @@ async function main() {
   // ── Fetch data ──
   let data: AuctionLaneData;
   try {
-    const result = await _safeApp?.callServerTool({
-      name: "auction-lane-planner",
-      arguments: { state: "TX", zip: "75201" },
-    });
+    const result = await _callTool("auction-lane-planner", { state: "TX", zip: "75201" });
     data = JSON.parse(
       typeof result === "string"
         ? result
@@ -622,10 +618,7 @@ async function main() {
 
       let results: RunListResult[];
       try {
-        const res = await _safeApp?.callServerTool({
-          name: "auction-lane-planner",
-          arguments: { state: "TX", zip: "75201", runListVins: vins },
-        });
+        const res = await _callTool("auction-lane-planner", { state: "TX", zip: "75201", runListVins: vins });
         const parsed = JSON.parse(
           typeof res === "string"
             ? res

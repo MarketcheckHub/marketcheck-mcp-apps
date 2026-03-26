@@ -43,9 +43,8 @@ function _proxyBase(): string {
 async function _callTool(toolName: string, args: Record<string, any>): Promise<any> {
   if (_safeApp) {
     try {
-      const r = await _safeApp.callServerTool({ name: toolName, arguments: args });
-      const t = r?.content?.find((c: any) => c.type === "text")?.text;
-      if (t) return JSON.parse(t);
+      const r = await _safeApp.callServerTool({ name: toolName, arguments: args }); return r;
+            
     } catch {}
   }
   const auth = _getAuth();
@@ -56,7 +55,7 @@ async function _callTool(toolName: string, args: Record<string, any>): Promise<a
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...args, _auth_mode: auth.mode, _auth_value: auth.value }),
       });
-      if (r.ok) return r.json();
+      if (r.ok) { const d = await r.json(); return { content: [{ type: "text", text: JSON.stringify(d) }] }; }
     } catch {}
   }
   return null;
@@ -529,11 +528,7 @@ async function handleSearch(): Promise<void> {
       if (formMileMin) args.mileage_min = parseInt(formMileMin.replace(/,/g, ""));
       if (formMileMax) args.mileage_max = parseInt(formMileMax.replace(/,/g, ""));
 
-      const resp = await _safeApp?.callServerTool({
-        name: "comparables-explorer",
-        arguments: args,
-      });
-      data = JSON.parse(typeof resp.content === "string" ? resp.content : JSON.stringify(resp.content));
+      data = await _callTool("comparables-explorer", args);
     }
 
     result = data;

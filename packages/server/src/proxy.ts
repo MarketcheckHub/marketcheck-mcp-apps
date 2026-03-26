@@ -5,7 +5,7 @@
  */
 import type { Express } from "express";
 
-const MC_API_HOST = "https://mc-api.marketcheck.com";
+const MC_API_HOST = "https://api.marketcheck.com";
 
 interface ProxyRequest {
   _auth_mode: "api_key" | "oauth_token";

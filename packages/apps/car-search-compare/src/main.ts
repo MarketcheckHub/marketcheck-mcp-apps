@@ -39,9 +39,8 @@ function _proxyBase(): string {
 async function _callTool(toolName: string, args: Record<string, any>): Promise<any> {
   if (_safeApp) {
     try {
-      const r = await _safeApp.callServerTool({ name: toolName, arguments: args });
-      const t = r?.content?.find((c: any) => c.type === "text")?.text;
-      if (t) return JSON.parse(t);
+      const r = await _safeApp.callServerTool({ name: toolName, arguments: args }); return r;
+            
     } catch {}
   }
   const auth = _getAuth();
@@ -52,7 +51,7 @@ async function _callTool(toolName: string, args: Record<string, any>): Promise<a
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...args, _auth_mode: auth.mode, _auth_value: auth.value }),
       });
-      if (r.ok) return r.json();
+      if (r.ok) { const d = await r.json(); return { content: [{ type: "text", text: JSON.stringify(d) }] }; }
     } catch {}
   }
   return null;
@@ -979,15 +978,9 @@ async function doSearch(append: boolean) {
   if (filterZip) args.radius = filterRadius;
 
   try {
-    const result = await _safeApp?.callServerTool({
-      name: "search-cars",
-      arguments: args,
-    });
+    const data: SearchResult | null = await _callTool("search-cars", args);
 
-    // Parse result
-    const text = result?.content?.[0]?.text;
-    if (text) {
-      const data: SearchResult = JSON.parse(text);
+    if (data) {
       if (append) {
         allListings = [...allListings, ...data.listings];
         displayedListings = [...allListings];
@@ -1037,10 +1030,7 @@ async function doCompare() {
   if (vins.length < 2) return;
 
   try {
-    const result = await _safeApp?.callServerTool({
-      name: "compare-cars",
-      arguments: { vins },
-    });
+    const result = await _callTool("compare-cars", { vins });
 
     const text = result?.content?.[0]?.text;
     if (text) {

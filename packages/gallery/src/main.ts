@@ -1368,7 +1368,7 @@ function renderAuthPanel() {
           </div>
           <button class="btn btn-primary btn-sm" id="btn-gen-token" style="margin-top:12px;">Generate Access Token</button>
           <div class="auth-hint">
-            Generate credentials at <a href="https://universe.marketcheck.com/api-keys" target="_blank">universe.marketcheck.com/api-keys</a>
+            Generate credentials at <a href="https://developers.marketcheck.com/api-keys" target="_blank">developers.marketcheck.com/api-keys</a>
           </div>
 
           <div class="token-display" id="token-display">
@@ -1384,7 +1384,7 @@ function renderAuthPanel() {
           <button class="btn btn-secondary btn-sm" id="btn-copy-embed" style="margin-top:8px;display:none;">Copy Embed Snippet</button>
 
           <div class="auth-warning" style="margin-top:16px;">
-            OAuth tokens expire in 6 hours and can be <a href="https://universe.marketcheck.com/api-keys" target="_blank" style="color:var(--yellow);">revoked anytime</a>. Never embed your API key or client secret directly in iframe URLs.
+            OAuth tokens expire in 6 hours and can be <a href="https://developers.marketcheck.com/api-keys" target="_blank" style="color:var(--yellow);">revoked anytime</a>. Never embed your API key or client secret directly in iframe URLs.
           </div>
         </div>
       </div>

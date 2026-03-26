@@ -314,7 +314,7 @@ curl -X POST https://api.marketcheck.com/oauth2/token \
 | API Key in URL | Medium (doesn't expire) | Internal/personal use only |
 | API Key in server env | None | MCP server mode |
 
-Generate credentials at [universe.marketcheck.com/api-keys](https://universe.marketcheck.com/api-keys)
+Generate credentials at [developers.marketcheck.com/api-keys](https://developers.marketcheck.com/api-keys)
 
 ---
 

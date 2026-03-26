@@ -1,0 +1,813 @@
+import { App } from "@modelcontextprotocol/ext-apps";
+
+const _safeApp = (() => { try { return new App({ name: "group-operations-center" });
+
+// ── Dual-Mode Data Provider ────────────────────────────────────────────
+function _getAuth(): { mode: "api_key" | "oauth_token" | null; value: string | null } {
+  const params = new URLSearchParams(location.search);
+  const token = params.get("access_token") ?? localStorage.getItem("mc_access_token");
+  if (token) return { mode: "oauth_token", value: token };
+  const key = params.get("api_key") ?? localStorage.getItem("mc_api_key");
+  if (key) return { mode: "api_key", value: key };
+  return { mode: null, value: null };
+}
+
+function _detectAppMode(): "mcp" | "live" | "demo" {
+  if (_safeApp) return "mcp";
+  if (_getAuth().value) return "live";
+  return "demo";
+}
+
+function _isEmbedMode(): boolean {
+  return new URLSearchParams(location.search).has("embed");
+}
+
+function _getUrlParams(): Record<string, string> {
+  const params = new URLSearchParams(location.search);
+  const result: Record<string, string> = {};
+  for (const key of ["vin", "zip", "make", "model", "miles", "state", "dealer_id", "ticker"]) {
+    const v = params.get(key);
+    if (v) result[key] = v;
+  }
+  return result;
+}
+
+function _proxyBase(): string {
+  return location.protocol.startsWith("http") ? "" : "http://localhost:3001";
+}
+
+async function _callTool(toolName: string, args: Record<string, any>): Promise<any> {
+  if (_safeApp) {
+    try {
+      const r = await _safeApp.callServerTool({ name: toolName, arguments: args });
+      const t = r?.content?.find((c: any) => c.type === "text")?.text;
+      if (t) return JSON.parse(t);
+    } catch {}
+  }
+  const auth = _getAuth();
+  if (auth.value) {
+    try {
+      const r = await fetch(`${_proxyBase()}/api/proxy/${toolName}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...args, _auth_mode: auth.mode, _auth_value: auth.value }),
+      });
+      if (r.ok) return r.json();
+    } catch {}
+  }
+  return null;
+}
+
+function _addSettingsBar(headerEl?: HTMLElement) {
+  if (_isEmbedMode() || !headerEl) return;
+  const mode = _detectAppMode();
+  const bar = document.createElement("div");
+  bar.style.cssText = "display:flex;align-items:center;gap:8px;margin-left:auto;";
+  const colors: Record<string, { bg: string; fg: string; label: string }> = {
+    mcp: { bg: "#1e40af22", fg: "#60a5fa", label: "MCP" },
+    live: { bg: "#05966922", fg: "#34d399", label: "LIVE" },
+    demo: { bg: "#92400e88", fg: "#fbbf24", label: "DEMO" },
+  };
+  const c = colors[mode];
+  bar.innerHTML = `<span style="padding:3px 10px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:0.5px;background:${c.bg};color:${c.fg};border:1px solid ${c.fg}33;">${c.label}</span>`;
+  if (mode !== "mcp") {
+    const gear = document.createElement("button");
+    gear.innerHTML = "&#9881;";
+    gear.title = "API Settings";
+    gear.style.cssText = "background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:4px;";
+    const panel = document.createElement("div");
+    panel.style.cssText = "display:none;position:fixed;top:50px;right:16px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px;z-index:1000;min-width:300px;box-shadow:0 8px 32px rgba(0,0,0,0.5);";
+    panel.innerHTML = `<div style="font-size:13px;font-weight:600;color:#f8fafc;margin-bottom:12px;">API Configuration</div>
+      <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:4px;">MarketCheck API Key</label>
+      <input id="_mc_key_inp" type="password" placeholder="Enter your API key" value="${_getAuth().mode === 'api_key' ? _getAuth().value ?? '' : ''}"
+        style="width:100%;padding:8px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:13px;margin-bottom:8px;box-sizing:border-box;" />
+      <div style="font-size:10px;color:#64748b;margin-bottom:12px;">Get a free key at <a href="https://developers.marketcheck.com" target="_blank" style="color:#60a5fa;">developers.marketcheck.com</a></div>
+      <div style="display:flex;gap:8px;">
+        <button id="_mc_save" style="flex:1;padding:8px;border-radius:6px;border:none;background:#3b82f6;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Save & Reload</button>
+        <button id="_mc_clear" style="padding:8px 12px;border-radius:6px;border:1px solid #334155;background:transparent;color:#94a3b8;font-size:13px;cursor:pointer;">Clear</button>
+      </div>`;
+    gear.addEventListener("click", () => { panel.style.display = panel.style.display === "none" ? "block" : "none"; });
+    document.addEventListener("click", (e) => { if (!panel.contains(e.target as Node) && e.target !== gear) panel.style.display = "none"; });
+    document.body.appendChild(panel);
+    setTimeout(() => {
+      document.getElementById("_mc_save")?.addEventListener("click", () => { const k = (document.getElementById("_mc_key_inp") as HTMLInputElement)?.value?.trim(); if (k) { localStorage.setItem("mc_api_key", k); location.reload(); } });
+      document.getElementById("_mc_clear")?.addEventListener("click", () => { localStorage.removeItem("mc_api_key"); localStorage.removeItem("mc_access_token"); location.reload(); });
+    }, 0);
+    bar.appendChild(gear);
+  }
+  headerEl.appendChild(bar);
+}
+// ── End Data Provider ──────────────────────────────────────────────────
+
+ } catch { return null; } })();
+
+// ── Types ──────────────────────────────────────────────────────────────
+interface Vehicle {
+  vin: string;
+  year: number;
+  make: string;
+  model: string;
+  trim: string;
+  listedPrice: number;
+  marketPrice: number;
+  gapPct: number;
+  miles: number;
+  dom: number;
+}
+
+interface LocationData {
+  id: string;
+  name: string;
+  totalUnits: number;
+  agedPct: number;
+  avgDom: number;
+  floorPlanBurnPerDay: number;
+  healthScore: number;
+  inventory: Vehicle[];
+}
+
+interface Alert {
+  severity: "red" | "yellow" | "green";
+  message: string;
+  location: string;
+  timestamp: string;
+}
+
+interface TransferRecommendation {
+  vinLast6: string;
+  yearMakeModel: string;
+  currentStore: string;
+  currentDom: number;
+  recommendedStore: string;
+  expectedDomImprovement: number;
+  transportCostEst: number;
+  netBenefit: number;
+}
+
+interface GroupData {
+  locations: LocationData[];
+  alerts: Alert[];
+  transfers: TransferRecommendation[];
+  groupKpis: {
+    totalInventory: number;
+    totalAgedUnits: number;
+    totalDailyFloorPlanBurn: number;
+    locationsWithAlerts: number;
+  };
+}
+
+// ── Mock Data ──────────────────────────────────────────────────────────
+function generateMockData(): GroupData {
+  const makes = ["Toyota", "Honda", "Ford", "Chevrolet", "BMW", "Hyundai", "Kia", "Nissan", "Jeep", "Ram"];
+  const models: Record<string, string[]> = {
+    Toyota: ["Camry", "RAV4", "Tacoma", "Corolla", "Highlander"],
+    Honda: ["Civic", "CR-V", "Accord", "Pilot", "HR-V"],
+    Ford: ["F-150", "Explorer", "Escape", "Bronco", "Mustang"],
+    Chevrolet: ["Silverado", "Equinox", "Tahoe", "Malibu", "Blazer"],
+    BMW: ["3 Series", "X3", "X5", "5 Series", "X1"],
+    Hyundai: ["Tucson", "Elantra", "Santa Fe", "Palisade", "Kona"],
+    Kia: ["Sportage", "Forte", "Telluride", "Sorento", "Seltos"],
+    Nissan: ["Rogue", "Altima", "Pathfinder", "Sentra", "Frontier"],
+    Jeep: ["Wrangler", "Grand Cherokee", "Cherokee", "Compass", "Gladiator"],
+    Ram: ["1500", "2500", "ProMaster", "1500 Classic", "3500"],
+  };
+  const trims = ["SE", "LE", "XLE", "Limited", "Sport", "LX", "EX", "Touring", "SXT", "Latitude"];
+
+  function genInventory(count: number, domBias: number, domSpread: number): Vehicle[] {
+    const inv: Vehicle[] = [];
+    for (let i = 0; i < count; i++) {
+      const make = makes[Math.floor(Math.random() * makes.length)];
+      const modelList = models[make];
+      const model = modelList[Math.floor(Math.random() * modelList.length)];
+      const trim = trims[Math.floor(Math.random() * trims.length)];
+      const year = 2020 + Math.floor(Math.random() * 5);
+      const miles = 5000 + Math.floor(Math.random() * 65000);
+      const dom = Math.max(1, Math.round(domBias + (Math.random() - 0.5) * domSpread));
+      const marketPrice = 20000 + Math.floor(Math.random() * 35000);
+      const gapPctRaw = -12 + Math.random() * 24;
+      const listedPrice = Math.round(marketPrice * (1 + gapPctRaw / 100));
+      const gapPct = ((listedPrice - marketPrice) / marketPrice) * 100;
+      const vin = `1HGCV${String(1000 + i).slice(-4)}${String(Math.floor(Math.random() * 900000) + 100000)}`;
+      inv.push({ vin, year, make, model, trim, listedPrice, marketPrice, gapPct, miles, dom });
+    }
+    return inv;
+  }
+
+  // 5 locations with different health profiles
+  const mainStreetInv = genInventory(48, 25, 20);
+  const highwayInv = genInventory(62, 42, 35);
+  const downtownInv = genInventory(35, 65, 40);
+  const suburbanInv = genInventory(55, 22, 18);
+  const metroInv = genInventory(41, 38, 30);
+
+  function calcLocation(id: string, name: string, inventory: Vehicle[]): LocationData {
+    const totalUnits = inventory.length;
+    const agedCount = inventory.filter(v => v.dom > 60).length;
+    const agedPct = Math.round((agedCount / totalUnits) * 100);
+    const avgDom = Math.round(inventory.reduce((s, v) => s + v.dom, 0) / totalUnits);
+    const floorPlanBurnPerDay = agedCount * 35;
+    // Health score: weighted blend of aging %, avg DOM, pricing alignment
+    const domPenalty = Math.min(40, avgDom * 0.6);
+    const agingPenalty = Math.min(35, agedPct * 1.4);
+    const overpricedPct = inventory.filter(v => v.gapPct > 5).length / totalUnits;
+    const pricePenalty = Math.min(25, overpricedPct * 50);
+    const healthScore = Math.max(0, Math.min(100, Math.round(100 - domPenalty - agingPenalty - pricePenalty)));
+    return { id, name, totalUnits, agedPct, avgDom, floorPlanBurnPerDay, healthScore, inventory };
+  }
+
+  const locations: LocationData[] = [
+    calcLocation("main-street", "Main Street Motors", mainStreetInv),
+    calcLocation("highway", "Highway Auto", highwayInv),
+    calcLocation("downtown", "Downtown Dealer", downtownInv),
+    calcLocation("suburban", "Suburban Cars", suburbanInv),
+    calcLocation("metro", "Metro Motors", metroInv),
+  ];
+
+  // Alerts (10 realistic alerts)
+  const now = new Date();
+  function timeAgo(minutes: number): string {
+    const d = new Date(now.getTime() - minutes * 60000);
+    const h = d.getHours();
+    const m = d.getMinutes();
+    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+  }
+
+  const alerts: Alert[] = [
+    { severity: "red", message: "Unit 90+ days: 2024 Ford F-150 (112 DOM)", location: "Downtown Dealer", timestamp: timeAgo(3) },
+    { severity: "red", message: "Unit 90+ days: 2022 BMW X5 (98 DOM)", location: "Downtown Dealer", timestamp: timeAgo(8) },
+    { severity: "red", message: "Competitor undercut $2.4K on 2024 Toyota RAV4", location: "Highway Auto", timestamp: timeAgo(15) },
+    { severity: "red", message: "Unit 90+ days: 2023 Chevrolet Tahoe (95 DOM)", location: "Highway Auto", timestamp: timeAgo(22) },
+    { severity: "yellow", message: "5 units approaching 60-day mark", location: "Metro Motors", timestamp: timeAgo(35) },
+    { severity: "yellow", message: "3 units approaching 60-day mark", location: "Highway Auto", timestamp: timeAgo(48) },
+    { severity: "yellow", message: "Competitor undercut $1.8K on 2024 Honda CR-V", location: "Main Street Motors", timestamp: timeAgo(62) },
+    { severity: "green", message: "3 new arrivals received and processed", location: "Suburban Cars", timestamp: timeAgo(75) },
+    { severity: "green", message: "2 units sold under 15 DOM", location: "Main Street Motors", timestamp: timeAgo(90) },
+    { severity: "green", message: "4 new arrivals received and processed", location: "Metro Motors", timestamp: timeAgo(120) },
+  ];
+
+  // Transfer recommendations
+  const transfers: TransferRecommendation[] = [
+    { vinLast6: "A7F293", yearMakeModel: "2024 Ford F-150 XLT", currentStore: "Downtown Dealer", currentDom: 112, recommendedStore: "Suburban Cars", expectedDomImprovement: 65, transportCostEst: 350, netBenefit: 2800 },
+    { vinLast6: "B3K841", yearMakeModel: "2023 Toyota RAV4 LE", currentStore: "Highway Auto", currentDom: 78, recommendedStore: "Main Street Motors", expectedDomImprovement: 40, transportCostEst: 275, netBenefit: 2100 },
+    { vinLast6: "C9M512", yearMakeModel: "2022 BMW X5 Sport", currentStore: "Downtown Dealer", currentDom: 98, recommendedStore: "Metro Motors", expectedDomImprovement: 55, transportCostEst: 425, netBenefit: 1950 },
+    { vinLast6: "D2R678", yearMakeModel: "2024 Honda CR-V EX", currentStore: "Highway Auto", currentDom: 65, recommendedStore: "Suburban Cars", expectedDomImprovement: 35, transportCostEst: 300, netBenefit: 1650 },
+    { vinLast6: "E5T934", yearMakeModel: "2023 Chevy Tahoe LT", currentStore: "Downtown Dealer", currentDom: 95, recommendedStore: "Highway Auto", expectedDomImprovement: 45, transportCostEst: 200, netBenefit: 1400 },
+    { vinLast6: "F8W156", yearMakeModel: "2024 Jeep Wrangler", currentStore: "Metro Motors", currentDom: 58, recommendedStore: "Main Street Motors", expectedDomImprovement: 25, transportCostEst: 375, netBenefit: 1100 },
+    { vinLast6: "G1Y389", yearMakeModel: "2023 Kia Telluride", currentStore: "Highway Auto", currentDom: 72, recommendedStore: "Suburban Cars", expectedDomImprovement: 38, transportCostEst: 300, netBenefit: 950 },
+  ];
+
+  // Group KPIs
+  const totalInventory = locations.reduce((s, l) => s + l.totalUnits, 0);
+  const totalAgedUnits = locations.reduce((s, l) => s + Math.round(l.totalUnits * l.agedPct / 100), 0);
+  const totalDailyFloorPlanBurn = locations.reduce((s, l) => s + l.floorPlanBurnPerDay, 0);
+  const locationsWithAlerts = new Set(alerts.filter(a => a.severity === "red").map(a => a.location)).size;
+
+  return {
+    locations,
+    alerts,
+    transfers,
+    groupKpis: { totalInventory, totalAgedUnits, totalDailyFloorPlanBurn, locationsWithAlerts },
+  };
+}
+
+// ── Formatters ─────────────────────────────────────────────────────────
+function fmtCurrency(v: number): string {
+  return "$" + Math.round(v).toLocaleString();
+}
+function fmtPct(v: number): string {
+  return (v >= 0 ? "+" : "") + v.toFixed(1) + "%";
+}
+function fmtNum(v: number): string {
+  return Math.round(v).toLocaleString();
+}
+
+// ── App Init ───────────────────────────────────────────────────────────
+
+app.onToolResult("group-operations-center", (_result) => {
+  // When live data arrives we would parse it; for now mock data is used
+});
+
+// ── State ──────────────────────────────────────────────────────────────
+let currentView: "group" | "location" = "group";
+let selectedLocationId: string | null = null;
+let locationSortColumn = 0;
+let locationSortAsc = true;
+
+// ── Main ───────────────────────────────────────────────────────────────
+async function main() {
+  document.body.style.cssText =
+    "margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#e2e8f0;overflow-x:hidden;";
+
+  document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#94a3b8;">
+    <div style="width:20px;height:20px;border:2px solid #334155;border-top-color:#3b82f6;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:12px;"></div>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+    Loading group operations data...
+  </div>`;
+
+  let data: GroupData;
+  try {
+    const result = await _safeApp?.callServerTool({
+      name: "group-operations-center",
+      arguments: {
+        locations: ["Main Street Motors", "Highway Auto", "Downtown Dealer", "Suburban Cars", "Metro Motors"],
+      },
+    });
+    const text = result?.content?.find((c: any) => c.type === "text")?.text;
+    if (text) {
+      data = JSON.parse(text) as GroupData;
+    } else {
+      data = generateMockData();
+    }
+  } catch {
+    data = generateMockData();
+  }
+
+  renderApp(data);
+}
+
+// ── Render Router ──────────────────────────────────────────────────────
+function renderApp(data: GroupData) {
+  if (currentView === "location" && selectedLocationId) {
+    renderLocationDetail(data);
+  } else {
+    renderGroupDashboard(data);
+  }
+}
+
+// ── Group Dashboard ────────────────────────────────────────────────────
+function renderGroupDashboard(data: GroupData) {
+  document.body.innerHTML = "";
+  injectGlobalStyles();
+
+  // Header
+  const header = el("div", {
+    style: "background:#1e293b;padding:12px 20px;border-bottom:1px solid #334155;display:flex;align-items:center;gap:12px;",
+  });
+  header.innerHTML = `
+    <div style="width:8px;height:8px;border-radius:50%;background:#10b981;flex-shrink:0;"></div>
+    <h1 style="margin:0;font-size:16px;font-weight:600;color:#f8fafc;">Group Operations Center</h1>
+    <span style="font-size:12px;color:#64748b;margin-left:auto;">${data.locations.length} locations | ${fmtNum(data.groupKpis.totalInventory)} total units | Updated just now</span>
+  `;
+  document.body.appendChild(header);
+
+  const content = el("div", { style: "padding:16px 20px;" });
+  document.body.appendChild(content);
+
+  // ── Location Health Cards (top row, horizontal scroll) ──────────────
+  const cardSection = el("div", { style: "margin-bottom:16px;" });
+  const cardSectionLabel = el("div", {
+    style: "font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;font-weight:600;",
+  });
+  cardSectionLabel.textContent = "Location Health";
+  cardSection.appendChild(cardSectionLabel);
+
+  const cardRow = el("div", {
+    style: "display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;",
+  });
+
+  for (const loc of data.locations) {
+    const agedColor = loc.agedPct < 15 ? "#10b981" : loc.agedPct <= 25 ? "#f59e0b" : "#ef4444";
+    const scoreColor = loc.healthScore >= 70 ? "#10b981" : loc.healthScore >= 45 ? "#f59e0b" : "#ef4444";
+
+    const card = el("div", {
+      style: "background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px;min-width:210px;flex:1;cursor:pointer;transition:border-color 0.15s,transform 0.15s;position:relative;",
+    });
+
+    // Circular progress indicator for health score
+    const circumference = 2 * Math.PI * 28;
+    const strokeOffset = circumference - (loc.healthScore / 100) * circumference;
+
+    card.innerHTML = `
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:700;color:#f8fafc;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${loc.name}</div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <div style="font-size:12px;color:#94a3b8;">Units: <span style="color:#e2e8f0;font-weight:600;">${loc.totalUnits}</span></div>
+            <div style="font-size:12px;color:#94a3b8;">Aged: <span style="color:${agedColor};font-weight:600;">${loc.agedPct}%</span></div>
+            <div style="font-size:12px;color:#94a3b8;">Avg DOM: <span style="color:#e2e8f0;font-weight:600;">${loc.avgDom}d</span></div>
+            <div style="font-size:12px;color:#94a3b8;">Burn: <span style="color:#f97316;font-weight:600;">${fmtCurrency(loc.floorPlanBurnPerDay)}/d</span></div>
+          </div>
+        </div>
+        <div style="flex-shrink:0;position:relative;width:64px;height:64px;">
+          <svg width="64" height="64" viewBox="0 0 64 64" style="transform:rotate(-90deg);">
+            <circle cx="32" cy="32" r="28" fill="none" stroke="#334155" stroke-width="4" />
+            <circle cx="32" cy="32" r="28" fill="none" stroke="${scoreColor}" stroke-width="4"
+              stroke-dasharray="${circumference}" stroke-dashoffset="${strokeOffset}"
+              stroke-linecap="round" />
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;">
+            <span style="font-size:16px;font-weight:700;color:${scoreColor};line-height:1;">${loc.healthScore}</span>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:#64748b;text-align:center;">Click to view details</div>
+    `;
+
+    card.addEventListener("mouseenter", () => {
+      card.style.borderColor = "#3b82f6";
+      card.style.transform = "translateY(-2px)";
+    });
+    card.addEventListener("mouseleave", () => {
+      card.style.borderColor = "#334155";
+      card.style.transform = "translateY(0)";
+    });
+    card.addEventListener("click", () => {
+      currentView = "location";
+      selectedLocationId = loc.id;
+      renderApp(data);
+    });
+
+    cardRow.appendChild(card);
+  }
+  cardSection.appendChild(cardRow);
+  content.appendChild(cardSection);
+
+  // ── Group KPI Ribbon ────────────────────────────────────────────────
+  const kpiRibbon = el("div", {
+    style: "display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;",
+  });
+
+  const kpis = data.groupKpis;
+  const kpiCards = [
+    { label: "Total Inventory", value: fmtNum(kpis.totalInventory), sub: `across ${data.locations.length} locations`, color: "#94a3b8" },
+    { label: "Total Aged Units", value: fmtNum(kpis.totalAgedUnits), sub: `${Math.round((kpis.totalAgedUnits / kpis.totalInventory) * 100)}% of group inventory`, color: kpis.totalAgedUnits > 30 ? "#ef4444" : "#f59e0b" },
+    { label: "Total Daily Floor Plan Burn", value: `${fmtCurrency(kpis.totalDailyFloorPlanBurn)}/day`, sub: `${fmtCurrency(kpis.totalDailyFloorPlanBurn * 30)}/mo projected`, color: "#f97316" },
+    { label: "Locations with Alerts", value: String(kpis.locationsWithAlerts), sub: kpis.locationsWithAlerts > 2 ? "attention needed" : "manageable", color: kpis.locationsWithAlerts > 2 ? "#ef4444" : "#f59e0b" },
+  ];
+
+  for (const k of kpiCards) {
+    const card = el("div", {
+      style: "background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px 16px;flex:1;min-width:180px;",
+    });
+    card.innerHTML = `
+      <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">${k.label}</div>
+      <div style="font-size:22px;font-weight:700;color:#f8fafc;margin-top:4px;">${k.value}</div>
+      <div style="font-size:12px;color:${k.color};margin-top:2px;">${k.sub}</div>
+    `;
+    kpiRibbon.appendChild(card);
+  }
+  content.appendChild(kpiRibbon);
+
+  // ── Bottom Section: Alerts (left 40%) + Transfers (right) ───────────
+  const bottomRow = el("div", {
+    style: "display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;",
+  });
+  content.appendChild(bottomRow);
+
+  // ── Alert Feed ──────────────────────────────────────────────────────
+  const alertPanel = el("div", {
+    style: "flex:2;min-width:320px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px;max-height:420px;display:flex;flex-direction:column;",
+  });
+  alertPanel.innerHTML = `<h3 style="font-size:13px;font-weight:600;color:#f8fafc;margin:0 0 12px 0;">Alert Feed</h3>`;
+
+  const alertList = el("div", {
+    style: "flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;",
+  });
+
+  const severityConfig = {
+    red: { bg: "rgba(239,68,68,0.08)", border: "rgba(239,68,68,0.25)", icon: "\u26A0", iconColor: "#ef4444" },
+    yellow: { bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.25)", icon: "\u25B2", iconColor: "#f59e0b" },
+    green: { bg: "rgba(16,185,129,0.08)", border: "rgba(16,185,129,0.25)", icon: "\u2713", iconColor: "#10b981" },
+  };
+
+  for (const alert of data.alerts) {
+    const cfg = severityConfig[alert.severity];
+    const alertItem = el("div", {
+      style: `background:${cfg.bg};border:1px solid ${cfg.border};border-radius:6px;padding:10px 12px;display:flex;align-items:flex-start;gap:10px;`,
+    });
+    alertItem.innerHTML = `
+      <span style="font-size:16px;color:${cfg.iconColor};flex-shrink:0;line-height:1;margin-top:1px;">${cfg.icon}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;color:#e2e8f0;line-height:1.4;">${alert.message}</div>
+        <div style="display:flex;gap:12px;margin-top:4px;">
+          <span style="font-size:11px;color:#64748b;">${alert.location}</span>
+          <span style="font-size:11px;color:#475569;">${alert.timestamp}</span>
+        </div>
+      </div>
+    `;
+    alertList.appendChild(alertItem);
+  }
+  alertPanel.appendChild(alertList);
+  bottomRow.appendChild(alertPanel);
+
+  // ── Cross-Location Transfer Panel ───────────────────────────────────
+  const transferPanel = el("div", {
+    style: "flex:3;min-width:420px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px;max-height:420px;display:flex;flex-direction:column;",
+  });
+  transferPanel.innerHTML = `<h3 style="font-size:13px;font-weight:600;color:#f8fafc;margin:0 0 12px 0;">Cross-Location Transfer Recommendations</h3>`;
+
+  const transferWrapper = el("div", {
+    style: "flex:1;overflow:auto;",
+  });
+
+  const transferTable = el("table", {
+    style: "width:100%;border-collapse:collapse;font-size:12px;",
+  });
+
+  const tHeaders = ["VIN", "Year/Make/Model", "Current Store", "DOM", "\u2192 Recommended", "DOM Improv.", "Transport", "Net Benefit"];
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  for (const h of tHeaders) {
+    const th = document.createElement("th");
+    th.style.cssText =
+      "padding:7px 8px;text-align:left;background:#1e293b;color:#94a3b8;font-weight:600;border-bottom:1px solid #334155;position:sticky;top:0;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;z-index:1;";
+    th.textContent = h;
+    headRow.appendChild(th);
+  }
+  thead.appendChild(headRow);
+  transferTable.appendChild(thead);
+
+  const transferBody = document.createElement("tbody");
+
+  // Sort transfers by net benefit descending
+  const sortedTransfers = [...data.transfers].sort((a, b) => b.netBenefit - a.netBenefit);
+  const maxBenefit = sortedTransfers.length > 0 ? sortedTransfers[0].netBenefit : 1;
+
+  for (const t of sortedTransfers) {
+    const tr = document.createElement("tr");
+    tr.style.cssText = "border-bottom:1px solid #1e293b44;";
+    tr.addEventListener("mouseenter", () => { tr.style.background = "#0f172a"; });
+    tr.addEventListener("mouseleave", () => { tr.style.background = ""; });
+
+    // Color intensity by net benefit
+    const benefitIntensity = t.netBenefit / maxBenefit;
+    let benefitColor: string;
+    if (benefitIntensity > 0.7) benefitColor = "#10b981";
+    else if (benefitIntensity > 0.4) benefitColor = "#34d399";
+    else benefitColor = "#6ee7b7";
+
+    tr.innerHTML = `
+      <td style="padding:7px 8px;color:#94a3b8;font-family:monospace;font-size:11px;">${t.vinLast6}</td>
+      <td style="padding:7px 8px;color:#e2e8f0;font-weight:500;white-space:nowrap;">${t.yearMakeModel}</td>
+      <td style="padding:7px 8px;color:#e2e8f0;white-space:nowrap;">${t.currentStore}</td>
+      <td style="padding:7px 8px;"><span style="color:${t.currentDom > 90 ? "#ef4444" : t.currentDom > 60 ? "#f59e0b" : "#e2e8f0"};font-weight:600;">${t.currentDom}d</span></td>
+      <td style="padding:7px 8px;color:#60a5fa;white-space:nowrap;">${t.recommendedStore}</td>
+      <td style="padding:7px 8px;color:#10b981;font-weight:600;">-${t.expectedDomImprovement}d</td>
+      <td style="padding:7px 8px;color:#f97316;">${fmtCurrency(t.transportCostEst)}</td>
+      <td style="padding:7px 8px;"><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:rgba(16,185,129,0.15);color:${benefitColor};border:1px solid rgba(16,185,129,0.2);">${fmtCurrency(t.netBenefit)}</span></td>
+    `;
+    transferBody.appendChild(tr);
+  }
+  transferTable.appendChild(transferBody);
+  transferWrapper.appendChild(transferTable);
+  transferPanel.appendChild(transferWrapper);
+  bottomRow.appendChild(transferPanel);
+}
+
+// ── Location Detail View ───────────────────────────────────────────────
+function renderLocationDetail(data: GroupData) {
+  const loc = data.locations.find(l => l.id === selectedLocationId);
+  if (!loc) { currentView = "group"; renderApp(data); return; }
+
+  document.body.innerHTML = "";
+  injectGlobalStyles();
+
+  // Header with back button
+  const header = el("div", {
+    style: "background:#1e293b;padding:12px 20px;border-bottom:1px solid #334155;display:flex;align-items:center;gap:12px;",
+  });
+
+  const backBtn = el("button", {
+    style: "padding:6px 14px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#60a5fa;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:background 0.15s;",
+  });
+  backBtn.textContent = "\u2190 Back to Group";
+  backBtn.addEventListener("mouseenter", () => { backBtn.style.background = "#1e293b"; });
+  backBtn.addEventListener("mouseleave", () => { backBtn.style.background = "#0f172a"; });
+  backBtn.addEventListener("click", () => {
+    currentView = "group";
+    selectedLocationId = null;
+    locationSortColumn = 0;
+    locationSortAsc = true;
+    renderApp(data);
+  });
+  header.appendChild(backBtn);
+
+  const agedColor = loc.agedPct < 15 ? "#10b981" : loc.agedPct <= 25 ? "#f59e0b" : "#ef4444";
+  const scoreColor = loc.healthScore >= 70 ? "#10b981" : loc.healthScore >= 45 ? "#f59e0b" : "#ef4444";
+
+  header.innerHTML += `
+    <h1 style="margin:0;font-size:16px;font-weight:600;color:#f8fafc;">${loc.name}</h1>
+    <span style="font-size:12px;color:#64748b;margin-left:auto;">${loc.totalUnits} units | Avg DOM: ${loc.avgDom}d | Aged: <span style="color:${agedColor}">${loc.agedPct}%</span> | Health: <span style="color:${scoreColor}">${loc.healthScore}</span></span>
+  `;
+  // Re-append back button since innerHTML clobbered it
+  header.prepend(backBtn);
+  document.body.appendChild(header);
+
+  const content = el("div", { style: "padding:16px 20px;" });
+  document.body.appendChild(content);
+
+  // KPI mini-ribbon
+  const kpiRow = el("div", {
+    style: "display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;",
+  });
+  const agedUnits = loc.inventory.filter(v => v.dom > 60).length;
+  const freshUnits = loc.inventory.filter(v => v.dom <= 30).length;
+  const overpricedUnits = loc.inventory.filter(v => v.gapPct > 5).length;
+  const underpricedUnits = loc.inventory.filter(v => v.gapPct < -5).length;
+
+  const locationKpis = [
+    { label: "Total Units", value: String(loc.totalUnits), color: "#94a3b8" },
+    { label: "Fresh (<30d)", value: String(freshUnits), color: "#10b981" },
+    { label: "Aged (>60d)", value: String(agedUnits), color: "#ef4444" },
+    { label: "Avg DOM", value: `${loc.avgDom}d`, color: loc.avgDom > 45 ? "#ef4444" : "#10b981" },
+    { label: "Floor Plan Burn", value: `${fmtCurrency(loc.floorPlanBurnPerDay)}/d`, color: "#f97316" },
+    { label: "Overpriced", value: String(overpricedUnits), color: overpricedUnits > 5 ? "#ef4444" : "#f59e0b" },
+    { label: "Underpriced", value: String(underpricedUnits), color: underpricedUnits > 3 ? "#f59e0b" : "#10b981" },
+    { label: "Health Score", value: String(loc.healthScore), color: scoreColor },
+  ];
+
+  for (const k of locationKpis) {
+    const card = el("div", {
+      style: "background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 14px;flex:1;min-width:120px;",
+    });
+    card.innerHTML = `
+      <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">${k.label}</div>
+      <div style="font-size:20px;font-weight:700;color:${k.color};margin-top:2px;">${k.value}</div>
+    `;
+    kpiRow.appendChild(card);
+  }
+  content.appendChild(kpiRow);
+
+  // Inventory table
+  const tableWrapper = el("div", {
+    style: "overflow-x:auto;border:1px solid #334155;border-radius:8px;max-height:520px;overflow-y:auto;",
+  });
+
+  const table = el("table", {
+    style: "width:100%;border-collapse:collapse;font-size:12px;",
+  });
+
+  const headers = ["VIN (last 6)", "Year/Make/Model/Trim", "Listed", "Market", "Gap (%)", "Miles", "DOM", "Action"];
+  const sortKeys: Array<(v: Vehicle) => number | string> = [
+    v => v.vin.slice(-6),
+    v => `${v.year} ${v.make} ${v.model} ${v.trim}`,
+    v => v.listedPrice,
+    v => v.marketPrice,
+    v => v.gapPct,
+    v => v.miles,
+    v => v.dom,
+    v => v.gapPct,
+  ];
+
+  const thead2 = document.createElement("thead");
+  const headRow2 = document.createElement("tr");
+  headers.forEach((h, idx) => {
+    const th = document.createElement("th");
+    th.style.cssText =
+      "padding:8px 10px;text-align:left;background:#1e293b;color:#94a3b8;font-weight:600;border-bottom:1px solid #334155;position:sticky;top:0;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;cursor:pointer;white-space:nowrap;user-select:none;z-index:1;";
+    const arrow = locationSortColumn === idx ? (locationSortAsc ? " \u25B2" : " \u25BC") : "";
+    th.textContent = h + arrow;
+    th.addEventListener("click", () => {
+      if (locationSortColumn === idx) locationSortAsc = !locationSortAsc;
+      else { locationSortColumn = idx; locationSortAsc = true; }
+      renderApp(data);
+    });
+    headRow2.appendChild(th);
+  });
+  thead2.appendChild(headRow2);
+  table.appendChild(thead2);
+
+  // Sort inventory
+  const sorted = [...loc.inventory].sort((a, b) => {
+    const av = sortKeys[locationSortColumn](a);
+    const bv = sortKeys[locationSortColumn](b);
+    if (typeof av === "number" && typeof bv === "number") return locationSortAsc ? av - bv : bv - av;
+    return locationSortAsc ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+  });
+
+  const tbody = document.createElement("tbody");
+  for (const v of sorted) {
+    const tr = document.createElement("tr");
+    let rowBg = "";
+    if (v.gapPct > 5) rowBg = "rgba(239,68,68,0.08)";
+    else if (v.gapPct < -5) rowBg = "rgba(16,185,129,0.08)";
+    tr.style.cssText = `border-bottom:1px solid #1e293b;background:${rowBg};`;
+    tr.addEventListener("mouseenter", () => { tr.style.background = "#1e293b"; });
+    tr.addEventListener("mouseleave", () => { tr.style.background = rowBg; });
+
+    let badge: string;
+    if (v.gapPct > 5) badge = `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">DROP</span>`;
+    else if (v.gapPct < -5) badge = `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);">RAISE</span>`;
+    else badge = `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:rgba(245,158,11,0.15);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);">HOLD</span>`;
+
+    const gapColor = v.gapPct > 5 ? "#ef4444" : v.gapPct < -5 ? "#10b981" : "#f59e0b";
+    const domColor = v.dom > 90 ? "#ef4444" : v.dom > 60 ? "#f97316" : v.dom > 30 ? "#f59e0b" : "#10b981";
+
+    const cells = [
+      `<span style="font-family:monospace;color:#94a3b8;">${v.vin.slice(-6)}</span>`,
+      `${v.year} ${v.make} ${v.model} ${v.trim}`,
+      fmtCurrency(v.listedPrice),
+      fmtCurrency(v.marketPrice),
+      `<span style="color:${gapColor};font-weight:600;">${fmtPct(v.gapPct)}</span>`,
+      fmtNum(v.miles),
+      `<span style="color:${domColor};font-weight:600;">${v.dom}d</span>`,
+      badge,
+    ];
+
+    tr.innerHTML = cells.map(c => `<td style="padding:7px 10px;color:#e2e8f0;white-space:nowrap;">${c}</td>`).join("");
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  tableWrapper.appendChild(table);
+  content.appendChild(tableWrapper);
+
+  // Location-specific alerts
+  const locationAlerts = data.alerts.filter(a => a.location === loc.name);
+  if (locationAlerts.length > 0) {
+    const alertSection = el("div", {
+      style: "margin-top:16px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px;",
+    });
+    alertSection.innerHTML = `<h3 style="font-size:13px;font-weight:600;color:#f8fafc;margin:0 0 10px 0;">Alerts for ${loc.name}</h3>`;
+
+    const severityConfig = {
+      red: { bg: "rgba(239,68,68,0.08)", border: "rgba(239,68,68,0.25)", icon: "\u26A0", iconColor: "#ef4444" },
+      yellow: { bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.25)", icon: "\u25B2", iconColor: "#f59e0b" },
+      green: { bg: "rgba(16,185,129,0.08)", border: "rgba(16,185,129,0.25)", icon: "\u2713", iconColor: "#10b981" },
+    };
+
+    for (const alert of locationAlerts) {
+      const cfg = severityConfig[alert.severity];
+      const alertItem = el("div", {
+        style: `background:${cfg.bg};border:1px solid ${cfg.border};border-radius:6px;padding:10px 12px;display:flex;align-items:flex-start;gap:10px;margin-bottom:6px;`,
+      });
+      alertItem.innerHTML = `
+        <span style="font-size:16px;color:${cfg.iconColor};flex-shrink:0;line-height:1;margin-top:1px;">${cfg.icon}</span>
+        <div style="flex:1;">
+          <div style="font-size:12px;color:#e2e8f0;">${alert.message}</div>
+          <div style="font-size:11px;color:#475569;margin-top:3px;">${alert.timestamp}</div>
+        </div>
+      `;
+      alertSection.appendChild(alertItem);
+    }
+    content.appendChild(alertSection);
+  }
+
+  // Location-specific transfer recommendations
+  const locationTransfers = data.transfers.filter(t => t.currentStore === loc.name);
+  if (locationTransfers.length > 0) {
+    const transferSection = el("div", {
+      style: "margin-top:16px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px;",
+    });
+    transferSection.innerHTML = `<h3 style="font-size:13px;font-weight:600;color:#f8fafc;margin:0 0 10px 0;">Transfer Recommendations from ${loc.name}</h3>`;
+
+    const tTable = el("table", { style: "width:100%;border-collapse:collapse;font-size:12px;" });
+    const tHead = document.createElement("thead");
+    const tHeadRow = document.createElement("tr");
+    for (const h of ["VIN", "Vehicle", "DOM", "\u2192 To", "DOM Improv.", "Cost", "Net Benefit"]) {
+      const th = document.createElement("th");
+      th.style.cssText = "padding:6px 8px;text-align:left;color:#94a3b8;font-weight:600;border-bottom:1px solid #334155;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;";
+      th.textContent = h;
+      tHeadRow.appendChild(th);
+    }
+    tHead.appendChild(tHeadRow);
+    tTable.appendChild(tHead);
+
+    const tBody = document.createElement("tbody");
+    for (const t of locationTransfers) {
+      const tr = document.createElement("tr");
+      tr.style.cssText = "border-bottom:1px solid #1e293b44;";
+      tr.addEventListener("mouseenter", () => { tr.style.background = "#0f172a"; });
+      tr.addEventListener("mouseleave", () => { tr.style.background = ""; });
+      tr.innerHTML = `
+        <td style="padding:6px 8px;color:#94a3b8;font-family:monospace;font-size:11px;">${t.vinLast6}</td>
+        <td style="padding:6px 8px;color:#e2e8f0;font-weight:500;">${t.yearMakeModel}</td>
+        <td style="padding:6px 8px;color:${t.currentDom > 90 ? "#ef4444" : "#f59e0b"};font-weight:600;">${t.currentDom}d</td>
+        <td style="padding:6px 8px;color:#60a5fa;">${t.recommendedStore}</td>
+        <td style="padding:6px 8px;color:#10b981;font-weight:600;">-${t.expectedDomImprovement}d</td>
+        <td style="padding:6px 8px;color:#f97316;">${fmtCurrency(t.transportCostEst)}</td>
+        <td style="padding:6px 8px;"><span style="color:#10b981;font-weight:700;">${fmtCurrency(t.netBenefit)}</span></td>
+      `;
+      tBody.appendChild(tr);
+    }
+    tTable.appendChild(tBody);
+    transferSection.appendChild(tTable);
+    content.appendChild(transferSection);
+  }
+}
+
+// ── Inject Global Styles ───────────────────────────────────────────────
+function injectGlobalStyles() {
+  const style = document.createElement("style");
+  style.textContent = `
+    @keyframes spin { to { transform: rotate(360deg); } }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+  `;
+  document.head.appendChild(style);
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────
+function el(tag: string, attrs?: Record<string, string>): HTMLElement {
+  const e = document.createElement(tag);
+  if (attrs) {
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === "style") e.style.cssText = v;
+      else e.setAttribute(k, v);
+    }
+  }
+  return e;
+}
+
+main();

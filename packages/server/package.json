@@ -1,0 +1,22 @@
+{
+  "name": "@mcp-apps/server",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "serve": "npx tsx src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@modelcontextprotocol/ext-apps": "^0.3.0",
+    "@mcp-apps/shared": "*",
+    "express": "^4.21.0",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "tsx": "^4.19.0",
+    "@types/express": "^5.0.0",
+    "@types/cors": "^2.8.17"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "marketcheck-mcp-apps",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/server",
+    "packages/shared",
+    "packages/gallery",
+    "packages/apps/*"
+  ],
+  "scripts": {
+    "build:shared": "cd packages/shared && npm run build",
+    "build:apps": "node scripts/build-apps.mjs",
+    "build:gallery": "cd packages/gallery && npx vite build",
+    "build:server": "cd packages/server && npm run build",
+    "build": "npm run build:shared && npm run build:apps && npm run build:gallery && npm run build:server",
+    "serve": "cd packages/server && npm run serve",
+    "dev": "npm run build && npm run serve"
+  }
+}

@@ -430,11 +430,9 @@ function drawGauge(canvas: HTMLCanvasElement, data: {
 // ── Main App ───────────────────────────────────────────────────────────────────
 
 async function main() {
-  const app = new App({ name: "deal-evaluator" });
-  let serverAvailable = false;
+  let serverAvailable = !!_safeApp;
   try {
-    await (_safeApp as any)?.init();
-    serverAvailable = true;
+    (_safeApp as any)?.connect?.();
   } catch {
     serverAvailable = false;
   }

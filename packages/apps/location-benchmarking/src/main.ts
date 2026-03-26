@@ -334,9 +334,8 @@ function drawHorizontalBarChart(
 
 // ── Main App ───────────────────────────────────────────────────────────
 
-(_safeApp as any)?.onToolResult("location-benchmarking", (_result) => {
+
   // When live data arrives we would parse it; for now mock data is used
-});
 
 async function main() {
   document.body.style.cssText =

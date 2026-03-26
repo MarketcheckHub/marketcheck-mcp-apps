@@ -266,9 +266,8 @@ function fmtNum(v: number): string {
 
 // ── Main App ───────────────────────────────────────────────────────────
 
-(_safeApp as any)?.onToolResult("scan-lot-pricing", (_result) => {
+
   // When live data arrives we would parse it; for now mock data is used
-});
 
 async function main() {
   // Set up dark-themed body

@@ -597,15 +597,17 @@ function drawSegmentDonut(canvas: HTMLCanvasElement, loans: Loan[]): void {
 // ── Main ──────────────────────────────────────────────────────────────
 
 
-(_safeApp as any)?.render(async ({ el }) => {
+(async () => {
   const loans = generateMockLoans();
   const heatmapData = generateHeatmapData();
 
+  const el = document.body;
   el.style.fontFamily = "system-ui, -apple-system, sans-serif";
   el.style.background = "#0f172a";
   el.style.color = "#e2e8f0";
   el.style.padding = "20px";
   el.style.minHeight = "100vh";
+  el.style.margin = "0";
 
   // Header
   const header = document.createElement("div");
@@ -705,4 +707,4 @@ function drawSegmentDonut(canvas: HTMLCanvasElement, loans: Loan[]): void {
     drawLTVHistogram(histCanvas, loans);
     drawSegmentDonut(donutCanvas, loans);
   });
-});
+})();

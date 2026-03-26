@@ -1202,7 +1202,7 @@ function renderModes() {
     { color: "yellow", icon: "&#9654;", badge: "DEMO", title: "Demo Mode", desc: "Browse all 25 apps with realistic sample data. No API key required.", link: null },
     { color: "green", icon: "&#9919;", badge: "LIVE", title: "Live Data", desc: "Enter your MarketCheck API key to see real market data in any app.", link: '<a class="mode-link" href="https://developers.marketcheck.com" target="_blank">Get a free API key &rarr;</a>' },
     { color: "purple", icon: "&lt;/&gt;", badge: "EMBED", title: "Embed in Your Portal", desc: "Embed any app in your website using an iframe with secure OAuth tokens.", link: '<button class="mode-link" id="btn-show-embed">See embed instructions &rarr;</button>' },
-    { color: "blue", icon: "&#10023;", badge: "MCP", title: "AI Assistants", desc: "Use inside Claude, VS Code Copilot, Goose, and other MCP-compatible AI hosts.", link: '<a class="mode-link" href="https://modelcontextprotocol.io/extensions/apps" target="_blank">MCP Apps docs &rarr;</a>' },
+    { color: "blue", icon: "&#10023;", badge: "MCP", title: "AI Assistants", desc: "Use inside Claude, VS Code Copilot, Goose, and other MCP-compatible AI hosts.", link: '<button class="mode-link" id="btn-show-mcp">Setup instructions &rarr;</button>' },
   ];
 
   modes.forEach((m, i) => {
@@ -1240,6 +1240,87 @@ function renderModes() {
       });
       panel.scrollIntoView({ behavior: "smooth", block: "center" });
     }
+  });
+
+  // MCP setup modal
+  document.getElementById("btn-show-mcp")?.addEventListener("click", () => {
+    showMcpSetupModal();
+  });
+}
+
+function showMcpSetupModal() {
+  const serverUrl = location.origin + "/mcp";
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:580px;">
+      <h3 style="display:flex;align-items:center;gap:8px;">
+        <span style="color:var(--brand-light);font-size:22px;">&#10023;</span>
+        Using with AI Assistants
+      </h3>
+      <p>These apps render as interactive UIs inside MCP-compatible AI hosts. The AI calls a tool, and the app appears inline in the conversation.</p>
+
+      <div style="margin-bottom:20px;">
+        <div class="auth-label">MCP Server URL</div>
+        <div style="display:flex;gap:8px;">
+          <input class="auth-input" id="mcp-url-display" type="text" readonly value="${serverUrl}" style="flex:1;cursor:text;" />
+          <button class="btn btn-primary btn-sm" id="btn-copy-mcp-url">Copy</button>
+        </div>
+      </div>
+
+      <div style="font-size:14px;font-weight:600;color:var(--text-heading);margin-bottom:12px;">Setup by Host</div>
+
+      <div style="margin-bottom:16px;padding:14px;background:var(--input-bg);border:1px solid var(--border);border-radius:8px;">
+        <div style="font-size:13px;font-weight:600;color:var(--brand-light);margin-bottom:6px;">Claude (claude.ai / Claude Desktop)</div>
+        <ol style="font-size:13px;color:var(--muted);padding-left:20px;line-height:1.8;">
+          <li>Go to <strong>Settings &rarr; Connectors &rarr; Add Custom Connector</strong></li>
+          <li>Paste the MCP Server URL above</li>
+          <li>Start a new chat and ask Claude to use any of the 25 tools</li>
+          <li>The app renders as an interactive UI inside the conversation</li>
+        </ol>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;font-style:italic;">Requires Claude Pro, Max, or Team plan for custom connectors.</div>
+      </div>
+
+      <div style="margin-bottom:16px;padding:14px;background:var(--input-bg);border:1px solid var(--border);border-radius:8px;">
+        <div style="font-size:13px;font-weight:600;color:var(--brand-light);margin-bottom:6px;">VS Code / GitHub Copilot</div>
+        <ol style="font-size:13px;color:var(--muted);padding-left:20px;line-height:1.8;">
+          <li>Open VS Code Settings (<code style="background:var(--border);padding:1px 4px;border-radius:3px;font-size:12px;">Cmd+,</code>)</li>
+          <li>Search for <code style="background:var(--border);padding:1px 4px;border-radius:3px;font-size:12px;">mcp</code></li>
+          <li>Add a new MCP server with the URL above</li>
+        </ol>
+      </div>
+
+      <div style="margin-bottom:16px;padding:14px;background:var(--input-bg);border:1px solid var(--border);border-radius:8px;">
+        <div style="font-size:13px;font-weight:600;color:var(--brand-light);margin-bottom:6px;">Other Hosts (Goose, Postman, MCPJam)</div>
+        <p style="font-size:13px;color:var(--muted);line-height:1.6;">Add the MCP Server URL as a remote StreamableHTTP server in your host's MCP configuration. See <a href="https://modelcontextprotocol.io/extensions/apps" target="_blank" style="color:var(--brand-light);">MCP Apps documentation</a> for host-specific guides.</p>
+      </div>
+
+      <div style="margin-bottom:16px;padding:14px;background:var(--input-bg);border:1px solid var(--border);border-radius:8px;">
+        <div style="font-size:13px;font-weight:600;color:var(--brand-light);margin-bottom:6px;">Local Development (tunnel)</div>
+        <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:8px;">If running locally, expose your server to the internet:</p>
+        <code style="display:block;background:var(--border);padding:10px 12px;border-radius:6px;font-size:12px;color:var(--text);font-family:var(--mono);">npx cloudflared tunnel --url http://localhost:3001</code>
+        <p style="font-size:12px;color:var(--muted);margin-top:6px;">Use the generated tunnel URL + <code style="font-size:11px;">/mcp</code> as your connector URL.</p>
+      </div>
+
+      <div style="padding:12px 14px;background:rgba(6,106,171,0.08);border:1px solid rgba(6,106,171,0.2);border-radius:8px;font-size:12px;color:var(--brand-light);line-height:1.5;">
+        <strong>Environment variable:</strong> Set <code style="font-size:11px;">MARKETCHECK_API_KEY</code> on the server for live data in MCP mode. Without it, apps will use mock data.
+      </div>
+
+      <div class="modal-actions" style="margin-top:20px;">
+        <button class="btn btn-secondary" id="modal-mcp-close">Close</button>
+        <a href="https://github.com/MarketcheckHub/marketcheck-mcp-apps" target="_blank" class="btn btn-primary" style="text-decoration:none;">View on GitHub</a>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+  document.getElementById("modal-mcp-close")?.addEventListener("click", () => overlay.remove());
+  document.getElementById("btn-copy-mcp-url")?.addEventListener("click", () => {
+    navigator.clipboard.writeText(serverUrl);
+    const btn = document.getElementById("btn-copy-mcp-url")!;
+    btn.textContent = "Copied!";
+    setTimeout(() => { btn.textContent = "Copy"; }, 2000);
   });
 }
 

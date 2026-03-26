@@ -175,7 +175,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 80px 24px 60px;
+  padding: 100px 24px 60px;
   overflow: hidden;
 }
 
@@ -299,10 +299,6 @@ body {
 /* ── Theme Toggle ─────────────────────── */
 
 .theme-toggle {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 100;
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -739,6 +735,134 @@ body {
   transform: translateX(2px);
 }
 
+/* ── Top Nav ──────────────────────────────── */
+
+.top-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+[data-theme="light"] .top-nav { background: rgba(255,255,255,0.85); }
+[data-theme="dark"] .top-nav { background: rgba(12,18,32,0.85); }
+
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-logo {
+  height: 28px;
+  border-radius: 5px;
+}
+
+.nav-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-heading);
+  letter-spacing: -0.3px;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-link {
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: color 0.2s;
+}
+.nav-link:hover { color: var(--text); }
+
+.nav-github {
+  padding: 6px 14px;
+  border-radius: 6px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+.nav-github:hover {
+  border-color: var(--brand);
+  color: var(--brand-light);
+}
+
+.nav-github svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+/* ── Modal ────────────────────────────────── */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s;
+  backdrop-filter: blur(4px);
+}
+
+.modal {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 440px;
+  width: 90%;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+  animation: slideDown 0.3s ease;
+}
+
+.modal h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-heading);
+  margin-bottom: 8px;
+}
+
+.modal p {
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.modal-actions .btn { flex: 1; justify-content: center; }
+
 /* ── Footer ───────────────────────────────── */
 
 .footer {
@@ -811,20 +935,7 @@ function render() {
 
   document.body.innerHTML = "";
 
-  // Theme toggle button
-  const toggle = document.createElement("button");
-  toggle.className = "theme-toggle";
-  toggle.title = "Toggle theme";
-  toggle.innerHTML = getTheme() === "light" ? "&#9789;" : "&#9788;";
-  toggle.addEventListener("click", () => {
-    const next = getTheme() === "light" ? "dark" : "light";
-    setTheme(next);
-    toggle.innerHTML = next === "light" ? "&#9789;" : "&#9788;";
-    // Update hero canvas colors
-    if (heroCanvas) initHeroBg(heroCanvas);
-  });
-  document.body.appendChild(toggle);
-
+  renderTopNav();
   renderHero();
   renderModes();
   renderAuthPanel();
@@ -833,6 +944,103 @@ function render() {
 }
 
 let heroCanvas: HTMLCanvasElement | null = null;
+
+// ── Top Nav ─────────────────────────────────────────────────────────────
+
+function renderTopNav() {
+  const nav = document.createElement("nav");
+  nav.className = "top-nav";
+  nav.innerHTML = `
+    <div class="nav-left">
+      <img src="https://34682200.delivery.rocketcdn.me/wp-content/uploads/2024/05/cropped-MC-Icon.png.webp" alt="MC" class="nav-logo" />
+      <span class="nav-title">MarketCheck Apps</span>
+    </div>
+    <div class="nav-right">
+      <a href="#apps" class="nav-link">Apps</a>
+      <a href="https://developers.marketcheck.com" target="_blank" class="nav-link">API Docs</a>
+      <a href="https://github.com/MarketcheckHub/marketcheck-mcp-apps" target="_blank" class="nav-github">
+        <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        Open Source
+      </a>
+      <button class="theme-toggle" id="theme-toggle" title="Toggle theme" style="position:static;width:36px;height:36px;font-size:16px;">&#9789;</button>
+    </div>
+  `;
+  document.body.appendChild(nav);
+
+  document.getElementById("theme-toggle")?.addEventListener("click", () => {
+    const next = getTheme() === "light" ? "dark" : "light";
+    setTheme(next);
+    document.getElementById("theme-toggle")!.innerHTML = next === "light" ? "&#9789;" : "&#9788;";
+    if (heroCanvas) initHeroBg(heroCanvas);
+  });
+
+  // Update toggle icon to match current theme
+  setTimeout(() => {
+    const btn = document.getElementById("theme-toggle");
+    if (btn) btn.innerHTML = getTheme() === "light" ? "&#9789;" : "&#9788;";
+  }, 0);
+}
+
+// ── App Open Modal ──────────────────────────────────────────────────────
+
+function showAppOpenModal(appId: string, appName: string) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>Open ${appName}</h3>
+      <p>This app works with demo data or live MarketCheck data. How would you like to proceed?</p>
+      <div class="auth-field" id="modal-key-field" style="display:none;">
+        <label class="auth-label">MarketCheck API Key</label>
+        <input class="auth-input" id="modal-api-key" type="password" placeholder="Enter your API key" />
+        <div class="auth-hint" style="margin-top:6px;">
+          Get a free key at <a href="https://developers.marketcheck.com" target="_blank">developers.marketcheck.com</a>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="modal-demo">View Demo</button>
+        <button class="btn btn-primary" id="modal-live">Use API Key</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  // Close on overlay click
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  const keyField = document.getElementById("modal-key-field")!;
+  const keyInput = document.getElementById("modal-api-key") as HTMLInputElement;
+
+  // Demo button → open app with no key
+  document.getElementById("modal-demo")!.addEventListener("click", () => {
+    overlay.remove();
+    window.open(`/apps/${appId}/dist/index.html`, "_blank");
+  });
+
+  // Live button → toggle key input or open with key
+  document.getElementById("modal-live")!.addEventListener("click", () => {
+    if (keyField.style.display === "none") {
+      // First click: show key input
+      keyField.style.display = "block";
+      keyInput.value = getApiKey() ?? "";
+      keyInput.focus();
+      document.getElementById("modal-live")!.textContent = "Open with Key";
+    } else {
+      // Second click: save key and open
+      const key = keyInput.value.trim();
+      if (key) {
+        localStorage.setItem("mc_api_key", key);
+        refreshBadges();
+        overlay.remove();
+        window.open(`/apps/${appId}/dist/index.html?api_key=${encodeURIComponent(key)}`, "_blank");
+      }
+    }
+  });
+}
 
 // ── Hero ────────────────────────────────────────────────────────────────
 
@@ -1199,11 +1407,6 @@ function renderApps() {
 
     for (const app of apps) {
       const live = isLive();
-      const authParam = getAccessToken()
-        ? `access_token=${encodeURIComponent(getAccessToken()!)}`
-        : getApiKey()
-        ? `api_key=${encodeURIComponent(getApiKey()!)}`
-        : "";
 
       const card = document.createElement("div");
       card.className = "app-card stagger";
@@ -1218,11 +1421,28 @@ function renderApps() {
         <div class="app-tagline">${app.tagline}</div>
         <div class="app-footer">
           <span class="app-segment-badge" style="background:${seg.color}18;color:${seg.color};border:1px solid ${seg.color}33;">${seg.name}</span>
-          <a href="/apps/${app.id}/dist/index.html${authParam ? "?" + authParam : ""}" class="app-open-btn" target="_blank">Open &#8594;</a>
+          <button class="app-open-btn" data-app-id="${app.id}" data-app-name="${app.name}">Open &#8594;</button>
         </div>
       `;
 
-      // Store card reference for badge refresh
+      // Open button click handler
+      card.querySelector(".app-open-btn")!.addEventListener("click", (e) => {
+        e.preventDefault();
+        const id = (e.currentTarget as HTMLElement).getAttribute("data-app-id")!;
+        const name = (e.currentTarget as HTMLElement).getAttribute("data-app-name")!;
+
+        if (isLive()) {
+          // Has auth — open directly with key
+          const authParam = getAccessToken()
+            ? `access_token=${encodeURIComponent(getAccessToken()!)}`
+            : `api_key=${encodeURIComponent(getApiKey()!)}`;
+          window.open(`/apps/${id}/dist/index.html?${authParam}`, "_blank");
+        } else {
+          // No auth — show modal with Demo / API Key options
+          showAppOpenModal(id, name);
+        }
+      });
+
       card.setAttribute("data-app-id", app.id);
       grid.appendChild(card);
     }
@@ -1246,6 +1466,8 @@ function renderFooter() {
       Built with <a href="https://modelcontextprotocol.io/extensions/apps" target="_blank">MCP Apps</a>
       <span class="footer-sep">|</span>
       <a href="https://developers.marketcheck.com" target="_blank">API Docs</a>
+      <span class="footer-sep">|</span>
+      <a href="https://github.com/MarketcheckHub/marketcheck-mcp-apps" target="_blank">GitHub</a>
     </div>
   `;
   document.body.appendChild(footer);

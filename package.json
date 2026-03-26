@@ -18,5 +18,8 @@
     "build:full": "npm run build && npm run build:server",
     "serve": "npm run serve --workspace=@mcp-apps/server",
     "dev": "npm run build && npm run serve"
+  },
+  "devDependencies": {
+    "puppeteer": "^24.40.0"
   }
 }

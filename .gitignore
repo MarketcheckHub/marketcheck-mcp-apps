@@ -4,3 +4,5 @@ public/
 *.tsbuildinfo
 .env
 .vercel/
+.vercel
+.env*.local

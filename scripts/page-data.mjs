@@ -582,7 +582,7 @@ export const DERIVATIVE_APIS = [
       zip: { type: "string", required: false, desc: "ZIP code for regional pricing" },
     },
     exampleRequest: { vin: "5YJSA1DG9DFP14705", miles: 45000, zip: "90210", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { decode: { year: 2013, make: "Tesla", model: "Model S", trim: "Base" }, retail: { predicted_price: 28500 }, wholesale: { predicted_price: 24200 }, soldComps: { num_found: 42, stats: { price: { mean: 26800 } } } },
+    exampleResponse: { decode: { year: 2013, make: "Tesla", model: "Model S", trim: "Performance", body_type: "Sedan", engine: "Electric", transmission: "1-Speed Automatic", drivetrain: "RWD", fuel_type: "Electric", msrp: 87400, exterior_color: "Red" }, retail: { predicted_price: 28500, price_range: { low: 25200, high: 31800 }, confidence_score: 0.87, comparables_count: 18 }, wholesale: { predicted_price: 24200, price_range: { low: 21500, high: 26900 }, confidence_score: 0.82, comparables_count: 12 }, soldComps: { num_found: 42, stats: { price: { mean: 26800, min: 19500, max: 34200, std: 3150 } }, listings: [{ vin: "5YJSA1E2XEF123456", year: 2014, make: "Tesla", model: "Model S", price: 27500, miles: 52000, sold_date: "2024-11-15" }] } },
   },
   {
     name: "evaluate-deal",
@@ -597,7 +597,7 @@ export const DERIVATIVE_APIS = [
       miles: { type: "number", required: false, desc: "Current mileage" },
     },
     exampleRequest: { vin: "1HGCV1F34LA000001", zip: "60601", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { decode: { year: 2020, make: "Honda", model: "Accord" }, prediction: { predicted_price: 24500 }, activeComps: { num_found: 156 }, history: { listings: [] } },
+    exampleResponse: { decode: { year: 2020, make: "Honda", model: "Accord", trim: "Sport 1.5T", body_type: "Sedan", engine: "1.5L Turbo I4", transmission: "CVT", drivetrain: "FWD", fuel_type: "Gasoline", msrp: 28400 }, prediction: { predicted_price: 24500, price_range: { low: 22100, high: 26900 }, confidence_score: 0.91, comparables_count: 24 }, activeComps: { num_found: 156, stats: { price: { mean: 25200, min: 18900, max: 31500 }, miles: { mean: 38200 }, dom: { mean: 28 } }, listings: [{ vin: "1HGCV1F38MA112233", year: 2021, make: "Honda", model: "Accord", trim: "Sport", price: 24800, miles: 35200, dealer: { name: "Honda of Chicago", city: "Chicago", state: "IL" } }] }, history: { listings: [{ price: 27500, miles: 15000, first_seen: "2022-03-10", last_seen: "2022-05-20", dealer: "AutoNation Honda" }, { price: 25900, miles: 28000, first_seen: "2023-08-15", last_seen: "2024-01-10", dealer: "CarMax Chicago" }] } },
   },
   {
     name: "appraiser-workbench",
@@ -612,7 +612,7 @@ export const DERIVATIVE_APIS = [
       zip: { type: "string", required: false, desc: "ZIP code" },
     },
     exampleRequest: { vin: "WBA7E2C51JG123456", miles: 35000, zip: "90210", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { decode: { year: 2018, make: "BMW", model: "7 Series" }, retail: { predicted_price: 38900 }, wholesale: { predicted_price: 33200 }, activeComps: { num_found: 89 }, soldComps: { num_found: 45 }, history: { listings: [] } },
+    exampleResponse: { decode: { year: 2018, make: "BMW", model: "7 Series", trim: "740i", body_type: "Sedan", engine: "3.0L Turbo I6", transmission: "8-Speed Automatic", drivetrain: "RWD", fuel_type: "Gasoline", msrp: 83650, city_mpg: 21, highway_mpg: 29 }, retail: { predicted_price: 38900, price_range: { low: 35400, high: 42400 }, confidence_score: 0.84, comparables_count: 14 }, wholesale: { predicted_price: 33200, price_range: { low: 30100, high: 36300 }, confidence_score: 0.79 }, activeComps: { num_found: 89, stats: { price: { mean: 40200, min: 28500, max: 55000 }, miles: { mean: 42000 }, dom: { mean: 35 } }, listings: [{ vin: "WBA7F2C58JG445566", year: 2018, make: "BMW", model: "7 Series", price: 37900, miles: 38500, dealer: { name: "BMW Beverly Hills", city: "Beverly Hills", state: "CA" } }] }, soldComps: { num_found: 45, stats: { price: { mean: 36800, min: 26000, max: 48500 } } }, history: { listings: [{ price: 52900, miles: 12000, first_seen: "2020-06-01", dealer: "BMW of Manhattan" }, { price: 41500, miles: 28000, first_seen: "2022-11-10", dealer: "Carvana" }] } },
   },
   {
     name: "claims-valuation",
@@ -627,7 +627,7 @@ export const DERIVATIVE_APIS = [
       zip: { type: "string", required: true, desc: "Claim location ZIP" },
     },
     exampleRequest: { vin: "5YJSA1DG9DFP14705", miles: 50000, zip: "90210", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { decode: {}, fmvResult: { predicted_price: 27500 }, soldComps: { num_found: 38 }, regionalData: {}, replacements: { num_found: 12 } },
+    exampleResponse: { decode: { year: 2013, make: "Tesla", model: "Model S", trim: "Performance", body_type: "Sedan", engine: "Electric", fuel_type: "Electric", msrp: 87400 }, fmvResult: { predicted_price: 27500, price_range: { low: 24000, high: 31000 }, confidence_score: 0.85 }, soldComps: { num_found: 38, stats: { price: { mean: 26200, min: 18500, max: 33800 } }, listings: [{ year: 2013, make: "Tesla", model: "Model S", price: 25800, miles: 55000, sold_date: "2024-10-22" }] }, regionalData: { rankings: [{ state: "CA", average_sale_price: 28900, sold_count: 142 }, { state: "FL", average_sale_price: 26100, sold_count: 67 }] }, replacements: { num_found: 12, listings: [{ year: 2014, make: "Tesla", model: "Model S", price: 26500, miles: 48000, dealer: { name: "Tesla Beverly Hills", city: "Beverly Hills", state: "CA" } }] } },
   },
   {
     name: "generate-vin-market-report",
@@ -642,7 +642,7 @@ export const DERIVATIVE_APIS = [
       zip: { type: "string", required: false, desc: "ZIP code" },
     },
     exampleRequest: { vin: "1HGCV1F34LA000001", zip: "60601", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { decode: {}, retail: {}, wholesale: {}, history: {}, activeComps: {}, soldComps: {}, soldSummary: {}, incentives: null },
+    exampleResponse: { decode: { year: 2020, make: "Honda", model: "Accord", trim: "Sport 1.5T", body_type: "Sedan", engine: "1.5L Turbo I4", drivetrain: "FWD", fuel_type: "Gasoline", msrp: 28400 }, retail: { predicted_price: 24500, price_range: { low: 22100, high: 26900 }, confidence_score: 0.91 }, wholesale: { predicted_price: 20800, price_range: { low: 18500, high: 23100 } }, history: { listings: [{ price: 27500, miles: 15000, first_seen: "2022-03-10", dealer: "AutoNation Honda" }] }, activeComps: { num_found: 156, stats: { price: { mean: 25200 }, miles: { mean: 38200 } } }, soldComps: { num_found: 89, stats: { price: { mean: 23800 } } }, soldSummary: { rankings: [{ make: "Honda", model: "Accord", sold_count: 4520, average_sale_price: 24100 }] }, incentives: [{ title: "Honda APR Special", type: "apr", value: "2.9% for 60 months", expires: "2025-03-31" }] },
   },
   {
     name: "search-cars",
@@ -661,7 +661,7 @@ export const DERIVATIVE_APIS = [
       rows: { type: "number", required: false, desc: "Results (default 12)" },
     },
     exampleRequest: { makes: "Toyota", zip: "90210", radius: 50, rows: 10, _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { num_found: 4521, listings: [], stats: { price: { mean: 32400 } }, facets: {} },
+    exampleResponse: { num_found: 4521, listings: [{ vin: "4T1BF1FK5HU123456", year: 2017, make: "Toyota", model: "Camry", trim: "SE", price: 18900, miles: 62000, body_type: "Sedan", fuel_type: "Gasoline", days_on_market: 22, dealer: { name: "Toyota Santa Monica", city: "Santa Monica", state: "CA" } }, { vin: "2T1BURHE8JC654321", year: 2018, make: "Toyota", model: "Corolla", trim: "LE", price: 16500, miles: 48000, body_type: "Sedan", dealer: { name: "AutoNation Toyota", city: "Los Angeles", state: "CA" } }], stats: { price: { mean: 32400, min: 8900, max: 72000, std: 12500 }, miles: { mean: 45200, min: 5, max: 185000 } }, facets: { make: [{ value: "Toyota", count: 4521 }], body_type: [{ value: "SUV", count: 1823 }, { value: "Sedan", count: 1205 }, { value: "Truck", count: 891 }] } },
   },
   {
     name: "compare-cars",
@@ -675,7 +675,7 @@ export const DERIVATIVE_APIS = [
       zip: { type: "string", required: false, desc: "ZIP for pricing context" },
     },
     exampleRequest: { vins: ["1HGCV1F34LA000001", "5YJSA1DG9DFP14705"], zip: "90210", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { comparisons: [{ vin: "1HGCV1F34LA000001", decode: {}, price: {} }] },
+    exampleResponse: { comparisons: [{ vin: "1HGCV1F34LA000001", decode: { year: 2020, make: "Honda", model: "Accord", trim: "Sport 1.5T", engine: "1.5L Turbo I4", msrp: 28400 }, price: { predicted_price: 24500, price_range: { low: 22100, high: 26900 } } }, { vin: "5YJSA1DG9DFP14705", decode: { year: 2013, make: "Tesla", model: "Model S", trim: "Performance", engine: "Electric", msrp: 87400 }, price: { predicted_price: 28500, price_range: { low: 25200, high: 31800 } } }] },
   },
   {
     name: "get-market-index",
@@ -688,7 +688,7 @@ export const DERIVATIVE_APIS = [
       state: { type: "string", required: false, desc: "State abbreviation" },
     },
     exampleRequest: { state: "CA", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { summary: { rankings: [] }, segments: { rankings: [] } },
+    exampleResponse: { summary: { rankings: [{ make: "Toyota", sold_count: 18420, average_sale_price: 29800 }, { make: "Honda", sold_count: 12350, average_sale_price: 26400 }, { make: "Ford", sold_count: 11200, average_sale_price: 31500 }, { make: "Chevrolet", sold_count: 9800, average_sale_price: 28900 }, { make: "BMW", sold_count: 6540, average_sale_price: 38200 }] }, segments: { rankings: [{ body_type: "SUV", sold_count: 34500, average_sale_price: 33200 }, { body_type: "Sedan", sold_count: 22100, average_sale_price: 25600 }, { body_type: "Truck", sold_count: 15800, average_sale_price: 38500 }] } },
   },
   {
     name: "scan-lot-pricing",
@@ -702,7 +702,7 @@ export const DERIVATIVE_APIS = [
       state: { type: "string", required: true, desc: "State for demand data" },
     },
     exampleRequest: { dealerId: "abc123", state: "TX", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { inventory: { listings: [] }, hotList: { rankings: [] } },
+    exampleResponse: { inventory: { num_found: 87, listings: [{ vin: "5TFAX5GN2LX123456", year: 2020, make: "Toyota", model: "Tundra", price: 38900, miles: 42000, days_on_market: 18 }, { vin: "1G1YY22G965112233", year: 2019, make: "Chevrolet", model: "Corvette", price: 48500, miles: 22000, days_on_market: 45 }], stats: { price: { mean: 31200 }, miles: { mean: 38500 }, dom: { mean: 32 } } }, hotList: { rankings: [{ make: "Toyota", model: "RAV4", sold_count: 890, average_days_on_market: 18 }, { make: "Honda", model: "CR-V", sold_count: 720, average_days_on_market: 21 }, { make: "Ford", model: "F-150", sold_count: 1150, average_days_on_market: 15 }] } },
   },
   {
     name: "stocking-intelligence",
@@ -715,7 +715,7 @@ export const DERIVATIVE_APIS = [
       state: { type: "string", required: true, desc: "State abbreviation" },
     },
     exampleRequest: { state: "TX", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { demandData: { rankings: [] }, segmentDemand: { rankings: [] } },
+    exampleResponse: { demandData: { rankings: [{ make: "Ford", model: "F-150", sold_count: 3250 }, { make: "Toyota", model: "RAV4", sold_count: 1890 }, { make: "Chevrolet", model: "Silverado 1500", sold_count: 2810 }, { make: "Honda", model: "CR-V", sold_count: 1420 }, { make: "Toyota", model: "Camry", sold_count: 1380 }] }, segmentDemand: { rankings: [{ body_type: "Truck", sold_count: 12500, average_sale_price: 38200, average_days_on_market: 19 }, { body_type: "SUV", sold_count: 15800, average_sale_price: 32400, average_days_on_market: 24 }, { body_type: "Sedan", sold_count: 8900, average_sale_price: 24100, average_days_on_market: 28 }] } },
   },
   {
     name: "comparables-explorer",
@@ -733,7 +733,7 @@ export const DERIVATIVE_APIS = [
       radius: { type: "number", required: false, desc: "Radius (default 100)" },
     },
     exampleRequest: { make: "Toyota", model: "Camry", year: "2022", zip: "90210", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { decode: null, activeComps: {}, soldComps: {}, prediction: null },
+    exampleResponse: { decode: null, activeComps: { num_found: 234, stats: { price: { mean: 26800, min: 21500, max: 33200 }, miles: { mean: 32400 }, dom: { mean: 26 } }, listings: [{ vin: "4T1C11AK7NU123456", year: 2022, make: "Toyota", model: "Camry", trim: "SE", price: 25900, miles: 28000, dealer: { name: "Toyota of Hollywood", city: "Hollywood", state: "CA" } }] }, soldComps: { num_found: 178, stats: { price: { mean: 25200, min: 19800, max: 31500 } }, listings: [{ year: 2022, make: "Toyota", model: "Camry", price: 24800, miles: 35000, sold_date: "2024-11-01" }] }, prediction: null },
   },
   {
     name: "find-auction-arbitrage",
@@ -747,7 +747,7 @@ export const DERIVATIVE_APIS = [
       zip: { type: "string", required: true, desc: "Market ZIP" },
     },
     exampleRequest: { vins: "5YJSA1DG9DFP14705,1HGCV1F34LA000001", zip: "90210", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { results: [{ vin: "5YJSA1DG9DFP14705", decode: {}, retail: {}, wholesale: {} }] },
+    exampleResponse: { results: [{ vin: "5YJSA1DG9DFP14705", decode: { year: 2013, make: "Tesla", model: "Model S", trim: "Performance" }, retail: { predicted_price: 28500 }, wholesale: { predicted_price: 24200 }, spread: 4300, spreadPct: 15.1 }, { vin: "1HGCV1F34LA000001", decode: { year: 2020, make: "Honda", model: "Accord", trim: "Sport 1.5T" }, retail: { predicted_price: 24500 }, wholesale: { predicted_price: 20800 }, spread: 3700, spreadPct: 15.1 }] },
   },
   {
     name: "evaluate-loan-application",
@@ -762,7 +762,7 @@ export const DERIVATIVE_APIS = [
       zip: { type: "string", required: false, desc: "Borrower ZIP" },
     },
     exampleRequest: { vin: "WBA7E2C51JG123456", miles: 30000, zip: "60601", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { decode: {}, retail: {}, wholesale: {}, history: {}, soldComps: {} },
+    exampleResponse: { decode: { year: 2018, make: "BMW", model: "7 Series", trim: "740i", body_type: "Sedan", engine: "3.0L Turbo I6", msrp: 83650 }, retail: { predicted_price: 38900, price_range: { low: 35400, high: 42400 }, confidence_score: 0.84 }, wholesale: { predicted_price: 33200, price_range: { low: 30100, high: 36300 } }, history: { listings: [{ price: 52900, miles: 12000, first_seen: "2020-06-01", dealer: "BMW of Manhattan" }, { price: 41500, miles: 28000, first_seen: "2022-11-10", dealer: "Carvana" }] }, soldComps: { num_found: 45, stats: { price: { mean: 36800, min: 26000, max: 48500 } } } },
   },
   {
     name: "evaluate-incentive-deal",
@@ -777,7 +777,7 @@ export const DERIVATIVE_APIS = [
       zip: { type: "string", required: true, desc: "ZIP for incentives" },
     },
     exampleRequest: { vin: "1HGCV1F34LA000001", zip: "60601", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { decode: {}, prediction: {}, incentives: [], activeComps: {} },
+    exampleResponse: { decode: { year: 2020, make: "Honda", model: "Accord", trim: "Sport 1.5T", msrp: 28400 }, prediction: { predicted_price: 24500, price_range: { low: 22100, high: 26900 } }, incentives: [{ title: "Honda Loyalty Bonus", type: "cash", value: "$500 cash back", eligible: true }, { title: "Honda APR Special", type: "apr", value: "2.9% for 60 months", eligible: true }], activeComps: { num_found: 78, stats: { price: { mean: 25200 } }, listings: [{ year: 2020, make: "Honda", model: "Accord", price: 23900, miles: 41000 }] } },
   },
   {
     name: "benchmark-insurance-premiums",
@@ -788,7 +788,7 @@ export const DERIVATIVE_APIS = [
     underlyingApis: ["Sold Vehicle Summary (body type)", "Sold Vehicle Summary (body type + fuel type)", "Sold Vehicle Summary (state)"],
     params: {},
     exampleRequest: { _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { byBodyType: {}, byFuelType: {}, byState: {} },
+    exampleResponse: { byBodyType: { rankings: [{ body_type: "SUV", sold_count: 245000, average_sale_price: 33200 }, { body_type: "Sedan", sold_count: 182000, average_sale_price: 25600 }, { body_type: "Truck", sold_count: 156000, average_sale_price: 38500 }] }, byFuelType: { rankings: [{ body_type: "SUV", fuel_type_category: "Gas", sold_count: 198000, average_sale_price: 34100 }, { body_type: "SUV", fuel_type_category: "Electric", sold_count: 18500, average_sale_price: 42800 }, { body_type: "SUV", fuel_type_category: "Hybrid", sold_count: 28500, average_sale_price: 36200 }] }, byState: { rankings: [{ state: "CA", sold_count: 89000, average_sale_price: 32400 }, { state: "TX", sold_count: 78000, average_sale_price: 31200 }, { state: "FL", sold_count: 65000, average_sale_price: 29800 }] } },
   },
   {
     name: "generate-market-briefing",
@@ -799,7 +799,7 @@ export const DERIVATIVE_APIS = [
     underlyingApis: ["Sold Vehicle Summary (by make)", "Sold Vehicle Summary (by body type)", "Sold Vehicle Summary (by state)"],
     params: {},
     exampleRequest: { _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { byMake: {}, byBodyType: {}, byState: {} },
+    exampleResponse: { byMake: { rankings: [{ make: "Toyota", sold_count: 142000, average_sale_price: 29800 }, { make: "Ford", sold_count: 128000, average_sale_price: 33500 }, { make: "Chevrolet", sold_count: 115000, average_sale_price: 30200 }, { make: "Honda", sold_count: 98000, average_sale_price: 26400 }, { make: "Hyundai", sold_count: 72000, average_sale_price: 24800 }] }, byBodyType: { rankings: [{ body_type: "SUV", sold_count: 245000, average_sale_price: 33200 }, { body_type: "Sedan", sold_count: 182000, average_sale_price: 25600 }, { body_type: "Truck", sold_count: 156000, average_sale_price: 38500 }] }, byState: { rankings: [{ state: "CA", average_sale_price: 32400 }, { state: "NY", average_sale_price: 30100 }, { state: "TX", average_sale_price: 31200 }, { state: "FL", average_sale_price: 29800 }] } },
   },
   {
     name: "stress-test-portfolio",
@@ -813,7 +813,7 @@ export const DERIVATIVE_APIS = [
       zip: { type: "string", required: true, desc: "Market ZIP" },
     },
     exampleRequest: { vins: "5YJSA1DG9DFP14705,WBA7E2C51JG123456", zip: "90210", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { results: [{ vin: "5YJSA1DG9DFP14705", decode: {}, prediction: {} }] },
+    exampleResponse: { results: [{ vin: "5YJSA1DG9DFP14705", decode: { year: 2013, make: "Tesla", model: "Model S", trim: "Performance", msrp: 87400 }, prediction: { predicted_price: 28500, price_range: { low: 25200, high: 31800 } } }, { vin: "WBA7E2C51JG123456", decode: { year: 2018, make: "BMW", model: "7 Series", trim: "740i", msrp: 83650 }, prediction: { predicted_price: 38900, price_range: { low: 35400, high: 42400 } } }] },
   },
   {
     name: "analyze-dealer-conquest",
@@ -829,7 +829,7 @@ export const DERIVATIVE_APIS = [
       state: { type: "string", required: true, desc: "State" },
     },
     exampleRequest: { dealer_id: "abc123", zip: "75201", state: "TX", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { myInventory: {}, marketInventory: {}, demand: {} },
+    exampleResponse: { myInventory: { num_found: 87, facets: { make: [{ value: "Toyota", count: 22 }, { value: "Honda", count: 18 }], body_type: [{ value: "SUV", count: 35 }, { value: "Sedan", count: 28 }] } }, marketInventory: { num_found: 4520, facets: { make: [{ value: "Toyota", count: 680 }, { value: "Ford", count: 590 }, { value: "Chevrolet", count: 520 }], body_type: [{ value: "SUV", count: 1800 }, { value: "Truck", count: 1200 }] } }, demand: { rankings: [{ make: "Ford", model: "F-150", sold_count: 3250 }, { make: "Toyota", model: "RAV4", sold_count: 1890 }] } },
   },
   {
     name: "find-incentive-deals",
@@ -843,7 +843,7 @@ export const DERIVATIVE_APIS = [
       zip: { type: "string", required: true, desc: "ZIP code" },
     },
     exampleRequest: { zip: "90210", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { results: [{ make: "Toyota", data: {} }] },
+    exampleResponse: { results: [{ make: "Toyota", data: { incentives: [{ title: "Toyota Cash Back", value: "$2,000 on RAV4", type: "cash", expires: "2025-03-31" }] } }, { make: "Honda", data: { incentives: [{ title: "Honda APR Special", value: "1.9% for 36 months", type: "apr", expires: "2025-04-30" }] } }, { make: "Ford", data: { incentives: [{ title: "Ford Bonus Cash", value: "$3,500 on F-150", type: "cash" }] } }, { make: "Hyundai", data: { incentives: [{ title: "Hyundai Trade-In Bonus", value: "$1,500 trade-in bonus", type: "cash" }] } }] },
   },
   {
     name: "trace-vin-history",
@@ -858,7 +858,7 @@ export const DERIVATIVE_APIS = [
       zip: { type: "string", required: false, desc: "ZIP" },
     },
     exampleRequest: { vin: "5YJSA1DG9DFP14705", zip: "90210", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { decode: {}, history: {}, prediction: {} },
+    exampleResponse: { decode: { year: 2013, make: "Tesla", model: "Model S", trim: "Performance", body_type: "Sedan", engine: "Electric", msrp: 87400 }, history: { listings: [{ price: 78500, miles: 1200, first_seen: "2013-12-01", last_seen: "2014-03-15", dealer: "Tesla Palo Alto", status: "sold" }, { price: 54200, miles: 18000, first_seen: "2015-08-20", dealer: "CarMax Burbank", status: "sold" }, { price: 38900, miles: 32000, first_seen: "2018-05-10", dealer: "Shift.com" }, { price: 29500, miles: 45000, first_seen: "2021-01-15", dealer: "Vroom" }] }, prediction: { predicted_price: 28500, price_range: { low: 25200, high: 31800 }, confidence_score: 0.87 } },
   },
   {
     name: "generate-pricing-report",
@@ -873,7 +873,7 @@ export const DERIVATIVE_APIS = [
       zip: { type: "string", required: false, desc: "ZIP" },
     },
     exampleRequest: { vin: "1HGCV1F34LA000001", zip: "60601", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { decode: {}, prediction: {}, activeComps: {}, soldComps: {} },
+    exampleResponse: { decode: { year: 2020, make: "Honda", model: "Accord", trim: "Sport 1.5T", body_type: "Sedan", msrp: 28400 }, prediction: { predicted_price: 24500, price_range: { low: 22100, high: 26900 }, confidence_score: 0.91 }, activeComps: { num_found: 156, stats: { price: { mean: 25200, min: 18900, max: 31500 } }, listings: [{ vin: "1HGCV1F38MA112233", year: 2021, make: "Honda", model: "Accord", price: 24800, miles: 35200 }] }, soldComps: { num_found: 89, stats: { price: { mean: 23800, min: 17500, max: 29200 } }, listings: [{ year: 2020, make: "Honda", model: "Accord", price: 23200, miles: 42000, sold_date: "2024-10-15" }] } },
   },
   {
     name: "oem-incentives-explorer",
@@ -889,7 +889,7 @@ export const DERIVATIVE_APIS = [
       compareMakes: { type: "string[]", required: false, desc: "Brands to compare" },
     },
     exampleRequest: { make: "Toyota", zip: "90210", compareMakes: ["Honda", "Hyundai"], _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { make: "Toyota", incentives: [], compareIncentives: [] },
+    exampleResponse: { make: "Toyota", incentives: [{ title: "Toyota Cash Back", value: "$2,000 on RAV4", type: "cash", expires: "2025-03-31" }, { title: "Toyota APR Special", value: "2.9% for 60 months on Camry", type: "apr" }], compareIncentives: [{ make: "Honda", data: { incentives: [{ title: "Honda Loyalty Bonus", value: "$750", type: "cash" }] } }, { make: "Hyundai", data: { incentives: [{ title: "Hyundai Bonus Cash", value: "$2,500 on Tucson", type: "cash" }] } }] },
   },
   {
     name: "route-wholesale-vehicles",
@@ -903,7 +903,7 @@ export const DERIVATIVE_APIS = [
       zip: { type: "string", required: true, desc: "Market ZIP" },
     },
     exampleRequest: { vins: "5YJSA1DG9DFP14705,1HGCV1F34LA000001", zip: "90210", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { results: [{ vin: "", decode: {}, prediction: {} }] },
+    exampleResponse: { results: [{ vin: "5YJSA1DG9DFP14705", decode: { year: 2013, make: "Tesla", model: "Model S", trim: "Performance" }, prediction: { predicted_price: 28500 } }, { vin: "1HGCV1F34LA000001", decode: { year: 2020, make: "Honda", model: "Accord", trim: "Sport 1.5T" }, prediction: { predicted_price: 24500 } }] },
   },
   {
     name: "score-dealer-fit",
@@ -918,7 +918,7 @@ export const DERIVATIVE_APIS = [
       zip: { type: "string", required: true, desc: "Dealer ZIP" },
     },
     exampleRequest: { dealer_id: "abc123", vins: "5YJSA1DG9DFP14705", zip: "90210", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { dealerId: "abc123", results: [] },
+    exampleResponse: { dealerId: "abc123", results: [{ vin: "5YJSA1DG9DFP14705", decode: { year: 2013, make: "Tesla", model: "Model S", trim: "Performance", body_type: "Sedan" }, prediction: { predicted_price: 28500, price_range: { low: 25200, high: 31800 } } }] },
   },
   {
     name: "detect-market-anomalies",
@@ -934,7 +934,7 @@ export const DERIVATIVE_APIS = [
       state: { type: "string", required: false, desc: "State" },
     },
     exampleRequest: { make: "Tesla", model: "Model 3", state: "CA", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { results: { num_found: 450, listings: [], stats: {} } },
+    exampleResponse: { results: { num_found: 450, listings: [{ vin: "5YJ3E1EA2LF123456", year: 2020, make: "Tesla", model: "Model 3", trim: "Standard Range Plus", price: 22900, miles: 48000, days_on_market: 5, dealer: { name: "Tesla Fremont", state: "CA" }, anomaly: "underpriced" }, { vin: "5YJ3E1EB8NF654321", year: 2022, make: "Tesla", model: "Model 3", trim: "Long Range", price: 55800, miles: 12000, days_on_market: 90, dealer: { name: "Private Seller", state: "CA" }, anomaly: "overpriced" }], stats: { price: { mean: 31200, min: 18500, max: 55800, std: 6800 } } } },
   },
   {
     name: "manage-fleet-lifecycle",
@@ -948,7 +948,7 @@ export const DERIVATIVE_APIS = [
       zip: { type: "string", required: true, desc: "Fleet ZIP" },
     },
     exampleRequest: { vins: "5YJSA1DG9DFP14705,WBA7E2C51JG123456", zip: "90210", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { results: [], replacements: {} },
+    exampleResponse: { results: [{ vin: "5YJSA1DG9DFP14705", decode: { year: 2013, make: "Tesla", model: "Model S", body_type: "Sedan" }, prediction: { predicted_price: 28500 }, depreciationRate: "8.2% annual" }, { vin: "WBA7E2C51JG123456", decode: { year: 2018, make: "BMW", model: "7 Series", body_type: "Sedan" }, prediction: { predicted_price: 38900 }, depreciationRate: "12.5% annual" }], replacements: { num_found: 25, listings: [{ year: 2024, make: "Toyota", model: "Camry", price: 28500, miles: 5000 }] } },
   },
   {
     name: "value-rental-fleet",
@@ -962,7 +962,7 @@ export const DERIVATIVE_APIS = [
       zip: { type: "string", required: true, desc: "Fleet ZIP" },
     },
     exampleRequest: { vins: "5YJSA1DG9DFP14705", zip: "90210", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { results: [{ vin: "", decode: {}, prediction: {} }] },
+    exampleResponse: { results: [{ vin: "5YJSA1DG9DFP14705", decode: { year: 2013, make: "Tesla", model: "Model S", trim: "Performance", body_type: "Sedan", fuel_type: "Electric" }, prediction: { predicted_price: 28500, price_range: { low: 25200, high: 31800 }, confidence_score: 0.87 }, mileageAdjustedValue: 26800, optimalRotationMiles: 60000 }] },
   },
   {
     name: "search-uk-cars",
@@ -979,7 +979,7 @@ export const DERIVATIVE_APIS = [
       rows: { type: "number", required: false, desc: "Results (default 25)" },
     },
     exampleRequest: { make: "BMW", postal_code: "SW1A 1AA", rows: 10, _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { active: {}, recent: {} },
+    exampleResponse: { active: { num_found: 1250, listings: [{ year: 2020, make: "BMW", model: "3 Series", trim: "320d M Sport", price: 24995, miles: 32000, fuel_type: "Diesel", dealer: { name: "BMW Park Lane", city: "London" } }], stats: { price: { mean: 28500 } } }, recent: { num_found: 890, stats: { price: { mean: 26200 } } } },
   },
   {
     name: "get-uk-market-trends",
@@ -992,7 +992,7 @@ export const DERIVATIVE_APIS = [
       make: { type: "string", required: false, desc: "Filter by make" },
     },
     exampleRequest: { make: "Volkswagen", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { active: { num_found: 0, stats: {} }, recent: { num_found: 0, stats: {} } },
+    exampleResponse: { active: { num_found: 18500, stats: { price: { mean: 19800, min: 4500, max: 52000 }, miles: { mean: 38000 } } }, recent: { num_found: 12400, stats: { price: { mean: 17900, min: 3200, max: 48000 } } } },
   },
   {
     name: "scan-uk-lot-pricing",
@@ -1006,6 +1006,6 @@ export const DERIVATIVE_APIS = [
       make: { type: "string", required: false, desc: "Make filter" },
     },
     exampleRequest: { dealer_id: "uk_dealer_123", _auth_mode: "api_key", _auth_value: "YOUR_API_KEY" },
-    exampleResponse: { inventory: {}, recent: {} },
+    exampleResponse: { inventory: { num_found: 45, listings: [{ year: 2021, make: "Volkswagen", model: "Golf", trim: "R-Line", price: 22495, miles: 18000, fuel_type: "Petrol" }], stats: { price: { mean: 24800 }, miles: { mean: 22000 } } }, recent: { num_found: 28, stats: { price: { mean: 21500 } } } },
   },
 ];

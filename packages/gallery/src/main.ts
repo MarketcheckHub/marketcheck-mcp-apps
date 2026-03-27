@@ -865,6 +865,105 @@ body {
   letter-spacing: 0.3px;
 }
 
+/* Title link */
+.app-name-link {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-heading);
+  line-height: 1.3;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.app-name-link:hover { color: var(--brand); text-decoration: none; }
+
+/* Info/details icon button */
+.app-info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  text-decoration: none;
+  transition: all 0.2s;
+}
+.app-info-btn:hover {
+  color: var(--brand);
+  border-color: var(--brand);
+  background: rgba(6, 106, 171, 0.08);
+}
+
+/* Share button overlay on thumbnail */
+.thumb-overlay-btns {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.app-card:hover .thumb-overlay-btns { opacity: 1; }
+.thumb-overlay-btns .app-share-btn {
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(4px);
+  border: none;
+  color: #fff;
+  border-radius: 8px;
+}
+.thumb-overlay-btns .app-share-btn:hover {
+  background: rgba(0,0,0,0.75);
+  color: #fff;
+}
+.thumb-overlay-btns .share-menu {
+  right: 0;
+  left: auto;
+}
+
+/* Category nav strip */
+.category-nav {
+  display: flex;
+  gap: 8px;
+  padding: 16px 24px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  justify-content: center;
+  flex-wrap: wrap;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.category-nav::-webkit-scrollbar { display: none; }
+.category-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.category-chip:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+  text-decoration: none;
+}
+.category-chip .chip-count {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--border);
+  color: var(--text);
+}
+
 .app-source-link {
   display: inline-flex;
   align-items: center;
@@ -1314,6 +1413,7 @@ function render() {
 
   renderTopNav();
   renderHero();
+  renderCategoryNav();
   renderApps();
   renderModes();
   renderAuthPanel();
@@ -1941,6 +2041,31 @@ function renderAuthPanel() {
   });
 }
 
+// ── Category Nav Strip ──────────────────────────────────────────────────
+
+function renderCategoryNav() {
+  const counts = new Map<string, number>();
+  for (const app of APPS) {
+    counts.set(app.segment, (counts.get(app.segment) ?? 0) + 1);
+  }
+
+  const strip = document.createElement("div");
+  strip.className = "category-nav";
+
+  for (const seg of SEGMENTS) {
+    const count = counts.get(seg.name);
+    if (!count) continue;
+    const segId = seg.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const chip = document.createElement("a");
+    chip.href = `#seg-${segId}`;
+    chip.className = "category-chip";
+    chip.innerHTML = `<span style="width:8px;height:8px;border-radius:50%;background:${seg.color};flex-shrink:0;"></span>${seg.name}<span class="chip-count">${count}</span>`;
+    strip.appendChild(chip);
+  }
+
+  document.body.appendChild(strip);
+}
+
 // ── App Grid ────────────────────────────────────────────────────────────
 
 function renderApps() {
@@ -1961,8 +2086,11 @@ function renderApps() {
     const apps = grouped.get(seg.name);
     if (!apps) continue;
 
+    const segId = seg.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
     const group = document.createElement("div");
     group.className = "segment-group";
+    group.id = `seg-${segId}`;
+    group.style.scrollMarginTop = "80px";
     group.innerHTML = `
       <div class="segment-header">
         <div class="segment-dot" style="background:${seg.color};"></div>
@@ -2014,27 +2142,32 @@ function renderApps() {
       `;
 
       card.innerHTML = `
-        ${thumbnailHtml}
-        <div class="app-top">
-          <div class="app-name">${app.name}</div>
-          <span class="app-mode-badge ${live ? "live" : "demo"}">${live ? "LIVE" : "DEMO"}</span>
-        </div>
-        <div class="app-tagline">${app.tagline}</div>
-        <div class="app-footer">
-          <span class="app-segment-badge" style="background:${seg.color}18;color:${seg.color};border:1px solid ${seg.color}33;">${seg.name}</span>
-          <div style="display:flex;align-items:center;gap:6px;position:relative;">
-            <a href="https://github.com/MarketcheckHub/marketcheck-mcp-apps/tree/main/packages/apps/${app.id}" target="_blank" class="app-source-link" title="View Source">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-            </a>
+        <div style="position:relative;">
+          ${thumbnailHtml}
+          <div class="thumb-overlay-btns">
             <button class="app-share-btn" title="Share" data-share-id="${app.id}">&#8599;</button>
             <div class="share-menu" id="share-menu-${app.id}">
               <a href="https://twitter.com/intent/tweet?text=${shareText}&url=${shareUrl}" target="_blank">&#120143; Post on X</a>
               <a href="https://www.linkedin.com/sharing/share-offsite/?url=${shareUrl}" target="_blank">&#128279; Share on LinkedIn</a>
               <button class="copy-link-btn" data-url="${location.origin}/apps/${app.id}/dist/index.html">&#128203; Copy Link</button>
             </div>
-            <a href="/app/${app.id}/" class="app-detail-link" style="font-size:12px;color:var(--muted);margin-right:auto;text-decoration:none;" onmouseover="this.style.color='var(--brand)'" onmouseout="this.style.color='var(--muted)'">&middot;&middot;&middot; Details</a>
-            <button class="app-open-btn" data-app-id="${app.id}" data-app-name="${app.name}">Open &#8594;</button>
           </div>
+        </div>
+        <div class="app-top">
+          <a href="/app/${app.id}/" class="app-name-link">${app.name}</a>
+          <span class="app-mode-badge ${live ? "live" : "demo"}">${live ? "LIVE" : "DEMO"}</span>
+        </div>
+        <div class="app-tagline">${app.tagline}</div>
+        <div class="app-footer">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <a href="/app/${app.id}/" class="app-info-btn" title="Details">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </a>
+            <a href="https://github.com/MarketcheckHub/marketcheck-mcp-apps/tree/main/packages/apps/${app.id}" target="_blank" class="app-source-link" title="Source">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            </a>
+          </div>
+          <button class="app-open-btn" data-app-id="${app.id}" data-app-name="${app.name}">Open &#8594;</button>
         </div>
       `;
 

@@ -47,4 +47,13 @@ if (existsSync(staticDir)) {
   console.log("✓ Screenshots → public/assets/screenshots/");
 }
 
+// Copy logo → public/assets/
+const logoSrc = join(root, "static", "mc-logo.webp");
+if (existsSync(logoSrc)) {
+  const assetsDest = join(publicDir, "assets");
+  mkdirSync(assetsDest, { recursive: true });
+  cpSync(logoSrc, join(assetsDest, "mc-logo.webp"));
+  console.log("✓ Logo → public/assets/mc-logo.webp");
+}
+
 console.log("Done. public/ is ready for Vercel.");

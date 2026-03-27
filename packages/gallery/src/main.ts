@@ -145,18 +145,18 @@ function setTheme(t: "light" | "dark") {
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap');
 
-/* ── Light Theme (default) ─────────────── */
+/* ── Light Theme (default) — matching Cowork portal ─────────────── */
 :root, [data-theme="light"] {
-  --bg: #f8fafc;
-  --surface: #ffffff;
-  --card: #ffffff;
-  --border: #e2e8f0;
-  --border-light: #cbd5e1;
-  --text: #1e293b;
-  --text-heading: #0f172a;
-  --muted: #64748b;
-  --brand: #066aab;
-  --brand-light: #0987d4;
+  --bg: #F4F7FF;
+  --surface: #FFFFFF;
+  --card: #FFFFFF;
+  --border: #D8E3F2;
+  --border-light: #EBF0FA;
+  --text: #344B68;
+  --text-heading: #0B1C3F;
+  --muted: #6B7F9E;
+  --brand: #1A6FD8;
+  --brand-light: #1A8CFF;
   --green: #059669;
   --yellow: #d97706;
   --purple: #7c3aed;
@@ -164,36 +164,37 @@ const CSS = `
   --pink: #db2777;
   --orange: #ea580c;
   --cyan: #0891b2;
-  --card-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
-  --card-hover-shadow: 0 4px 16px rgba(0,0,0,0.1);
-  --hero-gradient-a: rgba(6, 106, 171, 0.06);
-  --hero-gradient-b: rgba(6, 106, 171, 0.02);
-  --hero-point-color: rgba(6, 106, 171, 0.2);
-  --hero-line-color: rgba(6, 106, 171, 0.06);
-  --hero-title-gradient: linear-gradient(135deg, #0f172a 0%, #1e3a5f 40%, #066aab 100%);
+  --card-shadow: 0 1px 3px rgba(11, 28, 63, 0.06), 0 4px 16px rgba(11, 28, 63, 0.04);
+  --card-hover-shadow: 0 2px 8px rgba(26, 111, 216, 0.12), 0 8px 32px rgba(26, 111, 216, 0.08);
+  --hero-gradient-a: rgba(26, 111, 216, 0.1);
+  --hero-gradient-b: rgba(6, 106, 171, 0.06);
+  --hero-point-color: rgba(26, 111, 216, 0.2);
+  --hero-line-color: rgba(26, 111, 216, 0.06);
+  --hero-title-gradient: linear-gradient(135deg, #0B1C3F 0%, #1A6FD8 50%, #1A8CFF 100%);
   --badge-demo-bg: rgba(217, 119, 6, 0.1);
   --badge-demo-fg: #b45309;
   --badge-live-bg: rgba(5, 150, 105, 0.1);
   --badge-live-fg: #047857;
-  --input-bg: #f1f5f9;
-  --scrollbar-thumb: #cbd5e1;
-  --scrollbar-track: #f1f5f9;
+  --input-bg: #E8EFFC;
+  --scrollbar-thumb: rgba(26, 111, 216, 0.2);
+  --scrollbar-track: transparent;
+  --nav-shadow: 0 1px 0 #D8E3F2, 0 2px 12px rgba(11, 28, 63, 0.05);
   --font: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --mono: 'JetBrains Mono', 'SF Mono', monospace;
 }
 
-/* ── Dark Theme ───────────────────────── */
+/* ── Dark Theme — matching Cowork portal ───────────────────────── */
 [data-theme="dark"] {
-  --bg: #060a10;
-  --surface: #0c1220;
-  --card: #111827;
-  --border: #1a2236;
-  --border-light: #253046;
-  --text: #e2e8f0;
-  --text-heading: #f8fafc;
-  --muted: #7a8ba8;
-  --brand: #066aab;
-  --brand-light: #0987d4;
+  --bg: #0B1929;
+  --surface: #0F2237;
+  --card: #0F2237;
+  --border: rgba(26, 140, 255, 0.12);
+  --border-light: rgba(26, 140, 255, 0.06);
+  --text: #94A3B8;
+  --text-heading: #F1F5F9;
+  --muted: #64748B;
+  --brand: #1A8CFF;
+  --brand-light: #6BB3FF;
   --green: #10b981;
   --yellow: #f59e0b;
   --purple: #8b5cf6;
@@ -201,20 +202,21 @@ const CSS = `
   --pink: #ec4899;
   --orange: #f97316;
   --cyan: #06b6d4;
-  --card-shadow: 0 1px 3px rgba(0,0,0,0.3);
-  --card-hover-shadow: 0 8px 32px rgba(0,0,0,0.3);
-  --hero-gradient-a: rgba(6, 106, 171, 0.06);
-  --hero-gradient-b: rgba(6, 106, 171, 0.02);
-  --hero-point-color: rgba(6, 106, 171, 0.3);
-  --hero-line-color: rgba(6, 106, 171, 0.08);
-  --hero-title-gradient: linear-gradient(135deg, #fff 0%, #bfd4e8 40%, #066aab 100%);
+  --card-shadow: none;
+  --card-hover-shadow: none;
+  --hero-gradient-a: rgba(26, 140, 255, 0.1);
+  --hero-gradient-b: rgba(6, 106, 171, 0.05);
+  --hero-point-color: rgba(26, 140, 255, 0.3);
+  --hero-line-color: rgba(26, 140, 255, 0.04);
+  --hero-title-gradient: linear-gradient(135deg, #F1F5F9 0%, #6BB3FF 50%, #1A8CFF 100%);
   --badge-demo-bg: rgba(245, 158, 11, 0.15);
   --badge-demo-fg: #f59e0b;
   --badge-live-bg: rgba(16, 185, 129, 0.15);
   --badge-live-fg: #34d399;
-  --input-bg: #0f172a;
-  --scrollbar-thumb: #253046;
-  --scrollbar-track: #060a10;
+  --input-bg: #081420;
+  --scrollbar-thumb: rgba(26, 140, 255, 0.15);
+  --scrollbar-track: transparent;
+  --nav-shadow: none;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -237,6 +239,7 @@ body {
 
 /* ── Hero ─────────────────────────────────── */
 
+/* ── Hero — Cowork-style grid bg ─────── */
 .hero {
   position: relative;
   min-height: 80vh;
@@ -246,6 +249,21 @@ body {
   justify-content: center;
   padding: 100px 24px 60px;
   overflow: hidden;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, var(--hero-gradient-a), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 50%, var(--hero-gradient-b), transparent);
+}
+
+/* Grid pattern overlay */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--hero-line-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--hero-line-color) 1px, transparent 1px);
+  background-size: 60px 60px;
+  z-index: 0;
 }
 
 .hero-bg {
@@ -266,39 +284,46 @@ body {
 .hero-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 16px;
-  border-radius: 20px;
-  background: rgba(6, 106, 171, 0.15);
-  border: 1px solid rgba(6, 106, 171, 0.3);
-  color: var(--brand-light);
-  font-size: 12px;
+  gap: 8px;
+  padding: 8px 20px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 1.5px;
   text-transform: uppercase;
   margin-bottom: 28px;
   animation: fadeInDown 0.8s ease;
 }
+.hero-badge .badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand);
+}
 
 .hero h1 {
-  font-size: clamp(42px, 6vw, 72px);
+  font-size: clamp(38px, 6vw, 64px);
   font-weight: 700;
-  line-height: 1.05;
+  line-height: 1.1;
   letter-spacing: -1.5px;
-  background: var(--hero-title-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin-bottom: 16px;
+  color: var(--text-heading);
+  margin-bottom: 20px;
   animation: fadeInUp 0.7s ease;
+}
+.hero h1 .accent-word {
+  color: var(--brand);
 }
 
 .hero .subtitle {
-  font-size: clamp(16px, 2vw, 20px);
+  font-size: clamp(15px, 2vw, 18px);
   color: var(--muted);
-  max-width: 600px;
+  max-width: 640px;
   margin: 0 auto 40px;
   font-weight: 400;
+  line-height: 1.7;
   animation: fadeInUp 0.7s ease 0.1s backwards;
 }
 
@@ -310,46 +335,48 @@ body {
   animation: fadeInUp 0.7s ease 0.2s backwards;
 }
 
+/* ── Buttons — Cowork pill style ─────── */
 .btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 14px 28px;
-  border-radius: 8px;
+  padding: 14px 32px;
+  border-radius: 999px;
   font-size: 15px;
   font-weight: 600;
   font-family: var(--font);
   cursor: pointer;
   border: none;
-  transition: all 0.25s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   text-decoration: none;
 }
 
 .btn-primary {
-  background: var(--brand);
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-light) 100%);
   color: #fff;
-  box-shadow: 0 0 20px rgba(6, 106, 171, 0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+  box-shadow: 0 4px 16px rgba(26, 111, 216, 0.3);
 }
 .btn-primary:hover {
-  background: var(--brand-light);
-  box-shadow: 0 0 30px rgba(6, 106, 171, 0.5), inset 0 1px 0 rgba(255,255,255,0.15);
+  box-shadow: 0 6px 24px rgba(26, 111, 216, 0.45);
   transform: translateY(-1px);
 }
 
 .btn-secondary {
-  background: rgba(255,255,255,0.05);
-  color: var(--text);
-  border: 1px solid var(--border-light);
+  background: var(--surface);
+  color: var(--text-heading);
+  border: 1px solid var(--border);
+  box-shadow: var(--card-shadow);
 }
 .btn-secondary:hover {
-  background: rgba(255,255,255,0.1);
-  border-color: var(--muted);
+  border-color: var(--brand);
+  color: var(--brand);
   transform: translateY(-1px);
 }
 
+/* ── Hero Stats — Cowork style ───────── */
 .hero-stats {
   display: flex;
-  gap: 40px;
+  gap: 48px;
   justify-content: center;
   margin-top: 56px;
   animation: fadeInUp 0.7s ease 0.35s backwards;
@@ -359,10 +386,18 @@ body {
   text-align: center;
 }
 .hero-stat .val {
-  font-size: 32px;
+  font-size: 36px;
   font-weight: 700;
-  font-family: var(--mono);
   color: var(--text-heading);
+  letter-spacing: -0.5px;
+}
+.hero-stat .lbl {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-top: 4px;
 }
 
 /* ── Theme Toggle ─────────────────────── */
@@ -1108,41 +1143,59 @@ body {
   left: 0;
   right: 0;
   z-index: 50;
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+[data-theme="light"] .top-nav { background: rgba(255,255,255,0.8); box-shadow: var(--nav-shadow); }
+[data-theme="dark"] .top-nav { background: rgba(15,34,55,0.8); }
+
+.nav-inner {
+  max-width: 1280px;
+  margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 24px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  padding: 0 24px;
+  height: 56px;
 }
-
-[data-theme="light"] .top-nav { background: rgba(255,255,255,0.85); }
-[data-theme="dark"] .top-nav { background: rgba(12,18,32,0.85); }
 
 .nav-left {
   display: flex;
   align-items: center;
   gap: 10px;
+  text-decoration: none;
 }
 
 .nav-logo {
-  height: 28px;
-  border-radius: 5px;
+  height: 32px;
+  border-radius: 6px;
 }
 
-.nav-title {
-  font-size: 15px;
+.nav-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.nav-brand-mc {
+  font-size: 18px;
   font-weight: 600;
   color: var(--text-heading);
   letter-spacing: -0.3px;
 }
+.nav-brand-sub {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--brand);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
 
-.nav-right {
+.nav-center {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 4px;
 }
 
 .nav-link {
@@ -1150,36 +1203,97 @@ body {
   color: var(--muted);
   text-decoration: none;
   font-weight: 500;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  transition: color 0.2s;
-}
-.nav-link:hover { color: var(--text); }
-
-.nav-github {
-  padding: 6px 14px;
+  padding: 6px 12px;
   border-radius: 6px;
-  background: var(--card);
-  border: 1px solid var(--border);
+  transition: all 0.2s;
+}
+.nav-link:hover {
+  color: var(--text);
+  background: rgba(6, 106, 171, 0.06);
+  text-decoration: none;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-cta {
+  padding: 7px 16px;
+  border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--text);
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   transition: all 0.2s;
 }
-.nav-github:hover {
+.nav-cta-outline {
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.nav-cta-outline:hover {
   border-color: var(--brand);
   color: var(--brand-light);
+  text-decoration: none;
+}
+.nav-cta-primary {
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  color: #fff;
+}
+.nav-cta-primary:hover {
+  background: var(--brand-light);
+  text-decoration: none;
+}
+.nav-cta svg { width: 14px; height: 14px; fill: currentColor; }
+
+/* Mobile hamburger */
+.nav-hamburger {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
 }
 
-.nav-github svg {
-  width: 16px;
-  height: 16px;
-  fill: currentColor;
+.nav-mobile-menu {
+  display: none;
+  position: fixed;
+  top: 56px;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 16px 16px;
+  z-index: 49;
+  flex-direction: column;
+  gap: 2px;
+}
+.nav-mobile-menu.open { display: flex; }
+.nav-mobile-menu a {
+  display: block;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--muted);
+  text-decoration: none;
+  border-radius: 6px;
+  font-weight: 500;
+}
+.nav-mobile-menu a:hover { background: rgba(6,106,171,0.06); color: var(--text); }
+
+@media (max-width: 900px) {
+  .nav-center { display: none; }
+  .nav-hamburger { display: block; }
+}
+@media (max-width: 640px) {
+  .nav-right .nav-cta-outline { display: none; }
 }
 
 /* ── Modal ────────────────────────────────── */
@@ -1316,11 +1430,10 @@ body {
   /* Nav */
   .top-nav { padding: 10px 12px; gap: 6px; }
   .nav-title { font-size: 13px; }
-  .nav-logo { height: 22px; }
-  .nav-right { gap: 6px; }
-  .nav-link { font-size: 11px; }
-  .nav-github { font-size: 11px; padding: 4px 10px; }
-  .nav-github svg { width: 14px; height: 14px; }
+  .nav-inner { padding: 0 12px; }
+  .nav-logo { height: 24px; }
+  .nav-brand-mc { font-size: 15px; }
+  .nav-brand-sub { font-size: 10px; }
   .theme-toggle { width: 32px !important; height: 32px !important; font-size: 14px !important; }
 
   /* Hero */
@@ -1395,8 +1508,7 @@ body {
 @media (max-width: 380px) {
   .hero h1 { font-size: 24px; }
   .hero h1 img { height: 26px !important; }
-  .nav-link { display: none; }
-  .nav-github span { display: none; }
+  .nav-brand { font-size: 13px; }
   .hero-stats { gap: 12px; }
   .hero-stat .val { font-size: 18px; }
 }
@@ -1431,23 +1543,50 @@ function renderTopNav() {
   const nav = document.createElement("nav");
   nav.className = "top-nav";
   nav.innerHTML = `
-    <div class="nav-left">
-      <img src="https://34682200.delivery.rocketcdn.me/wp-content/uploads/2024/05/cropped-MC-Icon.png.webp" alt="MC" class="nav-logo" />
-      <span class="nav-title">MarketCheck Apps</span>
-    </div>
-    <div class="nav-right">
-      <a href="#apps" class="nav-link">Apps</a>
-      <a href="/docs/derivative-apis/" class="nav-link">Derivative APIs</a>
-      <a href="https://apidocs.marketcheck.com" target="_blank" class="nav-link">API Docs</a>
-      <a href="https://developers.marketcheck.com" target="_blank" class="nav-link">Get API Key</a>
-      <a href="https://github.com/MarketcheckHub/marketcheck-mcp-apps" target="_blank" class="nav-github">
-        <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-        Open Source
+    <div class="nav-inner">
+      <a href="/" class="nav-left">
+        <img src="/assets/mc-logo.webp" alt="MC" class="nav-logo" />
+        <span class="nav-brand"><span class="nav-brand-mc">MarketCheck</span> <span class="nav-brand-sub">APPS</span></span>
       </a>
-      <button class="theme-toggle" id="theme-toggle" title="Toggle theme" style="position:static;width:36px;height:36px;font-size:16px;">&#9789;</button>
+      <div class="nav-center">
+        <a href="#apps" class="nav-link">Apps</a>
+        <a href="/docs/derivative-apis/" class="nav-link">Derivative APIs</a>
+        <a href="https://apidocs.marketcheck.com" target="_blank" class="nav-link">API Docs</a>
+      </div>
+      <div class="nav-right">
+        <a href="https://github.com/MarketcheckHub/marketcheck-mcp-apps" target="_blank" class="nav-cta nav-cta-outline">
+          <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          GitHub
+        </a>
+        <a href="https://developers.marketcheck.com" target="_blank" class="nav-cta nav-cta-primary">Get API Key</a>
+        <button class="theme-toggle" id="theme-toggle" title="Toggle theme" style="position:static;width:36px;height:36px;font-size:16px;">&#9789;</button>
+        <button class="nav-hamburger" id="nav-hamburger">&#9776;</button>
+      </div>
     </div>
   `;
   document.body.appendChild(nav);
+
+  // Mobile menu
+  const mobileMenu = document.createElement("div");
+  mobileMenu.className = "nav-mobile-menu";
+  mobileMenu.id = "nav-mobile-menu";
+  mobileMenu.innerHTML = `
+    <a href="#apps">Apps</a>
+    <a href="/docs/derivative-apis/">Derivative APIs</a>
+    <a href="https://apidocs.marketcheck.com" target="_blank">API Docs</a>
+    <a href="https://github.com/MarketcheckHub/marketcheck-mcp-apps" target="_blank">GitHub</a>
+    <a href="https://developers.marketcheck.com" target="_blank">Get API Key</a>
+  `;
+  document.body.appendChild(mobileMenu);
+
+  document.getElementById("nav-hamburger")?.addEventListener("click", () => {
+    mobileMenu.classList.toggle("open");
+  });
+
+  // Close mobile menu on link click
+  mobileMenu.querySelectorAll("a").forEach(a => {
+    a.addEventListener("click", () => mobileMenu.classList.remove("open"));
+  });
 
   document.getElementById("theme-toggle")?.addEventListener("click", () => {
     const next = getTheme() === "light" ? "dark" : "light";
@@ -1456,7 +1595,6 @@ function renderTopNav() {
     if (heroCanvas) initHeroBg(heroCanvas);
   });
 
-  // Update toggle icon to match current theme
   setTimeout(() => {
     const btn = document.getElementById("theme-toggle");
     if (btn) btn.innerHTML = getTheme() === "light" ? "&#9789;" : "&#9788;";
@@ -1608,13 +1746,12 @@ function renderHero() {
   const content = document.createElement("div");
   content.className = "hero-content";
   content.innerHTML = `
-    <div class="hero-badge"><img src="https://34682200.delivery.rocketcdn.me/wp-content/uploads/2024/05/cropped-MC-Icon.png.webp" alt="MC" style="height:16px;vertical-align:middle;margin-right:6px;border-radius:3px;" />Powered by MarketCheck Data</div>
-    <h1><img src="https://34682200.delivery.rocketcdn.me/wp-content/uploads/2024/05/cropped-MC-Icon.png.webp" alt="MarketCheck" style="height:56px;vertical-align:middle;margin-right:12px;border-radius:8px;" />MarketCheck Apps</h1>
-    <p class="subtitle">52 interactive automotive market intelligence apps &amp; AI chat demos. Real-time data for dealers, appraisers, lenders, analysts, manufacturers, insurers, wholesalers, fleet managers, and consumers. Fork them, use as reference, or build your own.</p>
+    <div class="hero-badge"><span class="badge-dot"></span> Powered by MarketCheck MCP</div>
+    <h1>Automotive Market<br><span class="accent-word">Intelligence</span> Apps</h1>
+    <p class="subtitle">52 interactive dashboards &amp; AI chat demos for dealers, appraisers, lenders, analysts, manufacturers, insurers, wholesalers, fleet managers, and consumers. Install the one that fits your role &mdash; start getting market intelligence in under 2 minutes.</p>
     <div class="hero-ctas">
       <a href="#apps" class="btn btn-primary">Explore Apps &#8594;</a>
       <button class="btn btn-secondary" id="btn-connect">Connect Live Data</button>
-      <button class="btn btn-secondary" id="btn-share-page" style="gap:6px;">&#8599; Share</button>
     </div>
     <div class="hero-stats">
       <div class="hero-stat"><div class="val">52</div><div class="lbl">Apps</div></div>

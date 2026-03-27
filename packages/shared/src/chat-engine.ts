@@ -211,14 +211,37 @@ async function sendWithAnthropic(
     if (msg.role === "user") {
       apiMessages.push({ role: "user", content: msg.content });
     } else {
-      const content: any[] = [];
+      // Assistant message — reconstruct tool_use blocks + text
       if (msg.toolCalls?.length) {
+        // First: assistant message with tool_use blocks
+        const assistantContent: any[] = [];
+        const toolIds: string[] = [];
         for (const tc of msg.toolCalls) {
-          content.push({ type: "tool_use", id: `tool_${Math.random().toString(36).slice(2)}`, name: tc.name, input: tc.args });
+          const id = `tool_${Math.random().toString(36).slice(2, 10)}`;
+          toolIds.push(id);
+          assistantContent.push({ type: "tool_use", id, name: tc.name, input: tc.args });
         }
+        apiMessages.push({ role: "assistant", content: assistantContent });
+
+        // Second: user message with tool_result blocks (required by Anthropic)
+        const toolResults: any[] = [];
+        for (let i = 0; i < msg.toolCalls.length; i++) {
+          const tc = msg.toolCalls[i];
+          toolResults.push({
+            type: "tool_result",
+            tool_use_id: toolIds[i],
+            content: JSON.stringify(tc.result ?? tc.error ?? "ok"),
+          });
+        }
+        apiMessages.push({ role: "user", content: toolResults });
+
+        // Third: if there was also text, add it as a separate assistant message
+        if (msg.content) {
+          apiMessages.push({ role: "assistant", content: msg.content });
+        }
+      } else {
+        apiMessages.push({ role: "assistant", content: msg.content });
       }
-      if (msg.content) content.push({ type: "text", text: msg.content });
-      apiMessages.push({ role: "assistant", content: content.length ? content : msg.content });
     }
   }
 

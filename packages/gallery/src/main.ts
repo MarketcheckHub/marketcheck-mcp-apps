@@ -1610,15 +1610,15 @@ function renderHero() {
   content.innerHTML = `
     <div class="hero-badge"><img src="https://34682200.delivery.rocketcdn.me/wp-content/uploads/2024/05/cropped-MC-Icon.png.webp" alt="MC" style="height:16px;vertical-align:middle;margin-right:6px;border-radius:3px;" />Powered by MarketCheck Data</div>
     <h1><img src="https://34682200.delivery.rocketcdn.me/wp-content/uploads/2024/05/cropped-MC-Icon.png.webp" alt="MarketCheck" style="height:56px;vertical-align:middle;margin-right:12px;border-radius:8px;" />MarketCheck Apps</h1>
-    <p class="subtitle">45 interactive automotive market intelligence dashboards. Real-time data for dealers, appraisers, lenders, analysts, manufacturers, insurers, wholesalers, fleet managers, and consumers. Fork them, use as reference, or build your own.</p>
+    <p class="subtitle">52 interactive automotive market intelligence apps &amp; AI chat demos. Real-time data for dealers, appraisers, lenders, analysts, manufacturers, insurers, wholesalers, fleet managers, and consumers. Fork them, use as reference, or build your own.</p>
     <div class="hero-ctas">
       <a href="#apps" class="btn btn-primary">Explore Apps &#8594;</a>
       <button class="btn btn-secondary" id="btn-connect">Connect Live Data</button>
       <button class="btn btn-secondary" id="btn-share-page" style="gap:6px;">&#8599; Share</button>
     </div>
     <div class="hero-stats">
-      <div class="hero-stat"><div class="val">45</div><div class="lbl">Apps</div></div>
-      <div class="hero-stat"><div class="val">17</div><div class="lbl">Segments</div></div>
+      <div class="hero-stat"><div class="val">52</div><div class="lbl">Apps</div></div>
+      <div class="hero-stat"><div class="val">18</div><div class="lbl">Segments</div></div>
       <div class="hero-stat"><div class="val">12</div><div class="lbl">API Tools</div></div>
       <div class="hero-stat"><div class="val">4</div><div class="lbl">Modes</div></div>
     </div>
@@ -1635,7 +1635,7 @@ function renderHero() {
   });
 
   document.getElementById("btn-share-page")?.addEventListener("click", () => {
-    const shareText = "25 free interactive automotive market intelligence dashboards — powered by MarketCheck. Try them now:";
+    const shareText = "52 free automotive market intelligence apps & AI chat demos — powered by MarketCheck. Try them now:";
     const shareUrl = location.origin;
     if (navigator.share) {
       navigator.share({ title: "MarketCheck Apps", text: shareText, url: shareUrl });

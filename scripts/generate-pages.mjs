@@ -22,6 +22,16 @@ const outDir = join(root, "public");
 
 const SITE_URL = "https://apps.marketcheck.com";
 
+const GTAG = `
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-QGPPMDJ4N6"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-QGPPMDJ4N6');
+  </script>`;
+
 function sharedCSS() {
   return `
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -216,6 +226,7 @@ function generateAppPage(app) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  ${GTAG}
   <title>${pageTitle}</title>
   <meta name="description" content="${pageDesc}">
   <meta name="robots" content="index, follow">
@@ -380,6 +391,7 @@ function generateDerivativeApisPage() {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  ${GTAG}
   <title>${pageTitle}</title>
   <meta name="description" content="${pageDesc}">
   <meta name="robots" content="index, follow">

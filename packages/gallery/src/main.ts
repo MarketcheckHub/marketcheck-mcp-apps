@@ -285,16 +285,16 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 20px;
+  padding: 6px 16px;
   border-radius: 999px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--muted);
+  background: rgba(26, 111, 216, 0.08);
+  border: 1px solid rgba(26, 111, 216, 0.15);
+  color: var(--brand);
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 1.5px;
+  letter-spacing: 2.5px;
   text-transform: uppercase;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
   animation: fadeInDown 0.8s ease;
 }
 .hero-badge .badge-dot {
@@ -302,19 +302,27 @@ body {
   height: 6px;
   border-radius: 50%;
   background: var(--brand);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 .hero h1 {
-  font-size: clamp(38px, 6vw, 64px);
+  font-size: clamp(32px, 6vw, 72px);
   font-weight: 700;
   line-height: 1.1;
-  letter-spacing: -1.5px;
+  letter-spacing: -1px;
   color: var(--text-heading);
-  margin-bottom: 20px;
+  margin-bottom: 24px;
   animation: fadeInUp 0.7s ease;
 }
 .hero h1 .accent-word {
-  color: var(--brand);
+  background: linear-gradient(135deg, #1A8CFF, #6BB3FF);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .hero .subtitle {
@@ -352,24 +360,24 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-light) 100%);
+  background: #1A8CFF;
   color: #fff;
-  box-shadow: 0 4px 16px rgba(26, 111, 216, 0.3);
+  box-shadow: 0 8px 24px rgba(26, 140, 255, 0.2);
 }
 .btn-primary:hover {
-  box-shadow: 0 6px 24px rgba(26, 111, 216, 0.45);
+  background: #066aab;
+  box-shadow: 0 8px 32px rgba(26, 140, 255, 0.3);
   transform: translateY(-1px);
 }
 
 .btn-secondary {
   background: var(--surface);
-  color: var(--text-heading);
+  color: var(--text);
   border: 1px solid var(--border);
-  box-shadow: var(--card-shadow);
 }
 .btn-secondary:hover {
-  border-color: var(--brand);
-  color: var(--brand);
+  border-color: rgba(26, 111, 216, 0.3);
+  color: var(--text-heading);
   transform: translateY(-1px);
 }
 
@@ -1195,35 +1203,32 @@ body {
 .nav-center {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 32px;
 }
 
 .nav-link {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
   text-decoration: none;
-  font-weight: 500;
-  padding: 6px 12px;
-  border-radius: 6px;
-  transition: all 0.2s;
+  font-weight: 400;
+  transition: color 0.2s;
 }
 .nav-link:hover {
-  color: var(--text);
-  background: rgba(6, 106, 171, 0.06);
+  color: var(--text-heading);
   text-decoration: none;
 }
 
 .nav-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
 .nav-cta {
-  padding: 7px 16px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
+  padding: 8px 20px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
@@ -1231,22 +1236,23 @@ body {
   transition: all 0.2s;
 }
 .nav-cta-outline {
-  background: var(--card);
-  border: 1px solid var(--border);
-  color: var(--text);
+  background: rgba(26, 111, 216, 0.08);
+  border: 1px solid rgba(26, 111, 216, 0.15);
+  color: var(--brand);
 }
 .nav-cta-outline:hover {
-  border-color: var(--brand);
-  color: var(--brand-light);
+  background: rgba(26, 111, 216, 0.15);
+  border-color: rgba(26, 111, 216, 0.3);
   text-decoration: none;
 }
 .nav-cta-primary {
-  background: var(--brand);
-  border: 1px solid var(--brand);
-  color: #fff;
+  background: rgba(26, 111, 216, 0.08);
+  border: 1px solid rgba(26, 111, 216, 0.2);
+  color: var(--brand);
 }
 .nav-cta-primary:hover {
-  background: var(--brand-light);
+  background: rgba(26, 111, 216, 0.15);
+  border-color: rgba(26, 111, 216, 0.3);
   text-decoration: none;
 }
 .nav-cta svg { width: 14px; height: 14px; fill: currentColor; }
@@ -1746,12 +1752,12 @@ function renderHero() {
   const content = document.createElement("div");
   content.className = "hero-content";
   content.innerHTML = `
-    <div class="hero-badge"><span class="badge-dot"></span> Powered by MarketCheck MCP</div>
+    <div class="hero-badge"><span class="badge-dot"></span> Powered by MarketCheck APIs &amp; MCPs</div>
     <h1>Automotive Market<br><span class="accent-word">Intelligence</span> Apps</h1>
-    <p class="subtitle">52 interactive dashboards &amp; AI chat demos for dealers, appraisers, lenders, analysts, manufacturers, insurers, wholesalers, fleet managers, and consumers. Install the one that fits your role &mdash; start getting market intelligence in under 2 minutes.</p>
+    <p class="subtitle">52 reference implementations showcasing MarketCheck API &amp; MCP capabilities &mdash; dashboards and AI chat demos for dealers, appraisers, lenders, analysts, manufacturers, insurers, and more. Fork them, build your own, or use as-is.</p>
     <div class="hero-ctas">
-      <a href="#apps" class="btn btn-primary">Explore Apps &#8594;</a>
-      <button class="btn btn-secondary" id="btn-connect">Connect Live Data</button>
+      <a href="#apps" class="btn btn-primary">Explore Apps <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg></a>
+      <a href="https://github.com/MarketcheckHub/marketcheck-api-mcp-apps" target="_blank" class="btn btn-secondary">View on GitHub</a>
     </div>
     <div class="hero-stats">
       <div class="hero-stat"><div class="val">52</div><div class="lbl">Apps</div></div>

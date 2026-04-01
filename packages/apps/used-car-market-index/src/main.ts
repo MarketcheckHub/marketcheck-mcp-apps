@@ -1100,7 +1100,7 @@ async function render() {
     const val = searchInput.value.trim();
     if (val) {
       state.ticker = val;
-      _safeApp?.updateModelContext({ selectedTicker: val, country: state.country, geography: state.geography });
+      _safeApp?.updateModelContext?.({ selectedTicker: val, country: state.country, geography: state.geography });
     } else {
       state.ticker = null;
     }
@@ -1111,7 +1111,7 @@ async function render() {
       const val = searchInput.value.trim();
       if (val) {
         state.ticker = val;
-        _safeApp?.updateModelContext({ selectedTicker: val, country: state.country, geography: state.geography });
+        _safeApp?.updateModelContext?.({ selectedTicker: val, country: state.country, geography: state.geography });
       } else {
         state.ticker = null;
       }
@@ -1373,7 +1373,7 @@ async function render() {
     wCard.addEventListener("mouseleave", () => { wCard.style.borderColor = "#334155"; });
     wCard.addEventListener("click", () => {
       state.ticker = wt.symbol;
-      _safeApp?.updateModelContext({ selectedTicker: wt.symbol, country: state.country, geography: state.geography });
+      _safeApp?.updateModelContext?.({ selectedTicker: wt.symbol, country: state.country, geography: state.geography });
       render();
     });
 
@@ -1448,7 +1448,7 @@ function renderMovers(data: MarketData) {
     row.addEventListener("mouseleave", () => { row.style.background = ""; });
     row.addEventListener("click", () => {
       state.ticker = item.symbol;
-      _safeApp?.updateModelContext({ selectedTicker: item.symbol, country: state.country, geography: state.geography });
+      _safeApp?.updateModelContext?.({ selectedTicker: item.symbol, country: state.country, geography: state.geography });
       render();
     });
 

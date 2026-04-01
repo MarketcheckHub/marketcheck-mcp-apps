@@ -162,7 +162,7 @@ MarketCheck offers **two separate MCP servers**:
 | [Deal Evaluator](packages/apps/deal-evaluator/) | `evaluate-deal` | Buy/Negotiate/Pass verdict with gauge, negotiation toolkit, and alternatives |
 | [Incentive-Adjusted Deal Evaluator](packages/apps/incentive-adjusted-deal-eval/) | `evaluate-incentive-deal` | True out-of-pocket cost after rebates and APR savings |
 | [Trade-In Estimator](packages/apps/trade-in-estimator/) | `estimate-trade-in` | Instant 3-tier trade-in value with sold comp evidence |
-| [Used Car Market Index](packages/apps/used-car-market-index/) | `get-market-index` | Stock-ticker-style dashboard tracking used car prices |
+| [Used Car Market Index](packages/apps/used-car-market-index/) | `get-market-index` | Stock-ticker-style dashboard tracking used car prices ⚠️ *Enterprise API* |
 | [OEM Incentives Explorer](packages/apps/oem-incentives-explorer/) | `oem-incentives-explorer` | Cash back, APR, and lease deals by ZIP |
 | [Incentive Deal Finder](packages/apps/incentive-deal-finder/) | `find-incentive-deals` | Search ALL OEM incentives by budget, not by brand |
 

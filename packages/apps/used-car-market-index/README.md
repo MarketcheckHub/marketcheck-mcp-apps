@@ -1,4 +1,4 @@
-# Used Car Market Index ![Consumer](https://img.shields.io/badge/Consumer-10b981?style=flat-square)
+# Used Car Market Index ![Consumer](https://img.shields.io/badge/Consumer-10b981?style=flat-square) ![Enterprise API](https://img.shields.io/badge/Enterprise%20API-f59e0b?style=flat-square)
 
 ![Screenshot](../../../static/screenshots/used-car-market-index.png)
 
@@ -67,12 +67,16 @@ Embed in any webpage:
 <iframe src="https://apps.marketcheck.com/app/used-car-market-index/?api_key=YOUR_API_KEY" width="100%" height="800" frameborder="0"></iframe>
 ```
 
+## API Subscription Requirement
+
+> **This app requires a MarketCheck Enterprise API subscription.** The Sold Vehicle Summary endpoint (`/api/v1/sold-vehicles/summary`) used by this widget is only available on Enterprise plans. [Contact MarketCheck](https://www.marketcheck.com/contact) for Enterprise access.
+
 ## Limitations
 
 - Demo mode shows mock data
-- Requires MarketCheck API key for live data
+- Requires MarketCheck **Enterprise** API key for live data
 - Browser-based — no server required for standalone use
-- Data covers US market (95%+ of dealer inventory)
+- Data covers US market only (95%+ of dealer inventory)
 
 ## Links
 

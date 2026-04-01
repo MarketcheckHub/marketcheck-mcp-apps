@@ -65,16 +65,7 @@ function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
 function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
 
 async function _fetchDirect(args) {
-  // Map geography name to state abbreviation for the API
   const stateAbbr = args.geography && args.geography !== "national" ? (STATE_ABBR[args.geography] ?? args.geography) : undefined;
-  if (args.country === "UK") {
-    // UK market: use UK active/recent search stats
-    const [active, recent] = await Promise.all([
-      _mcUkActive({ rows: 0, stats: "price,miles", ...(args.make ? { make: args.make } : {}) }),
-      _mcUkRecent({ rows: 0, stats: "price,miles", ...(args.make ? { make: args.make } : {}) }),
-    ]);
-    return { uk: true, active, recent };
-  }
   const stateParam = stateAbbr ? { state: stateAbbr } : {};
   const [summary, segments] = await Promise.all([
     _mcSold({ranking_dimensions:"make",ranking_measure:"sold_count",inventory_type:"Used",top_n:25,...stateParam}),
@@ -84,26 +75,6 @@ async function _fetchDirect(args) {
 }
 
 function _transformRawToMarketData(raw: any): MarketData | null {
-  // UK market: build from active/recent stats
-  if (raw.uk) {
-    const months = timeRangeToMonths(state.timeRange);
-    const activeStats = raw.active?.stats?.price ?? {};
-    const recentStats = raw.recent?.stats?.price ?? {};
-    const activeAvg = activeStats.mean ?? activeStats.avg ?? 0;
-    const recentAvg = recentStats.mean ?? recentStats.avg ?? 0;
-    const price = activeAvg || recentAvg || 18000;
-    const pctChange = recentAvg > 0 && activeAvg > 0 ? +((activeAvg - recentAvg) / recentAvg * 100).toFixed(1) : 0;
-    const ts = _buildTimeSeries(price, months, 3);
-    const vol = raw.active?.num_found ?? 0;
-    return {
-      compositeIndex: { symbol: "MC_UK_IDX", name: "MC UK Used Car Index", currentPrice: Math.round(price), change: Math.round(price * pctChange / 100), changePct: pctChange, volume: vol, volumeChangePct: 0, timeSeries: ts },
-      segmentIndices: [{ name: "UK Active", currentPrice: Math.round(activeAvg), change: 0, changePct: pctChange }],
-      totalVolume: vol, volumeMoM: 0,
-      movers: { gainers: [], losers: [], active: [] },
-      sectorHeatmap: [], geographicData: [], watchlist: [],
-    };
-  }
-
   const summaryRows = raw.summary?.data ?? [];
   const segmentRows = raw.segments?.data ?? [];
   if (!summaryRows.length && !segmentRows.length) return null;
@@ -447,7 +418,7 @@ interface MarketData {
 // ─── State ──────────────────────────────────────────────────────────────────
 
 let state = {
-  country: "US" as "US" | "UK",
+  country: "US" as const,
   geography: "National",
   timeRange: "6M",
   ticker: null as string | null,
@@ -1130,21 +1101,10 @@ async function render() {
   sep1.style.cssText = "width:1px;height:24px;background:#334155;";
   selectorBar.appendChild(sep1);
 
-  // Country toggle
-  const countryGroup = document.createElement("div");
-  countryGroup.style.cssText = "display:flex;border-radius:6px;overflow:hidden;";
-  const usBtn = createToggleButton("US", state.country === "US", () => { state.country = "US"; render(); });
-  usBtn.style.borderRadius = "6px 0 0 6px";
-  const ukBtn = createToggleButton("UK", state.country === "UK", () => { state.country = "UK"; render(); });
-  ukBtn.style.borderRadius = "0 6px 6px 0";
-  countryGroup.appendChild(usBtn);
-  countryGroup.appendChild(ukBtn);
-  selectorBar.appendChild(countryGroup);
-
   // Geography dropdown
   const geoSelect = document.createElement("select");
   geoSelect.style.cssText = "padding:6px 10px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:12px;outline:none;max-width:160px;";
-  const geoOptions = state.country === "US" ? US_STATES : ["National", "England", "Scotland", "Wales", "Northern Ireland"];
+  const geoOptions = US_STATES;
   for (const g of geoOptions) {
     const opt = document.createElement("option");
     opt.value = g;

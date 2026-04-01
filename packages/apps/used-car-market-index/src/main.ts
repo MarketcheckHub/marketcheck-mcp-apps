@@ -65,14 +65,45 @@ function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
 function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
 
 async function _fetchDirect(args) {
+  // Map geography name to state abbreviation for the API
+  const stateAbbr = args.geography && args.geography !== "national" ? (STATE_ABBR[args.geography] ?? args.geography) : undefined;
+  if (args.country === "UK") {
+    // UK market: use UK active/recent search stats
+    const [active, recent] = await Promise.all([
+      _mcUkActive({ rows: 0, stats: "price,miles", ...(args.make ? { make: args.make } : {}) }),
+      _mcUkRecent({ rows: 0, stats: "price,miles", ...(args.make ? { make: args.make } : {}) }),
+    ]);
+    return { uk: true, active, recent };
+  }
+  const stateParam = stateAbbr ? { state: stateAbbr } : {};
   const [summary, segments] = await Promise.all([
-    _mcSold({ranking_dimensions:"make",ranking_measure:"sold_count",inventory_type:"Used",top_n:25,...(args.state?{state:args.state}:{})}),
-    _mcSold({ranking_dimensions:"body_type",ranking_measure:"sold_count",inventory_type:"Used",...(args.state?{state:args.state}:{})}),
+    _mcSold({ranking_dimensions:"make",ranking_measure:"sold_count",inventory_type:"Used",top_n:25,...stateParam}),
+    _mcSold({ranking_dimensions:"body_type",ranking_measure:"sold_count",inventory_type:"Used",...stateParam}),
   ]);
   return {summary,segments};
 }
 
 function _transformRawToMarketData(raw: any): MarketData | null {
+  // UK market: build from active/recent stats
+  if (raw.uk) {
+    const months = timeRangeToMonths(state.timeRange);
+    const activeStats = raw.active?.stats?.price ?? {};
+    const recentStats = raw.recent?.stats?.price ?? {};
+    const activeAvg = activeStats.mean ?? activeStats.avg ?? 0;
+    const recentAvg = recentStats.mean ?? recentStats.avg ?? 0;
+    const price = activeAvg || recentAvg || 18000;
+    const pctChange = recentAvg > 0 && activeAvg > 0 ? +((activeAvg - recentAvg) / recentAvg * 100).toFixed(1) : 0;
+    const ts = _buildTimeSeries(price, months, 3);
+    const vol = raw.active?.num_found ?? 0;
+    return {
+      compositeIndex: { symbol: "MC_UK_IDX", name: "MC UK Used Car Index", currentPrice: Math.round(price), change: Math.round(price * pctChange / 100), changePct: pctChange, volume: vol, volumeChangePct: 0, timeSeries: ts },
+      segmentIndices: [{ name: "UK Active", currentPrice: Math.round(activeAvg), change: 0, changePct: pctChange }],
+      totalVolume: vol, volumeMoM: 0,
+      movers: { gainers: [], losers: [], active: [] },
+      sectorHeatmap: [], geographicData: [], watchlist: [],
+    };
+  }
+
   const summaryRows = raw.summary?.data ?? [];
   const segmentRows = raw.segments?.data ?? [];
   if (!summaryRows.length && !segmentRows.length) return null;
@@ -138,30 +169,58 @@ function _transformRawToMarketData(raw: any): MarketData | null {
   const losers = [...moversData].sort((a, b) => +a.changePct - +b.changePct).slice(0, 10);
   const active = [...moversData].sort((a, b) => b.volume - a.volume).slice(0, 10);
 
-  // Geographic data from state-level summary rows
-  const stateMap: Record<string, { totalPrice: number; count: number; vol: number }> = {};
+  // Geographic data from state-level summary rows — use price_over_msrp_percentage as change proxy
+  const stateMap: Record<string, { totalPrice: number; count: number; vol: number; pctSum: number }> = {};
   for (const r of summaryRows) {
     const st = r.state ?? "";
     if (!st) continue;
-    if (!stateMap[st]) stateMap[st] = { totalPrice: 0, count: 0, vol: 0 };
+    if (!stateMap[st]) stateMap[st] = { totalPrice: 0, count: 0, vol: 0, pctSum: 0 };
     stateMap[st].totalPrice += (r.average_sale_price ?? 0) * (r.sold_count ?? 0);
     stateMap[st].count += r.sold_count ?? 0;
     stateMap[st].vol += r.sold_count ?? 0;
+    stateMap[st].pctSum += (r.price_over_msrp_percentage ?? 0) * (r.sold_count ?? 0);
   }
-  // Map state abbreviations back to full names
   const abbrToFull: Record<string, string> = {};
   for (const [full, abbr] of Object.entries(STATE_ABBR)) abbrToFull[abbr] = full;
   const geographicData: GeoEntry[] = Object.entries(stateMap)
-    .map(([st, v]) => ({ state: abbrToFull[st] ?? st, avgPrice: v.count > 0 ? Math.round(v.totalPrice / v.count) : 0, volume: v.vol, changePct: 0 }))
+    .map(([st, v]) => ({
+      state: abbrToFull[st] ?? st,
+      avgPrice: v.count > 0 ? Math.round(v.totalPrice / v.count) : 0,
+      volume: v.vol,
+      changePct: v.count > 0 ? +(v.pctSum / v.count).toFixed(2) : 0,
+    }))
     .sort((a, b) => b.volume - a.volume)
     .slice(0, 15);
 
-  // Heatmap
-  const bodyTypes = Object.keys(segMap).slice(0, 5);
+  // Heatmap — compute from segment rows by price tier buckets
+  const bodyTypes = Object.entries(segMap).sort((a, b) => b[1].sold - a[1].sold).slice(0, 5).map(([k]) => k);
   const priceTiers = ["$0-15K", "$15-25K", "$25-35K", "$35-50K", "$50K+"];
+  const tierBounds = [[0, 15000], [15000, 25000], [25000, 35000], [35000, 50000], [50000, Infinity]];
+  // Build per-bodyType per-tier stats from segment rows
+  const heatKey = (bt: string, pt: string) => bt + "|" + pt;
+  const heatStats: Record<string, { pctSum: number; count: number }> = {};
+  for (const r of segmentRows) {
+    const bt = r.body_type ?? "";
+    if (!bt || !bodyTypes.includes(bt)) continue;
+    const avg = r.average_sale_price ?? 0;
+    const pct = r.price_over_msrp_percentage ?? 0;
+    const cnt = r.sold_count ?? 0;
+    for (let i = 0; i < tierBounds.length; i++) {
+      if (avg >= tierBounds[i][0] && avg < tierBounds[i][1]) {
+        const k = heatKey(bt, priceTiers[i]);
+        if (!heatStats[k]) heatStats[k] = { pctSum: 0, count: 0 };
+        heatStats[k].pctSum += pct * cnt;
+        heatStats[k].count += cnt;
+        break;
+      }
+    }
+  }
   const sectorHeatmap: HeatmapCell[] = [];
   for (const bt of bodyTypes) {
-    for (const pt of priceTiers) sectorHeatmap.push({ bodyType: bt, priceTier: pt, changePct: 0 });
+    for (const pt of priceTiers) {
+      const s = heatStats[heatKey(bt, pt)];
+      sectorHeatmap.push({ bodyType: bt, priceTier: pt, changePct: s && s.count > 0 ? +(s.pctSum / s.count).toFixed(1) : 0 });
+    }
   }
 
   // Watchlist
@@ -632,9 +691,10 @@ function generateMockData(): MarketData {
 
 async function loadData(): Promise<MarketData> {
   try {
+    const geo = state.geography.toLowerCase() === "national" ? "national" : (STATE_ABBR[state.geography] ?? state.geography);
     const result = await _callTool("get-market-index", {
       country: state.country,
-      geography: state.geography.toLowerCase() === "national" ? "national" : state.geography,
+      geography: geo,
       timeRange: state.timeRange,
       ticker: state.ticker ?? undefined,
       segment: state.segment ?? undefined,
@@ -1022,11 +1082,34 @@ function createToggleButton(label: string, isActive: boolean, onClick: () => voi
 let chart: MarketChart | null = null;
 
 async function render() {
+  // Show loading indicator
+  document.body.style.cssText = "margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,monospace;background:#0f172a;color:#e2e8f0;overflow-x:hidden;";
+  if (!state.data) {
+    document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;gap:12px;color:#94a3b8;">
+      <div style="width:24px;height:24px;border:3px solid #334155;border-top-color:#3b82f6;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+      <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+      Loading market data...
+    </div>`;
+  } else {
+    // Show a subtle loading bar at top when refreshing
+    let bar = document.getElementById("_loading_bar");
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = "_loading_bar";
+      bar.style.cssText = "position:fixed;top:0;left:0;width:100%;height:3px;z-index:9999;overflow:hidden;";
+      bar.innerHTML = `<div style="width:40%;height:100%;background:#3b82f6;animation:loadbar 1s ease-in-out infinite;"></div>
+        <style>@keyframes loadbar{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}</style>`;
+      document.body.prepend(bar);
+    }
+  }
+
   const data = await loadData();
   state.data = data;
 
+  // Remove loading bar
+  document.getElementById("_loading_bar")?.remove();
+
   document.body.innerHTML = "";
-  document.body.style.cssText = "margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,monospace;background:#0f172a;color:#e2e8f0;overflow-x:hidden;";
 
   const root = document.createElement("div");
   root.style.cssText = "display:flex;flex-direction:column;min-height:100vh;";

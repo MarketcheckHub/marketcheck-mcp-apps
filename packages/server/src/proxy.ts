@@ -190,14 +190,25 @@ const compositeHandlers: Record<string, (auth: { mode: string; value: string }, 
   },
 
   "get-market-index": async (auth, args) => {
+    if (args.country === "UK") {
+      const [active, recent] = await Promise.all([
+        mcFetch("/search/car/uk/active", auth.mode, auth.value, { rows: 0, stats: "price,miles", ...(args.make ? { make: args.make } : {}) }),
+        mcFetch("/search/car/uk/recents", auth.mode, auth.value, { rows: 0, stats: "price,miles", ...(args.make ? { make: args.make } : {}) }).catch(() => null),
+      ]);
+      return { uk: true, active, recent };
+    }
+    // Geography comes as 2-letter state abbreviation or "national"
+    const stateParam = args.geography && args.geography !== "national" && args.geography.length <= 2
+      ? { state: args.geography }
+      : {};
     const [summary, segments] = await Promise.all([
       handleSoldSummary(auth, {
         ranking_dimensions: "make", ranking_measure: "sold_count",
-        inventory_type: "Used", top_n: 25, ...(args.state ? { state: args.state } : {}),
+        inventory_type: "Used", top_n: 25, ...stateParam,
       }),
       handleSoldSummary(auth, {
         ranking_dimensions: "body_type", ranking_measure: "sold_count",
-        inventory_type: "Used", ...(args.state ? { state: args.state } : {}),
+        inventory_type: "Used", ...stateParam,
       }),
     ]);
     return { summary, segments };

@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: UK Market Trends — MarketCheck Apps">
-  <meta property="og:description" content="UK automotive market trends dashboard. Tracks active and recently sold listings across UK dealers with prices in GBP.">
+  <meta property="og:description" content="Macro snapshot of the UK used-car market in GBP. Live data is built from one parallel call to UK Active (requesting price + miles stats and facets on make, body_type, fuel_type) and one to UK Recents ">
   <meta property="og:url" content="https://apps.marketcheck.com/app/uk-market-trends/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/uk-market-trends.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: UK Market Trends">
-  <meta name="twitter:description" content="UK automotive market trends dashboard. Tracks active and recently sold listings across UK dealers with prices in GBP.">
+  <meta name="twitter:description" content="Macro snapshot of the UK used-car market in GBP. Live data is built from one parallel call to UK Active (requesting price + miles stats and facets on make, body_type, fuel_type) and one to UK Recents ">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/uk-market-trends.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: UK Market Trends","description":"UK automotive market trends dashboard. Tracks active and recently sold listings across UK dealers with prices in GBP.","url":"https://apps.marketcheck.com/app/uk-market-trends/","image":"https://apps.marketcheck.com/assets/screenshots/uk-market-trends.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: UK Market Trends","description":"Macro snapshot of the UK used-car market in GBP. Live data is built from one parallel call to UK Active (requesting price + miles stats and facets on make, body_type, fuel_type) and one to UK Recents (stats only). Renders a KPI ribbon (total active, average price, average mileage, active-to-sold ratio), a top-15 make leaderboard with market-share bars, a price-bucket histogram, a body-type donut centered on the total count, an active-vs-recently-sold comparison with a price delta %, price-tier cards (Budget / Mid-Range / Premium / Luxury), a fuel-type breakdown with trend labels (Petrol/Diesel → Declining, Hybrid → Growing, Electric → Growing Rapidly), a regional overview, and a set of market-health indicators. A ?make=… URL param scopes every live section to that brand.","url":"https://apps.marketcheck.com/app/uk-market-trends/","image":"https://apps.marketcheck.com/assets/screenshots/uk-market-trends.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -306,12 +306,52 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>UK automotive market trends dashboard. Tracks active and recently sold listings across UK dealers with prices in GBP.</p>
+    <p>Macro snapshot of the UK used-car market in GBP. Live data is built from one parallel call to UK Active (requesting price + miles stats and facets on make, body_type, fuel_type) and one to UK Recents (stats only). Renders a KPI ribbon (total active, average price, average mileage, active-to-sold ratio), a top-15 make leaderboard with market-share bars, a price-bucket histogram, a body-type donut centered on the total count, an active-vs-recently-sold comparison with a price delta %, price-tier cards (Budget / Mid-Range / Premium / Luxury), a fuel-type breakdown with trend labels (Petrol/Diesel → Declining, Hybrid → Growing, Electric → Growing Rapidly), a regional overview, and a set of market-health indicators. A ?make=… URL param scopes every live section to that brand.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">UK Automotive Analysts</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Pull a one-screen macro read of the UK retail market — segment share, price tiers, EV adoption, premium concentration — without stitching data sources by hand.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">OEM Planners</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Deep-link ?make=Ford (or your brand) to see your share of UK live supply, your segment mix, and how your average asking compares against recently sold stock.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Auto Journalists</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Quotable stats for UK market coverage: top make by listings, body-type mix, petrol/diesel decline, EV growth trend, and active-to-sold ratio.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Cross-Border Buyers / Dealers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Gauge UK supply breadth and price bands before sourcing — compare the Budget/Mid/Premium/Luxury tiers and regional availability.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (or set via localStorage)</td></tr><tr><td><code>make</code></td><td>Scope every section of the dashboard to a single make (e.g. Ford, BMW). Shown as a chip at the top with a clear link.</td></tr><tr><td><code>embed</code></td><td>Set to 'true' to hide the settings gear (embedded mode)</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/uk-market-trends/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/uk-market-trends/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/uk-market-trends/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/uk-market-trends/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -326,7 +366,7 @@ pre.code-block {
     <h2>API Call Flow</h2>
     <p>Here's the exact sequence of MarketCheck API calls this app makes, and which ones run in parallel:</p>
     <div class="flow-diagram">
-      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">UK Active + Recent</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
+      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">UK Active (stats + facets) + UK Recents (stats)</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
           <div class="flow-api-card">
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/uk/active</code>
@@ -336,7 +376,7 @@ pre.code-block {
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/uk/recents</code>
             <div class="flow-api-name">Search UK Recently Sold</div>
-          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Fetch UK active and recent listings with price/miles stats in parallel</div></div>
+          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Two parallel UK calls. Active requests rows=0, stats=price,miles, facets=make|body_type|fuel_type. Recents requests rows=0, stats=price,miles. Both optionally scoped by make.</div></div>
     </div>
   </div>
 
@@ -348,7 +388,7 @@ pre.code-block {
     <table class="param-table">
       <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>make</code></td><td>string</td><td>No</td><td>Filter by make</td></tr>
+        <tr><td><code>make</code></td><td>string</td><td>No</td><td>Filter all trends to a single make</td></tr>
       </tbody>
     </table>
   </div>
@@ -399,7 +439,7 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>UK market overview</div><div class="render-item"><div class="render-dot"></div>price trend charts (GBP)</div><div class="render-item"><div class="render-dot"></div>active vs sold comparison</div><div class="render-item"><div class="render-dot"></div>brand market share</div><div class="render-item"><div class="render-dot"></div>segment analysis</div>
+      <div class="render-item"><div class="render-dot"></div>KPI ribbon</div><div class="render-item"><div class="render-dot"></div>make leaderboard (top 15 with market-share bars)</div><div class="render-item"><div class="render-dot"></div>price-distribution histogram</div><div class="render-item"><div class="render-dot"></div>body-type donut</div><div class="render-item"><div class="render-dot"></div>active-vs-recently-sold comparison with price delta</div><div class="render-item"><div class="render-dot"></div>price-tier cards</div><div class="render-item"><div class="render-dot"></div>fuel-type breakdown with trend labels</div><div class="render-item"><div class="render-dot"></div>regional overview</div><div class="render-item"><div class="render-dot"></div>and market-health indicators — all GBP.</div>
     </div>
   </div>
 

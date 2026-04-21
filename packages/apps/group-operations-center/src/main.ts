@@ -14,8 +14,10 @@ function _getAuth(): { mode: "api_key" | "oauth_token" | null; value: string | n
 }
 
 function _detectAppMode(): "mcp" | "live" | "demo" {
-  if (_safeApp) return "mcp";
+  // Auth (URL or localStorage) takes priority — run in standalone live mode
   if (_getAuth().value) return "live";
+  // Only use MCP mode when no auth AND we're actually iframed into an MCP host
+  if (_safeApp && window.parent !== window) return "mcp";
   return "demo";
 }
 

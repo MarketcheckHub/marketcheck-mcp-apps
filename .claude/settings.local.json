@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:developers.marketcheck.com)"
+      "WebFetch(domain:developers.marketcheck.com)",
+      "Bash(bd update:*)",
+      "Bash(bd ready:*)",
+      "Bash(npm run:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }

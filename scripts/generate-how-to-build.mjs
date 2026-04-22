@@ -983,14 +983,25 @@ const APPS = [
     tagline: "Pre-sale VIN evaluation with hammer price predictions",
     segment: "Auction House",
     toolName: null,
-    description: "Evaluates a batch of consigned VINs before sale day. For each VIN, decodes specs, predicts retail and wholesale prices, calculates expected hammer price (0.92x retail factor), and produces a BUY/CAUTION/PASS sell-through prediction based on market demand and pricing position.",
+    description: "Evaluates a batch of up to 15 consigned VINs before sale day. For each VIN, decodes full specs via NeoVIN, predicts franchise (retail) and independent (wholesale) fair market values, calculates expected hammer price using a 0.92x retail factor, computes the retail-to-wholesale spread, scores market demand from active listing volume, and produces a BUY/CAUTION/PASS sell-through verdict. Results are displayed in a sortable run list table with summary cards, a sell-through probability gauge, and a per-vehicle demand bar chart.",
+    useCases: [
+      { persona: "Auction Managers", desc: "Evaluate the full run list before sale day — set lane order, identify high-confidence lots, and forecast total revenue from expected hammer prices." },
+      { persona: "Wholesale Buyers", desc: "Pre-screen which VINs are worth bidding on by comparing hammer estimates against wholesale prices and checking demand scores." },
+      { persona: "Consignment Reps", desc: "Set realistic seller expectations by showing predicted hammer prices, spread analysis, and sell-through probability for each consigned vehicle." },
+      { persona: "Floor Plan Analysts", desc: "Assess portfolio risk by running aged inventory VINs through the analyzer to identify units likely to sell vs. those that may need price cuts." },
+    ],
+    urlParams: [
+      { name: "api_key", desc: "Your MarketCheck API key (or set via localStorage)" },
+      { name: "vins", desc: "Comma-separated VINs (up to 15) — auto-fills the form and triggers analysis" },
+      { name: "zip", desc: "Auction location ZIP code for local market pricing (default: 90210)" },
+    ],
     inputParams: [
-      { name: "vins", type: "string", required: true, desc: "Comma-separated VINs on the run list" },
+      { name: "vins", type: "string", required: true, desc: "Comma-separated VINs on the run list (up to 15)" },
       { name: "zip", type: "string", required: false, desc: "Auction location ZIP" },
     ],
     apiFlow: [
       { step: 1, label: "For each VIN in parallel", apis: ["decode", "predictRetail", "predictWholesale"], parallel: true, note: "Decode specs + predict retail and wholesale prices for every VIN simultaneously" },
-      { step: 2, label: "Market Context", apis: ["soldSummary"], parallel: false, note: "Fetch sold demand data to assess sell-through probability per make/model" },
+      { step: 2, label: "Market Context", apis: ["searchActive"], parallel: true, note: "Fetch active listing counts per make/model to score market demand" },
     ],
     renders: "Run list table with expected hammer prices, BUY/CAUTION/PASS verdicts, retail-to-wholesale spread, sell-through probability gauge, make/model demand indicators",
   },

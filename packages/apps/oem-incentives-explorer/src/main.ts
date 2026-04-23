@@ -19,7 +19,7 @@ function _getAuth(): { mode: "api_key" | "oauth_token" | null; value: string | n
 
 function _detectAppMode(): "mcp" | "live" | "demo" {
   if (_getAuth().value) return "live";
-  if (_safeApp) return "mcp";
+  if (_safeApp && window.parent !== window) return "mcp";
   return "demo";
 }
 
@@ -68,37 +68,100 @@ function _mcIncentives(p) { const q={...p}; if(q.oem&&!q.make){q.make=q.oem;dele
 function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
 function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
 
-async function _fetchDirect(args) {
-  const incentives = await _mcIncentives({oem:args.make,zip:args.zip,model:args.model});
-  let compareIncentives = [];
+// Best-effort mapping from MarketCheck's /v2/search/car/incentive/oem response
+// into our internal Incentive[] shape. MarketCheck returns listings with
+// offer{type, amounts[], vehicles[], valid_through, disclaimers[]}, but exact
+// field names vary; we fall back across common aliases.
+function _mapApiIncentives(make: string, raw: any): Incentive[] {
+  if (!raw) return [];
+  const listings: any[] = raw.listings || raw.incentives || raw.offers || raw.results || (Array.isArray(raw) ? raw : []);
+  if (!Array.isArray(listings) || listings.length === 0) return [];
+
+  const typeMap: Record<string, IncentiveType> = {
+    cash_back: "CASH_BACK", cashback: "CASH_BACK", rebate: "CASH_BACK", customer_cash: "CASH_BACK", bonus_cash: "CASH_BACK",
+    low_apr: "LOW_APR", apr: "LOW_APR", financing: "LOW_APR", finance: "LOW_APR", special_apr: "LOW_APR",
+    lease: "LEASE_SPECIAL", lease_special: "LEASE_SPECIAL", lease_cash: "LEASE_SPECIAL",
+    loyalty: "LOYALTY", loyalty_cash: "LOYALTY",
+    conquest: "CONQUEST", conquest_cash: "CONQUEST", competitive: "CONQUEST",
+  };
+
+  return listings.map((item: any, idx: number): Incentive => {
+    const offer = item.offer || item;
+    const rawType = String(offer.type || offer.incentive_type || offer.program_type || "").toLowerCase().replace(/[\s-]+/g, "_");
+    const type: IncentiveType = typeMap[rawType] || "CASH_BACK";
+
+    const amountsField = offer.amounts ?? offer.amount ?? offer.value;
+    const firstAmount = Array.isArray(amountsField)
+      ? (amountsField[0]?.value ?? amountsField[0]?.amount ?? amountsField[0] ?? 0)
+      : (typeof amountsField === "number" ? amountsField : Number(amountsField) || 0);
+    const amount = Number(firstAmount) || 0;
+
+    const vehiclesField = offer.vehicles || offer.eligible_vehicles || offer.models || [];
+    const eligibleModels = Array.isArray(vehiclesField)
+      ? vehiclesField.map((v: any) => String(v.model || v.name || v)).filter(Boolean)
+      : [];
+
+    let amountDisplay: string;
+    if (type === "LOW_APR") amountDisplay = `${amount}% APR${offer.term ? ` for ${offer.term} months` : ""}`;
+    else if (type === "LEASE_SPECIAL") amountDisplay = `$${amount.toLocaleString()}/mo${offer.term ? ` for ${offer.term} months` : ""}`;
+    else if (type === "LOYALTY") amountDisplay = `$${amount.toLocaleString()} Loyalty Cash`;
+    else if (type === "CONQUEST") amountDisplay = `$${amount.toLocaleString()} Conquest Cash`;
+    else amountDisplay = `$${amount.toLocaleString()} Cash Back`;
+
+    const disclaimersField = offer.disclaimers || offer.disclaimer || offer.fine_print || offer.terms;
+    const finePrint = Array.isArray(disclaimersField) ? disclaimersField.join(" ") : String(disclaimersField || "");
+
+    return {
+      id: String(offer.id || item.id || `${make.toLowerCase()}-${idx}`),
+      make,
+      type,
+      title: String(offer.title || offer.name || offer.headline || `${make} ${type.replace(/_/g, " ").toLowerCase()} offer`),
+      description: String(offer.description || offer.summary || ""),
+      amount,
+      amountDisplay,
+      eligibleModels: eligibleModels.length > 0 ? eligibleModels : [make],
+      expirationDate: String(offer.valid_through || offer.expiration_date || offer.end_date || offer.expires || ""),
+      stackable: Boolean(offer.stackable ?? offer.is_stackable ?? false),
+      finePrint,
+    };
+  });
+}
+
+async function _fetchDirect(args): Promise<SearchResult> {
+  const primaryRaw = await _mcIncentives({ oem: args.make, zip: args.zip, model: args.model });
+  const results: IncentiveResult[] = [
+    { make: args.make, incentives: _mapApiIncentives(args.make, primaryRaw) },
+  ];
   if (args.compareMakes?.length) {
-    compareIncentives = await Promise.all(args.compareMakes.map(async (make) => {
-      const data = await _mcIncentives({oem:make,zip:args.zip});
-      return {make,data};
+    const compare = await Promise.all(args.compareMakes.map(async (make: string) => {
+      const raw = await _mcIncentives({ oem: make, zip: args.zip });
+      return { make, incentives: _mapApiIncentives(make, raw) };
     }));
+    results.push(...compare);
   }
-  return {make:args.make,incentives,compareIncentives};
+  return { results, zip: args.zip || "" };
 }
 
 async function _callTool(toolName, args) {
   const auth = _getAuth();
   if (auth.value) {
-    // 1. Proxy (same-origin, reliable)
+    // 1. Proxy (same-origin, reliable) — network errors fall through, non-ok HTTP throws
     try {
       const r = await fetch((_proxyBase()) + "/api/proxy/" + toolName, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...args, _auth_mode: auth.mode, _auth_value: auth.value }),
       });
       if (r.ok) { const d = await r.json(); return { content: [{ type: "text", text: JSON.stringify(d) }] }; }
-    } catch {}
-    // 2. Direct API fallback
-    try {
-      const data = await _fetchDirect(args);
-      if (data) return { content: [{ type: "text", text: JSON.stringify(data) }] };
-    } catch {}
+      // Proxy responded but not OK — it may not exist in dev. Fall through to direct API.
+    } catch {
+      // Proxy unreachable — fall through to direct API
+    }
+    // 2. Direct API — errors propagate so caller can surface them in live mode
+    const data = await _fetchDirect(args);
+    return { content: [{ type: "text", text: JSON.stringify(data) }] };
   }
   // 3. MCP mode (Claude, VS Code, etc.)
-  if (_safeApp) {
+  if (_safeApp && window.parent !== window) {
     try { return await _safeApp.callServerTool({ name: toolName, arguments: args }); } catch {}
   }
   // 4. Demo mode
@@ -107,6 +170,8 @@ async function _callTool(toolName, args) {
 
 function _addSettingsBar(headerEl?: HTMLElement) {
   if (_isEmbedMode() || !headerEl) return;
+  // Remove any existing settings panel from body to avoid stacking across re-renders
+  document.getElementById("_mc_settings_panel")?.remove();
   const mode = _detectAppMode();
   const bar = document.createElement("div");
   bar.style.cssText = "display:flex;align-items:center;gap:8px;margin-left:auto;";
@@ -123,6 +188,7 @@ function _addSettingsBar(headerEl?: HTMLElement) {
     gear.title = "API Settings";
     gear.style.cssText = "background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:4px;";
     const panel = document.createElement("div");
+    panel.id = "_mc_settings_panel";
     panel.style.cssText = "display:none;position:fixed;top:50px;right:16px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px;z-index:1000;min-width:300px;box-shadow:0 8px 32px rgba(0,0,0,0.5);";
     panel.innerHTML = `<div style="font-size:13px;font-weight:600;color:#f8fafc;margin-bottom:12px;">API Configuration</div>
       <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:4px;">MarketCheck API Key</label>
@@ -471,14 +537,95 @@ function getMockIncentives(make: string, _model?: string): Incentive[] {
       },
     ],
   };
-  let incentives = makeData[make] || [];
+  let incentives = makeData[make] || _generateMockIncentives(make);
   if (_model) {
     incentives = incentives.filter(inc => inc.eligibleModels.includes(_model));
   }
   return incentives;
 }
 
+function _generateMockIncentives(make: string): Incentive[] {
+  const models = MODELS_BY_MAKE[make] || [];
+  if (models.length === 0) return [];
+  const slug = make.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 4);
+  const hero = models[0];
+  const suv = models.find(m => /rav|cr-v|tucson|equinox|escape|rogue|forester|sportage|compass|terrain|nx|cx|rdx|envision|xt4|explorer|pilot|santa fe|wrangler|blazer|bronco|edge|highlander|sorento|outback|pathfinder|traverse|tahoe|4runner/i.test(m)) || models[Math.min(1, models.length - 1)];
+  const truck = models.find(m => /silverado|f-150|tacoma|tundra|ram|sierra|ridgeline|frontier|gladiator|colorado|maverick|ranger|canyon|1500|2500/i.test(m));
+  const sedan = models.find(m => /camry|civic|accord|altima|sonata|elantra|corolla|mazda3|impreza|legacy|tlx|3 series|c-class|k5|forte|charger|300|is|es|ct5|ct4/i.test(m)) || hero;
+
+  const out: Incentive[] = [
+    {
+      id: `${slug}-1`, make, type: "CASH_BACK",
+      title: `${make} Spring Cash Allowance`,
+      description: `Factory cash back on select 2025 and 2026 ${make} models during the Spring Sales Event.`,
+      amount: 2000, amountDisplay: "$2,000 Cash Back",
+      eligibleModels: models.slice(0, Math.min(4, models.length)),
+      expirationDate: "2026-04-30", stackable: true,
+      finePrint: `Must take new retail delivery from dealer stock by 04/30/2026. Available at participating ${make} dealers. See dealer for complete details.`,
+    },
+    {
+      id: `${slug}-2`, make, type: "LOW_APR",
+      title: `${sedan} Low APR Financing`,
+      description: `Special 1.9% APR financing for up to 60 months on new ${sedan} models.`,
+      amount: 1.9, amountDisplay: "1.9% APR for 60 months",
+      eligibleModels: [sedan],
+      expirationDate: "2026-04-15", stackable: false,
+      finePrint: `1.9% Annual Percentage Rate (APR) for 60 months. $17.48 per month per $1,000 financed. Must be approved through ${make} Financial Services. Not all buyers will qualify.`,
+    },
+    {
+      id: `${slug}-3`, make, type: "LEASE_SPECIAL",
+      title: `${suv} Lease Special`,
+      description: `Lease a new 2026 ${suv} for an attractive monthly rate.`,
+      amount: 329, amountDisplay: "$329/mo for 36 months",
+      eligibleModels: [suv],
+      expirationDate: "2026-04-30", stackable: false,
+      finePrint: `$329/month for 36 months. $3,299 due at signing. 10,000 miles/year allowance. $0.25/mile overage. Tax, title, license extra. Tier 1+ credit required.`,
+    },
+    {
+      id: `${slug}-4`, make, type: "LOYALTY",
+      title: `${make} Owner Loyalty Cash`,
+      description: `Current ${make} owners or lessees receive additional cash toward a new ${make}.`,
+      amount: 750, amountDisplay: "$750 Loyalty Cash",
+      eligibleModels: models,
+      expirationDate: "2026-06-30", stackable: true,
+      finePrint: `Must currently own or lease a ${make} vehicle. Proof of current registration required. Cannot be combined with Conquest Cash.`,
+    },
+    {
+      id: `${slug}-5`, make, type: "CONQUEST",
+      title: "Competitive Owner Bonus",
+      description: `Own a competing brand? Get bonus cash when you switch to ${make}.`,
+      amount: 1000, amountDisplay: "$1,000 Conquest Cash",
+      eligibleModels: models.slice(0, Math.min(4, models.length)),
+      expirationDate: "2026-05-31", stackable: true,
+      finePrint: `Must currently own or lease a non-${make} vehicle (1 year minimum). Proof of ownership/registration required. Cannot be combined with Loyalty Cash.`,
+    },
+  ];
+  if (truck) {
+    out.push({
+      id: `${slug}-6`, make, type: "CASH_BACK",
+      title: `${truck} Cash Allowance`,
+      description: `Factory cash allowance on all new 2025 ${truck} models.`,
+      amount: 1500, amountDisplay: "$1,500 Cash Back",
+      eligibleModels: [truck],
+      expirationDate: "2026-04-15", stackable: true,
+      finePrint: `Available on new 2025 ${truck} base and mid-trim models. Not compatible with special APR offers. Must take delivery from dealer stock.`,
+    });
+  }
+  return out;
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
+
+// The composite/proxy endpoint ships amountDisplay as "$289/mo / 36mo" or
+// "1.9% / 60mo". Rewrite those into natural-language form for cleaner display.
+function _normalizeIncentiveDisplay(inc: Incentive): Incentive {
+  if (!inc.amountDisplay) return inc;
+  let m = inc.amountDisplay.match(/^(\$[\d,]+\/mo)\s*\/\s*(\d+)\s*mo$/i);
+  if (m) { inc.amountDisplay = `${m[1]} for ${m[2]} months`; return inc; }
+  m = inc.amountDisplay.match(/^([\d.]+)\s*%(?:\s*APR)?\s*\/\s*(\d+)\s*mo$/i);
+  if (m) { inc.amountDisplay = `${m[1]}% APR for ${m[2]} months`; return inc; }
+  return inc;
+}
 
 function daysUntil(dateStr: string): number {
   const now = new Date();
@@ -523,7 +670,11 @@ body {
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
   border-bottom: 1px solid var(--border);
   padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
+.app-header-text { flex: 1; min-width: 0; }
 .app-header h1 {
   font-size: 22px;
   font-weight: 700;
@@ -897,6 +1048,7 @@ let compareMakes: string[] = [];
 let selectedIncentiveIds: Set<string> = new Set();
 let calcMsrp = 35000;
 let isLoading = false;
+let apiErrorMessage: string | null = null;
 
 // ── Render ─────────────────────────────────────────────────────────────────────
 
@@ -916,8 +1068,10 @@ function render(): void {
   root.innerHTML = `
     <style>${CSS}</style>
     <div class="app-header">
-      <h1><span>OEM Incentives</span> Explorer</h1>
-      <p>Discover manufacturer incentives, compare brands, and calculate your savings</p>
+      <div class="app-header-text">
+        <h1><span>OEM Incentives</span> Explorer</h1>
+        <p>Discover manufacturer incentives, compare brands, and calculate your savings</p>
+      </div>
     </div>
 
     <div class="search-section">
@@ -966,12 +1120,24 @@ function render(): void {
     </div>
   `;
 
+  _addSettingsBar(root.querySelector(".app-header") as HTMLElement);
   bindEvents();
 }
 
 function renderContent(): string {
+  let html = "";
+  if (apiErrorMessage) {
+    html += `
+      <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.4);border-radius:10px;padding:14px 18px;margin-bottom:16px;color:#fca5a5;">
+        <div style="font-weight:700;font-size:13px;margin-bottom:4px;">&#9888; API request failed</div>
+        <div style="font-size:12px;color:#fda4af;line-height:1.5;">${escapeHtml(apiErrorMessage)}</div>
+        <div style="font-size:11px;color:#f87171;margin-top:6px;">Common causes: invalid or expired API key, missing subscription tier for the incentives endpoint, or a temporary service outage. Double-check your key at <a href="https://developers.marketcheck.com" target="_blank" style="color:#fca5a5;text-decoration:underline;">developers.marketcheck.com</a>.</div>
+      </div>
+    `;
+  }
   if (!currentResults) {
-    return `
+    if (apiErrorMessage) return html;
+    return html + `
       <div class="empty-state">
         <div class="icon">&#128269;</div>
         <h3>Search for OEM Incentives</h3>
@@ -979,8 +1145,6 @@ function renderContent(): string {
       </div>
     `;
   }
-
-  let html = "";
 
   // Incentive cards grouped by make
   for (const result of currentResults.results) {
@@ -1308,53 +1472,56 @@ async function doSearch(): Promise<void> {
   if (!selectedMake || isLoading) return;
 
   isLoading = true;
+  apiErrorMessage = null;
   selectedIncentiveIds.clear();
   render();
 
+  const mode = _detectAppMode();
   const allMakes = [selectedMake, ...compareMakes];
+  const mockResults = (): SearchResult => ({
+    zip: zipCode || "00000",
+    results: allMakes.map(m => ({
+      make: m,
+      incentives: getMockIncentives(m, m === selectedMake ? selectedModel : undefined),
+    })),
+  });
 
   try {
     const result = await _callTool("oem-incentives-explorer", {
-        make: selectedMake,
-        model: selectedModel || undefined,
-        zip: zipCode || undefined,
-        compareMakes: compareMakes.length > 0 ? compareMakes : undefined,
-      });
+      make: selectedMake,
+      model: selectedModel || undefined,
+      zip: zipCode || undefined,
+      compareMakes: compareMakes.length > 0 ? compareMakes : undefined,
+    });
 
-    // Try to parse server response
     let parsed: SearchResult | null = null;
     if (result && typeof result === "object") {
       const text = "content" in result
         ? (result as any).content?.map((c: any) => c.text || "").join("") || ""
         : JSON.stringify(result);
-      try {
-        parsed = JSON.parse(text);
-      } catch {
-        // Response wasn't valid JSON - fall through to mock data
-      }
+      try { parsed = JSON.parse(text); } catch {}
     }
 
-    if (parsed && parsed.results && parsed.results.length > 0) {
+    const hasRealData = !!(parsed && parsed.results && parsed.results.some(r => r.incentives.length > 0));
+
+    if (hasRealData) {
+      for (const r of parsed!.results) r.incentives = r.incentives.map(_normalizeIncentiveDisplay);
       currentResults = parsed;
+    } else if (mode === "live") {
+      // Live mode returned no usable data — surface this instead of silently showing mock.
+      apiErrorMessage = "The incentives API returned no offers for the requested brand(s). This can happen if your key lacks access to the /v2/search/car/incentive/oem endpoint, or the endpoint returned an empty listings array.";
+      currentResults = null;
     } else {
-      // Use mock data
-      currentResults = {
-        zip: zipCode || "00000",
-        results: allMakes.map(m => ({
-          make: m,
-          incentives: getMockIncentives(m, m === selectedMake ? selectedModel : undefined),
-        })),
-      };
+      // Demo / MCP — mock fallback is the intended behavior.
+      currentResults = mockResults();
     }
-  } catch {
-    // Server tool not available, use mock data
-    currentResults = {
-      zip: zipCode || "00000",
-      results: allMakes.map(m => ({
-        make: m,
-        incentives: getMockIncentives(m, m === selectedMake ? selectedModel : undefined),
-      })),
-    };
+  } catch (e) {
+    if (mode === "live") {
+      apiErrorMessage = `Live API call failed: ${(e as Error)?.message || "unknown error"}.`;
+      currentResults = null;
+    } else {
+      currentResults = mockResults();
+    }
   }
 
   isLoading = false;
@@ -1362,6 +1529,26 @@ async function doSearch(): Promise<void> {
 }
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────────
+
+function _applyUrlParams(): boolean {
+  const p = _getUrlParams();
+  let autoSubmit = false;
+  if (p.make) {
+    // Match case-insensitively against the TOP_20_MAKES list
+    const match = TOP_20_MAKES.find(m => m.toLowerCase() === p.make.toLowerCase());
+    if (match) {
+      selectedMake = match;
+      autoSubmit = true;
+    }
+  }
+  if (p.model && selectedMake) {
+    const models = MODELS_BY_MAKE[selectedMake] || [];
+    const mm = models.find(m => m.toLowerCase() === p.model.toLowerCase());
+    if (mm) selectedModel = mm;
+  }
+  if (p.zip) zipCode = p.zip.replace(/\D/g, "").slice(0, 5);
+  return autoSubmit;
+}
 
 function bootstrap(): void {
   const root = document.createElement("div");
@@ -1394,7 +1581,9 @@ function bootstrap(): void {
     });
     _db.querySelector("#_banner_key").addEventListener("keydown", (e) => { if (e.key === "Enter") _db.querySelector("#_banner_save").click(); });
   }
+  const shouldAutoSubmit = _applyUrlParams();
   render();
+  if (shouldAutoSubmit) doSearch();
 }
 
 bootstrap();

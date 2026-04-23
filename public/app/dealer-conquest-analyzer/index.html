@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Dealer Conquest Analyzer — MarketCheck Apps">
-  <meta property="og:description" content="Identifies what competitors are selling that you're missing. Compares your inventory facets against the market, then overlays demand data to find conquest opportunities.">
+  <meta property="og:description" content="Enter your MarketCheck dealer ID, a ZIP, and a competitive radius; the app fans out four parallel MarketCheck queries — your inventory mix (make/model/body facets), the surrounding market's inventory ">
   <meta property="og:url" content="https://apps.marketcheck.com/app/dealer-conquest-analyzer/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/dealer-conquest-analyzer.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Dealer Conquest Analyzer">
-  <meta name="twitter:description" content="Identifies what competitors are selling that you're missing. Compares your inventory facets against the market, then overlays demand data to find conquest opportunities.">
+  <meta name="twitter:description" content="Enter your MarketCheck dealer ID, a ZIP, and a competitive radius; the app fans out four parallel MarketCheck queries — your inventory mix (make/model/body facets), the surrounding market's inventory ">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/dealer-conquest-analyzer.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Dealer Conquest Analyzer","description":"Identifies what competitors are selling that you're missing. Compares your inventory facets against the market, then overlays demand data to find conquest opportunities.","url":"https://apps.marketcheck.com/app/dealer-conquest-analyzer/","image":"https://apps.marketcheck.com/assets/screenshots/dealer-conquest-analyzer.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Dealer Conquest Analyzer","description":"Enter your MarketCheck dealer ID, a ZIP, and a competitive radius; the app fans out four parallel MarketCheck queries — your inventory mix (make/model/body facets), the surrounding market's inventory mix, the top-5 competitor dealer IDs by listing volume in the radius, and an Enterprise sold-vehicles demand ranking — then per-competitor make/model facet lookups for the top 5. The dashboard renders a KPI ribbon (your units, market listings, competitors scanned, gap models, average market price, average DOM), a your-inventory breakdown with model-level counts and percentage bars, 5 competitor cards with make chips and top models, a gap-analysis table ranked by demand score with HIGH/MEDIUM/LOW priority badges, an inventory-mix-vs-market canvas bar chart with over-/under-indexed annotations, acquisition recommendation cards with potential revenue, and a market-share comparison table with an index multiplier per make. On a free-tier API key the Enterprise sold-summary call 403s and the app automatically falls back to deriving demand from market listing counts, so the gap analysis keeps working.","url":"https://apps.marketcheck.com/app/dealer-conquest-analyzer/","image":"https://apps.marketcheck.com/assets/screenshots/dealer-conquest-analyzer.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -309,12 +309,52 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Identifies what competitors are selling that you're missing. Compares your inventory facets against the market, then overlays demand data to find conquest opportunities.</p>
+    <p>Enter your MarketCheck dealer ID, a ZIP, and a competitive radius; the app fans out four parallel MarketCheck queries — your inventory mix (make/model/body facets), the surrounding market's inventory mix, the top-5 competitor dealer IDs by listing volume in the radius, and an Enterprise sold-vehicles demand ranking — then per-competitor make/model facet lookups for the top 5. The dashboard renders a KPI ribbon (your units, market listings, competitors scanned, gap models, average market price, average DOM), a your-inventory breakdown with model-level counts and percentage bars, 5 competitor cards with make chips and top models, a gap-analysis table ranked by demand score with HIGH/MEDIUM/LOW priority badges, an inventory-mix-vs-market canvas bar chart with over-/under-indexed annotations, acquisition recommendation cards with potential revenue, and a market-share comparison table with an index multiplier per make. On a free-tier API key the Enterprise sold-summary call 403s and the app automatically falls back to deriving demand from market listing counts, so the gap analysis keeps working.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Used Car Buyers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Compare your lot's make/model mix against competing rooftops in your market. The gap table tells you which models your competitors stock that you don't — and how much local demand exists for each.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Dealer Group Strategists</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Run the same zip against multiple owned rooftops to see which one should absorb a given conquest opportunity. Over-indexed stores get visibility; under-indexed segments get priority.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Franchise Managers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">See whether you're under- or over-indexed against market share for your own franchise brand. A BMW dealer stocking 94% BMW in a market that's 60% BMW + 40% mixed might be missing complementary inventory.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Market Analysts</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Snapshot a regional competitive landscape — top 5 dealers by listing volume, their brand mix, and which models dominate the area. Useful for M&A due diligence and territory planning.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (or set via localStorage)</td></tr><tr><td><code>dealer_id</code></td><td>MarketCheck dealer ID (numeric) — pre-fills the form and triggers auto-analysis</td></tr><tr><td><code>zip</code></td><td>ZIP code for the competitive radius (used to find nearby competitor dealers)</td></tr><tr><td><code>state</code></td><td>2-letter state code — used for the Enterprise sold-summary demand ranking (optional; defaults to TX)</td></tr><tr><td><code>embed</code></td><td>Set to 'true' to hide the settings gear (for iframe embedding)</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/dealer-conquest-analyzer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/dealer-conquest-analyzer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/dealer-conquest-analyzer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/dealer-conquest-analyzer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -329,12 +369,12 @@ pre.code-block {
     <h2>API Call Flow</h2>
     <p>Here's the exact sequence of MarketCheck API calls this app makes, and which ones run in parallel:</p>
     <div class="flow-diagram">
-      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">Your Inventory</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
+      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">Your inventory + market + demand + top competitors</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
           <div class="flow-api-card">
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/active</code>
             <div class="flow-api-name">Search Active Listings</div>
-          </div></div><div class="flow-note">Fetch your inventory with facets (make, model, body type)</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Market + Demand</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
+          </div>
           <div class="flow-api-card">
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/active</code>
@@ -344,7 +384,17 @@ pre.code-block {
             <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
             <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
             <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
-          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Fetch market inventory (nearby dealers) and sold demand rankings in parallel</div></div>
+          </div>
+          <div class="flow-api-card">
+            <div class="flow-api-method">GET</div>
+            <code class="flow-api-path">/v2/search/car/active</code>
+            <div class="flow-api-name">Search Active Listings</div>
+          </div></div><div class="flow-parallel-line"></div><div class="flow-note">4 API calls in parallel: your dealer's facet breakdown, market-wide facets in the radius, Enterprise sold-vehicle demand rankings (graceful 403 fallback to market-listing proxy on free tiers), and top-5 competitor dealer IDs via dealer_id facet</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Per-competitor inventory facets</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
+          <div class="flow-api-card">
+            <div class="flow-api-method">GET</div>
+            <code class="flow-api-path">/v2/search/car/active</code>
+            <div class="flow-api-name">Search Active Listings</div>
+          </div></div><div class="flow-note">For each of the top-5 competitor dealer IDs, fetch their make/model facet breakdown in parallel</div></div>
     </div>
   </div>
 
@@ -407,7 +457,7 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Gap analysis chart (your mix vs market)</div><div class="render-item"><div class="render-dot"></div>conquest opportunity cards</div><div class="render-item"><div class="render-dot"></div>demand-weighted recommendations</div><div class="render-item"><div class="render-dot"></div>competitive heat map</div>
+      <div class="render-item"><div class="render-dot"></div>KPI ribbon (units</div><div class="render-item"><div class="render-dot"></div>listings</div><div class="render-item"><div class="render-dot"></div>competitors</div><div class="render-item"><div class="render-dot"></div>gap models</div><div class="render-item"><div class="render-dot"></div>avg price</div><div class="render-item"><div class="render-dot"></div>avg DOM)</div><div class="render-item"><div class="render-dot"></div>your-inventory breakdown with percentage bars</div><div class="render-item"><div class="render-dot"></div>5 competitor cards with make chips + top models</div><div class="render-item"><div class="render-dot"></div>gap-analysis table ranked by demand with HIGH/MEDIUM/LOW priority</div><div class="render-item"><div class="render-dot"></div>inventory-mix-vs-market canvas bar chart with over-/under-indexed annotations</div><div class="render-item"><div class="render-dot"></div>acquisition recommendation cards with potential revenue</div><div class="render-item"><div class="render-dot"></div>market-share comparison table with index multiplier</div>
     </div>
   </div>
 
@@ -421,7 +471,7 @@ pre.code-block {
         <span class="api-method-badge" style="background:#dbeafe;color:#1e40af;">POST</span>
         <code>https://apps.marketcheck.com/api/proxy/analyze-dealer-conquest</code>
       </div>
-      <p>This single endpoint runs all 3 API calls in the optimal sequence and returns the combined result.</p>
+      <p>This single endpoint runs all 5 API calls in the optimal sequence and returns the combined result.</p>
       <p><a href="/docs/derivative-apis/#analyze-dealer-conquest">View full composite endpoint documentation &#8599;</a></p>
     </div>
     

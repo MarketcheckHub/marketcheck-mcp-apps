@@ -1000,7 +1000,18 @@ const APPS = [
     tagline: "Find dealers with aged inventory ripe for consignment",
     segment: "Auction House",
     toolName: null,
-    description: "Identifies dealers with aged and overpriced inventory who are prime candidates for consignment. Searches active listings filtered by high days-on-market, calculates floor plan burn, and ranks dealers by consignment opportunity score.",
+    description: "Identifies dealers with aged and overpriced inventory who are prime candidates for consignment. Searches active listings filtered by high days-on-market (60+ days default), calculates floor plan burn at 7% annual rate, ranks dealers by a weighted consignment opportunity score (DOM 40%, burn 30%, unit count 20%, base 10%), and flags vehicles with geographic arbitrage potential where local stale inventory has strong demand in other markets.",
+    useCases: [
+      { persona: "Auction Consignment Reps", desc: "Prospect for new consignment sources — find dealers bleeding floor plan interest on aged inventory and pitch them on consigning to your next sale." },
+      { persona: "Auction Managers", desc: "Plan sourcing strategy by market — see which ZIP codes and dealer types have the most aged inventory ripe for consignment." },
+      { persona: "Wholesale Buyers", desc: "Identify dealers likely to accept below-market offers on aged units they need to move off their floor plan." },
+    ],
+    urlParams: [
+      { name: "api_key", desc: "Your MarketCheck API key (or set via localStorage)" },
+      { name: "zip", desc: "Target market ZIP code — auto-fills form and triggers search" },
+      { name: "radius", desc: "Search radius in miles (default: 75)" },
+      { name: "minDom", desc: "Minimum days on market threshold (default: 60)" },
+    ],
     inputParams: [
       { name: "zip", type: "string", required: true, desc: "Target market ZIP code" },
       { name: "radius", type: "number", required: false, desc: "Search radius in miles (default: 75)" },
@@ -1008,7 +1019,7 @@ const APPS = [
     ],
     apiFlow: [
       { step: 1, label: "Aged Inventory Search", apis: ["searchActive"], parallel: false, note: "Search active listings with high DOM, sorted by days on market descending, with dealer facets" },
-      { step: 2, label: "Market Demand Context", apis: ["soldSummary"], parallel: false, note: "Fetch demand rankings to identify which aged vehicles have strong market demand elsewhere" },
+      { step: 2, label: "Market Demand Context", apis: ["searchRecents"], parallel: true, note: "Fetch recent sales per make to identify which aged vehicles have demand elsewhere (geographic arbitrage)" },
     ],
     renders: "Dealer prospect list ranked by consignment opportunity, aged inventory count per dealer, floor plan burn estimates, vehicle-level detail table, geographic arbitrage indicators",
   },

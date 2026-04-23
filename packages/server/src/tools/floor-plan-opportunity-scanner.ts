@@ -151,14 +151,12 @@ export function registerFloorPlanOpportunityScanner(server: McpServer) {
           // Enterprise API not available — omit demand data
         }
 
-        // Build DOM distribution from all listings
+        // Build DOM distribution from all listings (aged only, 3-bucket — matches frontend)
         const allDoms: number[] = listings.map((l: any) => l.dom ?? 0).filter((d: number) => d > 0);
         const marketAvgDom = allDoms.length > 0 ? Math.round(allDoms.reduce((s, v) => s + v, 0) / allDoms.length) : 0;
 
         const domDistribution = [
-          { label: "0-29d", count: allDoms.filter(d => d < 30).length, color: "#10b981" },
-          { label: "30-59d", count: allDoms.filter(d => d >= 30 && d < 60).length, color: "#60a5fa" },
-          { label: "60-89d", count: allDoms.filter(d => d >= 60 && d < 90).length, color: "#f59e0b" },
+          { label: `${minDom}-89d`, count: allDoms.filter(d => d >= minDom && d < 90).length, color: "#f59e0b" },
           { label: "90-119d", count: allDoms.filter(d => d >= 90 && d < 120).length, color: "#ef4444" },
           { label: "120+d", count: allDoms.filter(d => d >= 120).length, color: "#7c3aed" },
         ];

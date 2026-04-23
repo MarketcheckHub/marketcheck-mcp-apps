@@ -778,6 +778,46 @@ function renderDashboard(data: ScanData) {
     }
   }
 
+  // ── Per-dealer aging heatmap ───────────────────────────────────────
+  const heatmapSection = el("div", { style: "margin-top:16px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;" });
+  content.appendChild(heatmapSection);
+  heatmapSection.innerHTML = `
+    <div style="font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:4px;">Aging Heatmap — Per Dealer</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:16px;">DOM bucket breakdown per dealer — how aged inventory is distributed across time thresholds.</div>`;
+
+  const heatGrid = el("div", { style: "display:flex;flex-direction:column;gap:10px;" });
+  heatmapSection.appendChild(heatGrid);
+
+  for (const d of data.dealers.slice(0, 8)) {
+    const maxBucket = Math.max(...d.domBuckets.map(b => b.count), 1);
+    const hotMark = d.hotProspect ? `<span style="font-size:10px;color:#ef4444;font-weight:700;margin-left:6px;">HOT</span>` : "";
+    const heatRow = el("div", { style: "display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f1f5f9;" });
+
+    const nameEl = el("div", { style: "font-size:12px;font-weight:600;color:#0f172a;min-width:170px;flex-shrink:0;" });
+    nameEl.innerHTML = `${d.dealerName}${hotMark}`;
+    heatRow.appendChild(nameEl);
+
+    const barsWrap = el("div", { style: "flex:1;display:flex;gap:6px;align-items:flex-end;height:36px;" });
+    for (const bucket of d.domBuckets) {
+      const barH = Math.max(4, Math.round((bucket.count / maxBucket) * 32));
+      const barWrap = el("div", { style: "flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;justify-content:flex-end;height:36px;" });
+      const bar = el("div", { style: `height:${barH}px;width:100%;background:${bucket.color};border-radius:3px 3px 0 0;` });
+      barWrap.appendChild(bar);
+      barsWrap.appendChild(barWrap);
+    }
+    heatRow.appendChild(barsWrap);
+
+    const labelsWrap = el("div", { style: "display:flex;gap:6px;min-width:240px;" });
+    for (const bucket of d.domBuckets) {
+      const lbl = el("div", { style: `flex:1;text-align:center;font-size:11px;` });
+      lbl.innerHTML = `<span style="color:${bucket.color};font-weight:700;">${bucket.count}</span><br><span style="color:#94a3b8;">${bucket.label}</span>`;
+      labelsWrap.appendChild(lbl);
+    }
+    heatRow.appendChild(labelsWrap);
+
+    heatGrid.appendChild(heatRow);
+  }
+
   // ── Footer ─────────────────────────────────────────────────────────
   const footer = el("div", { style: "background:#fff;border-top:1px solid #e2e8f0;padding:12px 24px;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#94a3b8;" });
   footer.innerHTML = `<span>Powered by MarketCheck APIs</span><span>apps.marketcheck.com</span>`;

@@ -76,8 +76,8 @@ async function _fetchDirect(args): Promise<EvalResult | null> {
     _mcRecent({ make: decode.make, model: decode.model, zip: args.zip, radius: 100, rows: 8, stats: "price" }),
   ]);
 
-  const retailValue = retail?.predicted_price ?? retail?.price ?? 0;
-  const wholesaleValue = wholesale?.predicted_price ?? wholesale?.price ?? 0;
+  const retailValue = retail?.predicted_price ?? retail?.marketcheck_price ?? retail?.price ?? 0;
+  const wholesaleValue = wholesale?.predicted_price ?? wholesale?.marketcheck_price ?? wholesale?.price ?? 0;
   const loanAmt = args.loan_amount ?? 0;
   const loanTerm = args.loan_term ?? 60;
   const interestRate = args.interest_rate ?? 6.9;
@@ -607,7 +607,7 @@ function render() {
     renderLTVGauge(container);
 
     // Two-column: Collateral + LTV KPIs
-    const topRow = el("div", { style: "display:flex;gap:20px;margin-bottom:24px;" });
+    const topRow = el("div", { style: "display:flex;flex-wrap:wrap;gap:20px;margin-bottom:24px;" });
     renderCollateralCard(topRow);
     renderLTVRibbon(topRow);
     container.appendChild(topRow);
@@ -633,7 +633,7 @@ function renderLoanForm(container: HTMLElement) {
   h2.textContent = "Loan Application";
   panel.appendChild(h2);
 
-  const grid = el("div", { style: "display:grid;grid-template-columns:repeat(3, 1fr);gap:12px;" });
+  const grid = el("div", { style: "display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;" });
 
   grid.appendChild(makeFormGroup("VIN", "text", loanInput.vin, "e.g. 1FTFW1E87NFA12345", (v) => { loanInput.vin = v; }));
   grid.appendChild(makeFormGroup("Current Mileage", "number", String(loanInput.miles), "28000", (v) => { loanInput.miles = parseInt(v) || 0; }));
@@ -1076,7 +1076,7 @@ function renderAdvanceRecommendation(container: HTMLElement) {
       <span style="font-size:28px;">&#128161;</span>
       <h2 style="margin:0;font-size:16px;font-weight:600;color:#f8fafc;">Advance Rate Recommendation</h2>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:16px;">
       <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;padding:14px;">
         <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">Max Advance Rate</div>
         <div style="font-size:22px;font-weight:700;color:#3b82f6;">${evalResult.max_advance}%</div>

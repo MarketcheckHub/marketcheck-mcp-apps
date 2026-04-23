@@ -70,14 +70,15 @@ async function _fetchDirect(args): Promise<EvalResult | null> {
   if (!decode) return null;
 
   const [retail, wholesale, history, soldCompsRaw] = await Promise.all([
-    _mcPredict({ vin: args.vin, miles: args.miles, zip: args.zip, dealer_type: "franchise" }),
-    _mcPredict({ vin: args.vin, miles: args.miles, zip: args.zip, dealer_type: "independent" }),
-    _mcHistory(args.vin),
-    _mcRecent({ make: decode.make, model: decode.model, zip: args.zip, radius: 100, rows: 8, stats: "price" }),
+    _mcPredict({ vin: args.vin, miles: args.miles, zip: args.zip, dealer_type: "franchise" }).catch(() => null),
+    _mcPredict({ vin: args.vin, miles: args.miles, zip: args.zip, dealer_type: "independent" }).catch(() => null),
+    _mcHistory(args.vin).catch(() => null),
+    _mcRecent({ make: decode.make, model: decode.model, zip: args.zip, radius: 100, rows: 8, stats: "price" }).catch(() => null),
   ]);
 
   const retailValue = retail?.predicted_price ?? retail?.marketcheck_price ?? retail?.price ?? 0;
   const wholesaleValue = wholesale?.predicted_price ?? wholesale?.marketcheck_price ?? wholesale?.price ?? 0;
+  if (!retailValue) return null;
   const loanAmt = args.loan_amount ?? 0;
   const loanTerm = args.loan_term ?? 60;
   const interestRate = args.interest_rate ?? 6.9;

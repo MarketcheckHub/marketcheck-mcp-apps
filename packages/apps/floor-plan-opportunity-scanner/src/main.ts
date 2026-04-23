@@ -707,7 +707,7 @@ function renderDashboard(data: ScanData) {
   panelRow.appendChild(burnPanel);
   burnPanel.innerHTML = `
     <div style="font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:0.8px;text-transform:uppercase;margin-bottom:12px;">Total Burn</div>
-    <div style="font-size:40px;font-weight:800;color:#0f172a;line-height:1;">$${totalBurnK}K/mo</div>
+    <div style="font-size:clamp(22px,4vw,40px);font-weight:800;color:#0f172a;line-height:1;word-break:break-word;">$${totalBurnK}K/mo</div>
     <div style="font-size:12px;color:#f59e0b;font-weight:600;margin-top:8px;">across prospects</div>`;
 
   // Panel 4 — DOM Distribution bar chart

@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Incentive Deal Finder — MarketCheck Apps">
-  <meta property="og:description" content="Searches incentive programs across all major OEM brands simultaneously. Instead of searching by brand, searches by budget or deal type — showing the best deals across the entire market.">
+  <meta property="og:description" content="A brand-agnostic incentive discovery tool that fans out in parallel across 15 major OEM brands (Toyota, Honda, Ford, Chevrolet, Hyundai, Kia, Nissan, BMW, Mercedes-Benz, Volkswagen, Subaru, Mazda, Jee">
   <meta property="og:url" content="https://apps.marketcheck.com/app/incentive-deal-finder/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/incentive-deal-finder.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Incentive Deal Finder">
-  <meta name="twitter:description" content="Searches incentive programs across all major OEM brands simultaneously. Instead of searching by brand, searches by budget or deal type — showing the best deals across the entire market.">
+  <meta name="twitter:description" content="A brand-agnostic incentive discovery tool that fans out in parallel across 15 major OEM brands (Toyota, Honda, Ford, Chevrolet, Hyundai, Kia, Nissan, BMW, Mercedes-Benz, Volkswagen, Subaru, Mazda, Jee">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/incentive-deal-finder.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Incentive Deal Finder","description":"Searches incentive programs across all major OEM brands simultaneously. Instead of searching by brand, searches by budget or deal type — showing the best deals across the entire market.","url":"https://apps.marketcheck.com/app/incentive-deal-finder/","image":"https://apps.marketcheck.com/assets/screenshots/incentive-deal-finder.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Incentive Deal Finder","description":"A brand-agnostic incentive discovery tool that fans out in parallel across 15 major OEM brands (Toyota, Honda, Ford, Chevrolet, Hyundai, Kia, Nissan, BMW, Mercedes-Benz, Volkswagen, Subaru, Mazda, Jeep, Ram, GMC) and returns every active cashback, low-APR, and lease offer in one ranked table. Instead of picking a brand first, shoppers pick the dollar outcome they want — max cashback, lowest APR, or a lease under a monthly cap — and the app surfaces the best deals across the entire market. Includes KPI cards (best cashback, lowest APR, average lease payment), a sortable deal table with offer-type and status badges, an expiring-soon alert panel for offers ending within 7 days, two canvas-rendered bar charts (top 10 cashback across brands and best APR vs a 6.5% market baseline), and a built-in savings calculator that computes monthly + lifetime savings of an incentive APR against the prevailing market rate.","url":"https://apps.marketcheck.com/app/incentive-deal-finder/","image":"https://apps.marketcheck.com/assets/screenshots/incentive-deal-finder.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -306,12 +306,55 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Searches incentive programs across all major OEM brands simultaneously. Instead of searching by brand, searches by budget or deal type — showing the best deals across the entire market.</p>
+    <p>A brand-agnostic incentive discovery tool that fans out in parallel across 15 major OEM brands (Toyota, Honda, Ford, Chevrolet, Hyundai, Kia, Nissan, BMW, Mercedes-Benz, Volkswagen, Subaru, Mazda, Jeep, Ram, GMC) and returns every active cashback, low-APR, and lease offer in one ranked table. Instead of picking a brand first, shoppers pick the dollar outcome they want — max cashback, lowest APR, or a lease under a monthly cap — and the app surfaces the best deals across the entire market. Includes KPI cards (best cashback, lowest APR, average lease payment), a sortable deal table with offer-type and status badges, an expiring-soon alert panel for offers ending within 7 days, two canvas-rendered bar charts (top 10 cashback across brands and best APR vs a 6.5% market baseline), and a built-in savings calculator that computes monthly + lifetime savings of an incentive APR against the prevailing market rate.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Car Shoppers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Compare incentives across every brand at once — find the best cashback or lowest APR for your budget without having to shop brand-by-brand.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Budget-First Buyers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Filter leases by max monthly payment to find every sub-$300/mo lease nationwide, or filter cashback by minimum amount to see only meaningful offers.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Dealer F&I Desks</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Pitch stackable manufacturer cashback alongside in-house financing, quantifying total customer savings with the built-in payment calculator.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Auto Media</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Generate brand-by-brand incentive roundups with accurate expiration dates — the expiring-soon panel flags deals in their last week.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">MarketCheck API Evaluators</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">A concrete example of how to fan out the /search/car/incentive/oem endpoint across multiple makes in parallel and normalize the results into a unified offer schema.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (or set via localStorage)</td></tr><tr><td><code>zip</code></td><td>ZIP code for regional incentive availability — pre-fills the ZIP input</td></tr><tr><td><code>make</code></td><td>Comma-separated brand filter (e.g., Toyota,Honda) — pre-checks the brand checkboxes</td></tr><tr><td><code>offer_type</code></td><td>Pre-select offer type: 'all', 'cashback', 'apr', or 'lease'</td></tr><tr><td><code>max_monthly</code></td><td>Max lease monthly payment filter (e.g., 400)</td></tr><tr><td><code>min_cashback</code></td><td>Min cashback amount filter (e.g., 2000)</td></tr><tr><td><code>embed</code></td><td>Set to 'true' for embedded mode (hides settings gear)</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/incentive-deal-finder/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/incentive-deal-finder/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/incentive-deal-finder/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/incentive-deal-finder/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -331,7 +374,7 @@ pre.code-block {
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/incentive/oem</code>
             <div class="flow-api-name">OEM Incentives</div>
-          </div></div><div class="flow-note">Fetch incentives for 10+ OEM brands simultaneously in parallel</div></div>
+          </div></div><div class="flow-note">Fetch incentives for 15 OEM brands simultaneously in parallel (one call per brand)</div></div>
     </div>
   </div>
 
@@ -343,7 +386,7 @@ pre.code-block {
     <table class="param-table">
       <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>makes</code></td><td>string</td><td>No</td><td>Comma-separated makes (defaults to top 10)</td></tr><tr><td><code>zip</code></td><td>string</td><td>No</td><td>ZIP code for regional incentives</td></tr>
+        <tr><td><code>makes</code></td><td>string</td><td>No</td><td>Comma-separated makes (defaults to top 15)</td></tr><tr><td><code>zip</code></td><td>string</td><td>No</td><td>ZIP code for regional incentives</td></tr><tr><td><code>offer_type</code></td><td>string</td><td>No</td><td>Filter by offer type: cashback, apr, lease, or omit for all</td></tr><tr><td><code>max_monthly_payment</code></td><td>number</td><td>No</td><td>Max monthly lease payment filter</td></tr><tr><td><code>min_cashback</code></td><td>number</td><td>No</td><td>Min cashback amount filter</td></tr>
       </tbody>
     </table>
   </div>
@@ -377,7 +420,7 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Ranked deal list</div><div class="render-item"><div class="render-dot"></div>filter by type (cash/APR/lease)</div><div class="render-item"><div class="render-dot"></div>sortable by amount</div><div class="render-item"><div class="render-dot"></div>brand badges</div><div class="render-item"><div class="render-dot"></div>expiration countdown</div>
+      <div class="render-item"><div class="render-dot"></div>4 KPI cards (total offers</div><div class="render-item"><div class="render-dot"></div>best cashback</div><div class="render-item"><div class="render-dot"></div>lowest APR</div><div class="render-item"><div class="render-dot"></div>average lease payment)</div><div class="render-item"><div class="render-dot"></div>sortable deal table with offer-type + status badges</div><div class="render-item"><div class="render-dot"></div>expiring-soon alert panel</div><div class="render-item"><div class="render-dot"></div>top-10 cashback canvas bar chart</div><div class="render-item"><div class="render-dot"></div>best APR canvas bar chart with 6.5% market baseline</div><div class="render-item"><div class="render-dot"></div>savings calculator (monthly and total savings vs market APR)</div>
     </div>
   </div>
 

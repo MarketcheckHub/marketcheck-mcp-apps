@@ -33,7 +33,7 @@ function _isEmbedMode(): boolean {
 function _getUrlParams(): Record<string, string> {
   const params = new URLSearchParams(location.search);
   const result: Record<string, string> = {};
-  for (const key of ["vin", "zip", "make", "model", "miles", "state", "dealer_id", "ticker", "price"]) {
+  for (const key of ["vin", "zip", "make", "model", "miles", "state", "dealer_id", "ticker", "price", "offer_type", "max_monthly", "min_cashback"]) {
     const v = params.get(key);
     if (v) result[key] = v;
   }
@@ -83,19 +83,20 @@ async function _fetchDirect(args) {
 async function _callTool(toolName, args) {
   const auth = _getAuth();
   if (auth.value) {
-    // 1. Proxy (same-origin, reliable)
+    // 1. Proxy (same-origin, reliable) — network errors fall through, non-ok HTTP throws
     try {
       const r = await fetch((_proxyBase()) + "/api/proxy/" + toolName, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...args, _auth_mode: auth.mode, _auth_value: auth.value }),
       });
       if (r.ok) { const d = await r.json(); return { content: [{ type: "text", text: JSON.stringify(d) }] }; }
-    } catch {}
-    // 2. Direct API fallback
-    try {
-      const data = await _fetchDirect(args);
-      if (data) return { content: [{ type: "text", text: JSON.stringify(data) }] };
-    } catch {}
+      // Proxy responded but not OK — fall through to direct API.
+    } catch {
+      // Proxy unreachable — fall through to direct API.
+    }
+    // 2. Direct API — errors propagate so caller can surface them in live mode
+    const data = await _fetchDirect(args);
+    return { content: [{ type: "text", text: JSON.stringify(data) }] };
   }
   // 3. MCP mode (Claude, VS Code, etc.)
   if (_safeApp) {
@@ -116,7 +117,11 @@ function _addSettingsBar(headerEl?: HTMLElement) {
     demo: { bg: "#92400e88", fg: "#fbbf24", label: "DEMO" },
   };
   const c = colors[mode];
-  bar.innerHTML = `<span style="padding:3px 10px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:0.5px;background:${c.bg};color:${c.fg};border:1px solid ${c.fg}33;">${c.label}</span>`;
+  const badge = document.createElement("span");
+  badge.id = "_mode_badge";
+  badge.style.cssText = `padding:3px 10px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:0.5px;background:${c.bg};color:${c.fg};border:1px solid ${c.fg}33;`;
+  badge.textContent = c.label;
+  bar.appendChild(badge);
   if (mode !== "mcp") {
     const gear = document.createElement("button");
     gear.innerHTML = "&#9881;";
@@ -504,6 +509,102 @@ function drawAprChart(canvas: HTMLCanvasElement, offers: IncentiveOffer[]) {
   });
 }
 
+// ── API Response Parser ────────────────────────────────────────────────────────
+// Handles both shapes we see in practice:
+//   • MCP server tool find-incentive-deals → {offers: [{make, ...flat}, ...]}
+//   • Direct _fetchDirect fallback         → {results: [{make, data: {listings: [{offer: {...}}]}}]}
+
+function normalizeOfferType(raw: any): OfferType {
+  const s = String(raw || "").toLowerCase();
+  if (s.startsWith("cash")) return "cashback";
+  if (s.startsWith("finance") || s === "apr") return "apr";
+  if (s.startsWith("lease")) return "lease";
+  return "cashback";
+}
+
+function coerceIncentive(rawItem: any, fallbackMake: string): IncentiveOffer | null {
+  if (!rawItem || typeof rawItem !== "object") return null;
+  // Raw API case: the incentive lives under rawItem.offer. Pre-normalized proxy case: rawItem IS the flat offer.
+  const o = rawItem.offer || {};
+  const v = (o.vehicles?.[0] as any) || {};
+  const amt = (o.amounts?.[0] as any) || {};
+
+  const offerType = normalizeOfferType(rawItem.offerType ?? rawItem.type ?? rawItem.offer_type ?? o.offer_type);
+
+  // Prefer the top-level pre-normalized amount (set by the proxy's transformIncentiveListings);
+  // fall back to the raw-API nested paths.
+  let amount: number;
+  if (typeof rawItem.amount === "number") {
+    amount = rawItem.amount;
+  } else if (offerType === "cashback") {
+    amount = Number(o.cashback_amount ?? o.cash_amount ?? amt.cashback ?? 0);
+  } else if (offerType === "apr") {
+    amount = Number(amt.apr ?? o.apr ?? 0);
+  } else {
+    amount = Number(amt.monthly ?? o.monthly_payment ?? 0);
+  }
+  if (!isFinite(amount)) amount = 0;
+
+  const term = Number(rawItem.term ?? amt.term ?? o.term ?? 0) || 0;
+  const make = rawItem.make || v.make || fallbackMake || "";
+  const model = rawItem.model || v.model || "";
+  if (!make) return null;
+
+  const amountDisplay = rawItem.amountDisplay
+    || (offerType === "cashback"
+      ? `$${amount.toLocaleString()} Cash Back`
+      : offerType === "apr"
+        ? `${amount.toFixed(1)}% APR${term ? ` / ${term}mo` : ""}`
+        : `$${amount.toLocaleString()}/mo${term ? ` / ${term}mo` : ""}`);
+
+  const title = (rawItem.title || o.titles?.[0] || o.oem_program_name || `${make} ${model} ${offerType}`).toString().slice(0, 120);
+  const expiration = rawItem.expirationDate || o.valid_through || o.expiration_date || rawItem.valid_through || "";
+  const disclaimer = rawItem.finePrint || rawItem.description || o.disclaimers?.[0] || o.fine_print || o.offers?.[0] || "";
+
+  return {
+    id: rawItem.id || `${make}-${model}-${Math.random().toString(36).slice(2, 6)}`,
+    make,
+    model,
+    offerType,
+    title,
+    amount,
+    amountDisplay,
+    term,
+    expirationDate: expiration,
+    dueAtSigning: Number(rawItem.dueAtSigning ?? o.due_at_signing ?? amt.due_at_signing ?? 0) || undefined,
+    region: rawItem.region || rawItem.state || rawItem.city || o.region || "National",
+    stackable: Boolean(rawItem.stackable ?? o.stackable ?? false),
+    finePrint: String(disclaimer || "").substring(0, 200),
+  };
+}
+
+function parseOffersFromResponse(parsed: any): IncentiveOffer[] {
+  if (!parsed || typeof parsed !== "object") return [];
+  const out: IncentiveOffer[] = [];
+
+  // Shape 1: MCP server — {offers: [...flat items with make]}
+  if (Array.isArray(parsed.offers)) {
+    for (const item of parsed.offers) {
+      const o = coerceIncentive(item, item?.make);
+      if (o) out.push(o);
+    }
+  }
+
+  // Shape 2: Direct fetch fallback — {results: [{make, data: {listings|incentives: [...]}}]}
+  // Also handles the edge case where the raw API response is passed through directly.
+  const resultsArr = parsed.results
+    || (parsed.num_found != null || Array.isArray(parsed.listings) ? [{ make: "", data: parsed }] : []);
+  for (const entry of resultsArr) {
+    const items = entry?.data?.listings || entry?.data?.incentives || (Array.isArray(entry?.data) ? entry.data : []);
+    for (const item of items) {
+      const o = coerceIncentive(item, entry?.make);
+      if (o) out.push(o);
+    }
+  }
+
+  return out;
+}
+
 // ── App State ──────────────────────────────────────────────────────────────────
 
 let allOffers: IncentiveOffer[] = [];
@@ -517,6 +618,8 @@ let currentFilters: SearchFilters = {
   makes: [],
   zip: "90210",
 };
+type ApiErrorKind = "empty" | "threw";
+let apiError: { kind: ApiErrorKind; message: string } | null = null;
 
 // ── Build UI ───────────────────────────────────────────────────────────────────
 
@@ -860,7 +963,74 @@ function renderCharts() {
   drawAprChart(aprCanvas, filteredOffers);
 }
 
+function renderApiErrorBanner() {
+  const existing = document.getElementById("_api_error_banner");
+  if (existing) existing.remove();
+  const badge = document.getElementById("_mode_badge");
+  if (!apiError) {
+    if (badge && _detectAppMode() === "live") {
+      badge.textContent = "LIVE";
+      badge.style.background = "#05966922";
+      badge.style.color = "#34d399";
+      badge.style.borderColor = "#34d39933";
+    }
+    return;
+  }
+  if (badge) {
+    badge.textContent = "API ERROR";
+    badge.style.background = "#7f1d1d88";
+    badge.style.color = "#fca5a5";
+    badge.style.borderColor = "#fca5a566";
+  }
+
+  const banner = document.createElement("div");
+  banner.id = "_api_error_banner";
+  banner.style.cssText = "background:linear-gradient(135deg,#7f1d1d22,#ef444411);border:1px solid #ef444466;border-radius:10px;padding:14px 20px;margin-bottom:12px;display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;";
+
+  const textWrap = document.createElement("div");
+  textWrap.style.cssText = "flex:1;min-width:200px;";
+  const titleEl = document.createElement("div");
+  titleEl.style.cssText = "font-size:13px;font-weight:700;color:#fca5a5;margin-bottom:4px;";
+  titleEl.textContent = apiError.kind === "empty"
+    ? "⚠ Live API returned no offers — showing sample data"
+    : "⚠ Live API request failed — showing sample data";
+  const msgEl = document.createElement("div");
+  msgEl.style.cssText = "font-size:12px;color:#fda4af;line-height:1.5;margin-bottom:6px;";
+  msgEl.textContent = apiError.message;
+  const helpEl = document.createElement("div");
+  helpEl.style.cssText = "font-size:11px;color:#f87171;line-height:1.5;";
+  helpEl.appendChild(document.createTextNode(
+    "Common causes: invalid or expired API key, missing subscription tier for the incentives endpoint, or a temporary service outage. Check your key at "
+  ));
+  const link = document.createElement("a");
+  link.href = "https://developers.marketcheck.com";
+  link.target = "_blank";
+  link.style.cssText = "color:#fca5a5;text-decoration:underline;";
+  link.textContent = "developers.marketcheck.com";
+  helpEl.appendChild(link);
+  helpEl.appendChild(document.createTextNode("."));
+  textWrap.appendChild(titleEl);
+  textWrap.appendChild(msgEl);
+  textWrap.appendChild(helpEl);
+
+  const clearBtn = document.createElement("button");
+  clearBtn.textContent = "Clear Key";
+  clearBtn.style.cssText = "padding:8px 14px;border-radius:6px;border:1px solid #ef444466;background:transparent;color:#fca5a5;font-size:12px;font-weight:600;cursor:pointer;";
+  clearBtn.addEventListener("click", () => {
+    localStorage.removeItem("mc_api_key");
+    localStorage.removeItem("mc_access_token");
+    const url = new URL(location.href);
+    url.searchParams.delete("api_key");
+    location.href = url.toString();
+  });
+
+  banner.appendChild(textWrap);
+  banner.appendChild(clearBtn);
+  container.insertBefore(banner, container.firstChild);
+}
+
 function renderAll() {
+  renderApiErrorBanner();
   renderKpis();
   renderAlerts();
   renderTable();
@@ -926,8 +1096,8 @@ async function doSearch() {
   searchBtn.style.background = "#1e40af";
 
   currentFilters = gatherFilters();
+  apiError = null;
 
-  // Try live data
   const mode = _detectAppMode();
   if (mode === "mcp" || mode === "live") {
     try {
@@ -940,35 +1110,7 @@ async function doSearch() {
       });
       if (toolResult?.content?.[0]?.text) {
         const parsed = JSON.parse(toolResult.content[0].text);
-        // Transform API response: {results: [{make, data: {num_found, listings}}]}
-        const offers: IncentiveOffer[] = [];
-        const resultsArr = parsed.results || (parsed.num_found != null ? [{ make: "", data: parsed }] : []);
-        for (const entry of resultsArr) {
-          const listings = entry.data?.listings || [];
-          for (const listing of listings) {
-            const o = listing.offer || {};
-            const v = o.vehicles?.[0] || {};
-            const amt = o.amounts?.[0] || {};
-            const offerType: OfferType = o.offer_type === "cash" ? "cashback" : (o.offer_type === "finance" ? "apr" : o.offer_type === "lease" ? "lease" : "cashback");
-            const amount = offerType === "cashback" ? (o.cashback_amount || 0) : offerType === "apr" ? (amt.apr || 0) : (amt.monthly || 0);
-            const amountDisplay = offerType === "cashback" ? `$${(amount).toLocaleString()} Cash Back` : offerType === "apr" ? `${amount}% APR / ${amt.term || 0}mo` : `$${amount}/mo / ${amt.term || 0}mo`;
-            offers.push({
-              id: listing.id || `${v.make}-${v.model}-${Math.random().toString(36).slice(2,6)}`,
-              make: v.make || entry.make || "",
-              model: v.model || "",
-              offerType,
-              title: (o.titles?.[0] || o.oem_program_name || `${v.make} ${o.offer_type || "offer"}`),
-              amount,
-              amountDisplay,
-              term: amt.term || 0,
-              expirationDate: o.valid_through || "",
-              dueAtSigning: o.due_at_signing,
-              region: listing.state || listing.city || "National",
-              stackable: false,
-              finePrint: (o.disclaimers?.[0] || o.offers?.[0] || "").substring(0, 200),
-            });
-          }
-        }
+        const offers = parseOffersFromResponse(parsed);
         if (offers.length > 0) {
           allOffers = offers;
           filteredOffers = filterOffers(allOffers, currentFilters);
@@ -978,10 +1120,23 @@ async function doSearch() {
           return;
         }
       }
-    } catch {}
+      // Live mode with a key but got nothing back — surface this instead of silently showing mock.
+      if (mode === "live") {
+        apiError = {
+          kind: "empty",
+          message: "The incentives API returned no offers for the requested filters. This can happen if your key lacks access to the /v2/search/car/incentive/oem endpoint, or the endpoint returned an empty listings array.",
+        };
+      }
+    } catch (e) {
+      if (mode === "live") {
+        apiError = {
+          kind: "threw",
+          message: `Live API call failed: ${(e as Error)?.message || "unknown error"}.`,
+        };
+      }
+    }
   }
 
-  // Fall back to mock data
   allOffers = generateMockOffers();
   filteredOffers = filterOffers(allOffers, currentFilters);
   renderAll();
@@ -1013,15 +1168,23 @@ window.addEventListener("resize", () => {
 // ── Initial Load ───────────────────────────────────────────────────────────────
 
 (async function init() {
-  // Check URL params
   const params = _getUrlParams();
   if (params.zip) {
     (document.getElementById("zipInput") as HTMLInputElement).value = params.zip;
   }
+  if (params.offer_type && ["all", "cashback", "apr", "lease"].includes(params.offer_type)) {
+    (document.getElementById("offerTypeSelect") as HTMLSelectElement).value = params.offer_type;
+  }
+  if (params.max_monthly && !isNaN(+params.max_monthly)) {
+    (document.getElementById("maxMonthlyInput") as HTMLInputElement).value = params.max_monthly;
+  }
+  if (params.min_cashback && !isNaN(+params.min_cashback)) {
+    (document.getElementById("minCashbackInput") as HTMLInputElement).value = params.min_cashback;
+  }
   if (params.make) {
-    const makeNames = params.make.split(",");
+    const makeNames = params.make.split(",").map(m => m.trim().toLowerCase());
     makeCheckboxes.forEach(cb => {
-      if (makeNames.includes(cb.value)) cb.checked = true;
+      if (makeNames.includes(cb.value.toLowerCase())) cb.checked = true;
     });
   }
 

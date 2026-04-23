@@ -399,6 +399,16 @@ export const APPS = [
       { name: "zip", type: "string", required: true, desc: "Market ZIP" },
     ],
   },
+  {
+    id: "auction-run-list-analyzer", name: "Auction Run List Analyzer", tagline: "Pre-sale VIN evaluation with hammer price predictions",
+    segment: "Auction House", tool: null,
+    description: "Evaluates a batch of up to 15 consigned VINs before sale day. Decodes specs, predicts retail and wholesale prices, calculates expected hammer price (0.92x retail), and produces BUY/CAUTION/PASS sell-through verdicts based on market demand and pricing position.",
+    apiEndpoints: ["decode", "predict", "searchActive"],
+    inputParams: [
+      { name: "vins", type: "string", required: true, desc: "Comma-separated VINs on the run list (up to 15)" },
+      { name: "zip", type: "string", required: false, desc: "Auction location ZIP" },
+    ],
+  },
   // ── Wholesaler ──
   {
     id: "wholesale-vehicle-router", name: "Wholesale Vehicle Router", tagline: "Paste VINs, get dealer-match rankings",

@@ -83,19 +83,20 @@ async function _fetchDirect(args) {
 async function _callTool(toolName, args) {
   const auth = _getAuth();
   if (auth.value) {
-    // 1. Proxy (same-origin, reliable)
+    // 1. Proxy (same-origin, reliable) — network errors fall through, non-ok HTTP throws
     try {
       const r = await fetch((_proxyBase()) + "/api/proxy/" + toolName, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...args, _auth_mode: auth.mode, _auth_value: auth.value }),
       });
       if (r.ok) { const d = await r.json(); return { content: [{ type: "text", text: JSON.stringify(d) }] }; }
-    } catch {}
-    // 2. Direct API fallback
-    try {
-      const data = await _fetchDirect(args);
-      if (data) return { content: [{ type: "text", text: JSON.stringify(data) }] };
-    } catch {}
+      // Proxy responded but not OK — fall through to direct API.
+    } catch {
+      // Proxy unreachable — fall through to direct API.
+    }
+    // 2. Direct API — errors propagate so caller can surface them in live mode
+    const data = await _fetchDirect(args);
+    return { content: [{ type: "text", text: JSON.stringify(data) }] };
   }
   // 3. MCP mode (Claude, VS Code, etc.)
   if (_safeApp) {
@@ -617,7 +618,8 @@ let currentFilters: SearchFilters = {
   makes: [],
   zip: "90210",
 };
-let liveFetchFailed = false;
+type ApiErrorKind = "empty" | "threw";
+let apiError: { kind: ApiErrorKind; message: string } | null = null;
 
 // ── Build UI ───────────────────────────────────────────────────────────────────
 
@@ -965,7 +967,7 @@ function renderApiErrorBanner() {
   const existing = document.getElementById("_api_error_banner");
   if (existing) existing.remove();
   const badge = document.getElementById("_mode_badge");
-  if (!liveFetchFailed) {
+  if (!apiError) {
     if (badge && _detectAppMode() === "live") {
       badge.textContent = "LIVE";
       badge.style.background = "#05966922";
@@ -983,24 +985,33 @@ function renderApiErrorBanner() {
 
   const banner = document.createElement("div");
   banner.id = "_api_error_banner";
-  banner.style.cssText = "background:linear-gradient(135deg,#7f1d1d22,#ef444411);border:1px solid #ef444466;border-radius:10px;padding:14px 20px;margin-bottom:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;";
+  banner.style.cssText = "background:linear-gradient(135deg,#7f1d1d22,#ef444411);border:1px solid #ef444466;border-radius:10px;padding:14px 20px;margin-bottom:12px;display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;";
 
   const textWrap = document.createElement("div");
   textWrap.style.cssText = "flex:1;min-width:200px;";
-  const title = document.createElement("div");
-  title.style.cssText = "font-size:13px;font-weight:700;color:#fca5a5;margin-bottom:2px;";
-  title.textContent = "⚠ Could not fetch live data — showing sample data";
-  const desc = document.createElement("div");
-  desc.style.cssText = "font-size:12px;color:#f87171;";
-  desc.textContent = "Your MarketCheck API key appears to be invalid or the service is unreachable. ";
+  const titleEl = document.createElement("div");
+  titleEl.style.cssText = "font-size:13px;font-weight:700;color:#fca5a5;margin-bottom:4px;";
+  titleEl.textContent = apiError.kind === "empty"
+    ? "⚠ Live API returned no offers — showing sample data"
+    : "⚠ Live API request failed — showing sample data";
+  const msgEl = document.createElement("div");
+  msgEl.style.cssText = "font-size:12px;color:#fda4af;line-height:1.5;margin-bottom:6px;";
+  msgEl.textContent = apiError.message;
+  const helpEl = document.createElement("div");
+  helpEl.style.cssText = "font-size:11px;color:#f87171;line-height:1.5;";
+  helpEl.appendChild(document.createTextNode(
+    "Common causes: invalid or expired API key, missing subscription tier for the incentives endpoint, or a temporary service outage. Check your key at "
+  ));
   const link = document.createElement("a");
   link.href = "https://developers.marketcheck.com";
   link.target = "_blank";
   link.style.cssText = "color:#fca5a5;text-decoration:underline;";
-  link.textContent = "Get a valid key";
-  desc.appendChild(link);
-  textWrap.appendChild(title);
-  textWrap.appendChild(desc);
+  link.textContent = "developers.marketcheck.com";
+  helpEl.appendChild(link);
+  helpEl.appendChild(document.createTextNode("."));
+  textWrap.appendChild(titleEl);
+  textWrap.appendChild(msgEl);
+  textWrap.appendChild(helpEl);
 
   const clearBtn = document.createElement("button");
   clearBtn.textContent = "Clear Key";
@@ -1085,7 +1096,7 @@ async function doSearch() {
   searchBtn.style.background = "#1e40af";
 
   currentFilters = gatherFilters();
-  liveFetchFailed = false;
+  apiError = null;
 
   const mode = _detectAppMode();
   if (mode === "mcp" || mode === "live") {
@@ -1109,10 +1120,20 @@ async function doSearch() {
           return;
         }
       }
-      // Live mode with a key but got nothing back — treat as auth/API failure
-      liveFetchFailed = true;
-    } catch {
-      liveFetchFailed = true;
+      // Live mode with a key but got nothing back — surface this instead of silently showing mock.
+      if (mode === "live") {
+        apiError = {
+          kind: "empty",
+          message: "The incentives API returned no offers for the requested filters. This can happen if your key lacks access to the /v2/search/car/incentive/oem endpoint, or the endpoint returned an empty listings array.",
+        };
+      }
+    } catch (e) {
+      if (mode === "live") {
+        apiError = {
+          kind: "threw",
+          message: `Live API call failed: ${(e as Error)?.message || "unknown error"}.`,
+        };
+      }
     }
   }
 

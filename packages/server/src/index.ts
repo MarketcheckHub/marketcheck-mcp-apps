@@ -47,6 +47,7 @@ try {
     "./tools/dealer-conquest-analyzer.js", "./tools/market-anomaly-detector.js",
     "./tools/lender-portfolio-stress-test.js", "./tools/rental-fleet-valuator.js",
     "./tools/fleet-lifecycle-manager.js",
+    "./tools/floor-plan-opportunity-scanner.js",
   ];
 
   let registered = 0;

@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Incentive-Adjusted Deal Evaluator — MarketCheck Apps">
-  <meta property="og:description" content="Extends the deal evaluator by also pulling OEM incentives. Shows the true out-of-pocket cost after cash back, APR specials, and lease deals — giving a more accurate deal evaluation.">
+  <meta property="og:description" content="Goes beyond a simple deal evaluation by factoring in manufacturer incentives — cash back, low-APR financing, and lease specials — to reveal the true out-of-pocket cost of a new car. Decodes the VIN, p">
   <meta property="og:url" content="https://apps.marketcheck.com/app/incentive-adjusted-deal-eval/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/incentive-adjusted-deal-eval.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Incentive-Adjusted Deal Evaluator">
-  <meta name="twitter:description" content="Extends the deal evaluator by also pulling OEM incentives. Shows the true out-of-pocket cost after cash back, APR specials, and lease deals — giving a more accurate deal evaluation.">
+  <meta name="twitter:description" content="Goes beyond a simple deal evaluation by factoring in manufacturer incentives — cash back, low-APR financing, and lease specials — to reveal the true out-of-pocket cost of a new car. Decodes the VIN, p">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/incentive-adjusted-deal-eval.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Incentive-Adjusted Deal Evaluator","description":"Extends the deal evaluator by also pulling OEM incentives. Shows the true out-of-pocket cost after cash back, APR specials, and lease deals — giving a more accurate deal evaluation.","url":"https://apps.marketcheck.com/app/incentive-adjusted-deal-eval/","image":"https://apps.marketcheck.com/assets/screenshots/incentive-adjusted-deal-eval.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Incentive-Adjusted Deal Evaluator","description":"Goes beyond a simple deal evaluation by factoring in manufacturer incentives — cash back, low-APR financing, and lease specials — to reveal the true out-of-pocket cost of a new car. Decodes the VIN, predicts market fair value, fetches the full OEM incentive program for the make and model, and then models multiple buy paths (cash-back + standard financing vs incentive APR vs lease) to recommend the cheapest route. Output includes a stacked savings breakdown (cash back + dealer discount + APR interest savings + vs-FMV), a full 4-rate × 4-term financing comparison table, an eligibility checklist so shoppers know which incentives require credit approval or trade-in proof, and negotiation tips grounded in the live comp set.","url":"https://apps.marketcheck.com/app/incentive-adjusted-deal-eval/","image":"https://apps.marketcheck.com/assets/screenshots/incentive-adjusted-deal-eval.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -306,12 +306,52 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Extends the deal evaluator by also pulling OEM incentives. Shows the true out-of-pocket cost after cash back, APR specials, and lease deals — giving a more accurate deal evaluation.</p>
+    <p>Goes beyond a simple deal evaluation by factoring in manufacturer incentives — cash back, low-APR financing, and lease specials — to reveal the true out-of-pocket cost of a new car. Decodes the VIN, predicts market fair value, fetches the full OEM incentive program for the make and model, and then models multiple buy paths (cash-back + standard financing vs incentive APR vs lease) to recommend the cheapest route. Output includes a stacked savings breakdown (cash back + dealer discount + APR interest savings + vs-FMV), a full 4-rate × 4-term financing comparison table, an eligibility checklist so shoppers know which incentives require credit approval or trade-in proof, and negotiation tips grounded in the live comp set.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">New-Car Shoppers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Paste a VIN and asking price to see the true drive-away cost after every rebate and APR incentive stacks. The recommender picks between cash back vs incentive APR based on 60-month total cost.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Negotiators</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Use the live comp table and incentive expiration dates as month-end leverage. Each tip is derived from the specific deal, not generic advice.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Credit Unions & Pre-Approved Buyers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Compare the manufacturer's incentive APR against your own pre-approval across 36/48/60/72-month terms — the tool shows exactly when your outside rate beats the captive offer.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Dealership Finance Teams</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Run a quick parity check on a customer's expected out-of-pocket before presenting numbers. Useful for validating incentive eligibility and stacking rules at the desk.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (or set via localStorage / settings gear)</td></tr><tr><td><code>vin</code></td><td>17-character VIN — auto-fills the form and triggers evaluation on load</td></tr><tr><td><code>zip</code></td><td>Buyer's ZIP code — used to scope active comparables (incentives are MSA/state-level)</td></tr><tr><td><code>askingPrice</code></td><td>Dealer's asking price in USD — drives out-of-pocket and buy-path math</td></tr><tr><td><code>miles</code></td><td>Current odometer reading — required by /predict for accurate ML fair-value</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/incentive-adjusted-deal-eval/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/incentive-adjusted-deal-eval/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/incentive-adjusted-deal-eval/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/incentive-adjusted-deal-eval/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -346,7 +386,7 @@ pre.code-block {
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/active</code>
             <div class="flow-api-name">Search Active Listings</div>
-          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Predict price, fetch OEM incentives for make, and search comps — all in parallel</div></div>
+          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Predict price (with miles), fetch OEM incentives for make (ZIP is stripped — data is MSA-level), and search comps — all in parallel</div></div>
     </div>
   </div>
 
@@ -358,7 +398,7 @@ pre.code-block {
     <table class="param-table">
       <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>vin</code></td><td>string</td><td><span class="required">Yes</span></td><td>17-character VIN</td></tr><tr><td><code>askingPrice</code></td><td>number</td><td>No</td><td>Dealer asking price</td></tr><tr><td><code>miles</code></td><td>number</td><td>No</td><td>Current mileage</td></tr><tr><td><code>zip</code></td><td>string</td><td>No</td><td>Buyer's ZIP code</td></tr>
+        <tr><td><code>vin</code></td><td>string</td><td><span class="required">Yes</span></td><td>17-character VIN</td></tr><tr><td><code>askingPrice</code></td><td>number</td><td>No</td><td>Dealer asking price</td></tr><tr><td><code>miles</code></td><td>number</td><td>No</td><td>Current mileage (required by /predict for accurate fair-value)</td></tr><tr><td><code>zip</code></td><td>string</td><td>No</td><td>Buyer's ZIP code for local comparables</td></tr>
       </tbody>
     </table>
   </div>
@@ -443,7 +483,7 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Sticker price vs out-of-pocket waterfall chart</div><div class="render-item"><div class="render-dot"></div>incentive badges</div><div class="render-item"><div class="render-dot"></div>deal gauge (adjusted for incentives)</div><div class="render-item"><div class="render-dot"></div>cash back / APR / lease cards</div><div class="render-item"><div class="render-dot"></div>comp vehicle list</div>
+      <div class="render-item"><div class="render-dot"></div>Sticker price vs out-of-pocket waterfall chart</div><div class="render-item"><div class="render-dot"></div>incentive badges</div><div class="render-item"><div class="render-dot"></div>deal gauge (adjusted for incentives)</div><div class="render-item"><div class="render-dot"></div>cash back / APR / lease cards</div><div class="render-item"><div class="render-dot"></div>comp vehicle list</div><div class="render-item"><div class="render-dot"></div>financing scenario matrix</div><div class="render-item"><div class="render-dot"></div>eligibility checklist</div><div class="render-item"><div class="render-dot"></div>negotiation tips</div>
     </div>
   </div>
 

@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: VIN History Detective — MarketCheck Apps">
-  <meta property="og:description" content="Investigates a vehicle's complete listing history. Shows every time it appeared on a dealer lot, with price changes, dealer hops, and time-on-market — revealing red flags and market behavior patterns.">
+  <meta property="og:description" content="Paste a VIN and get its complete listing-history investigation on one page: every priced listing the vehicle appeared on across MarketCheck's dealer network (with dates, price, miles, city/state, sour">
   <meta property="og:url" content="https://apps.marketcheck.com/app/vin-history-detective/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/vin-history-detective.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: VIN History Detective">
-  <meta name="twitter:description" content="Investigates a vehicle's complete listing history. Shows every time it appeared on a dealer lot, with price changes, dealer hops, and time-on-market — revealing red flags and market behavior patterns.">
+  <meta name="twitter:description" content="Paste a VIN and get its complete listing-history investigation on one page: every priced listing the vehicle appeared on across MarketCheck's dealer network (with dates, price, miles, city/state, sour">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/vin-history-detective.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: VIN History Detective","description":"Investigates a vehicle's complete listing history. Shows every time it appeared on a dealer lot, with price changes, dealer hops, and time-on-market — revealing red flags and market behavior patterns.","url":"https://apps.marketcheck.com/app/vin-history-detective/","image":"https://apps.marketcheck.com/assets/screenshots/vin-history-detective.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: VIN History Detective","description":"Paste a VIN and get its complete listing-history investigation on one page: every priced listing the vehicle appeared on across MarketCheck's dealer network (with dates, price, miles, city/state, source), the dealer hop chain that collapses same-dealer re-listings, journey KPIs (total listings, dealers visited, total days on market, total price change), a stepped price-timeline chart, a price-trajectory narrative, automated red-flag alerts (excessive transfers, prolonged market time, price erosion, cross-state movement, above/below-FMV pricing), and a fair-market-value comparison against the current asking price.","url":"https://apps.marketcheck.com/app/vin-history-detective/","image":"https://apps.marketcheck.com/assets/screenshots/vin-history-detective.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -306,12 +306,52 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Investigates a vehicle's complete listing history. Shows every time it appeared on a dealer lot, with price changes, dealer hops, and time-on-market — revealing red flags and market behavior patterns.</p>
+    <p>Paste a VIN and get its complete listing-history investigation on one page: every priced listing the vehicle appeared on across MarketCheck's dealer network (with dates, price, miles, city/state, source), the dealer hop chain that collapses same-dealer re-listings, journey KPIs (total listings, dealers visited, total days on market, total price change), a stepped price-timeline chart, a price-trajectory narrative, automated red-flag alerts (excessive transfers, prolonged market time, price erosion, cross-state movement, above/below-FMV pricing), and a fair-market-value comparison against the current asking price.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Used-Car Shoppers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Before you buy, see if a VIN has been on-and-off lots for a year, dropped $5K, or hopped four states — classic signs of undisclosed issues.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Dealers & Appraisers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Understand why a trade-in has been in the market for so long and price it against its real dealer-to-dealer history, not just CarFax events.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Auction Buyers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Spot vehicles that have been routed through wholesale multiple times — aged inventory masquerading as fresh.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Fraud & Compliance</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Interstate hops and repeated relisting can surface title or odometer concerns — use the timeline as an investigation starting point.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key — switches the app to live mode</td></tr><tr><td><code>access_token</code></td><td>OAuth bearer token (alternative to api_key)</td></tr><tr><td><code>vin</code></td><td>17-character VIN — auto-fills the form and triggers the trace</td></tr><tr><td><code>miles</code></td><td>Pre-fill the optional mileage field (used for the FMV prediction)</td></tr><tr><td><code>zip</code></td><td>Pre-fill the optional ZIP field (used for the FMV prediction)</td></tr><tr><td><code>embed</code></td><td>Hide the settings bar — for embedding in another dashboard</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/vin-history-detective/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/vin-history-detective/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/vin-history-detective/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/vin-history-detective/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -331,17 +371,17 @@ pre.code-block {
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/decode/car/neovin/{vin}/specs</code>
             <div class="flow-api-name">VIN Decode</div>
-          </div></div><div class="flow-note">Get vehicle specs</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">History + Price</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
+          </div></div><div class="flow-note">Resolve the VIN into year / make / model / trim / body / engine / transmission / drivetrain / fuel / MSRP.</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Listing History</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
           <div class="flow-api-card">
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/history/car/{vin}</code>
             <div class="flow-api-name">Car History (Listing Timeline)</div>
-          </div>
+          </div></div><div class="flow-note">Fetch the full cross-dealer listing history for the VIN. The transform filters to priced entries, computes DOM from first/last-seen dates, and collapses consecutive same-dealer listings into dealer hops.</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">3</div><div class="flow-step-label">Current FMV</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
           <div class="flow-api-card">
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/predict/car/us/marketcheck_price/comparables</code>
             <div class="flow-api-name">Price Prediction (Retail / Franchise)</div>
-          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Fetch full listing history and current price prediction in parallel</div></div>
+          </div></div><div class="flow-note">Predict the current fair market value. If the caller didn't supply miles/zip, the client auto-infers them from the most recent priced listing.</div></div>
     </div>
   </div>
 
@@ -353,7 +393,7 @@ pre.code-block {
     <table class="param-table">
       <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>vin</code></td><td>string</td><td><span class="required">Yes</span></td><td>17-character VIN</td></tr><tr><td><code>miles</code></td><td>number</td><td>No</td><td>Current mileage</td></tr><tr><td><code>zip</code></td><td>string</td><td>No</td><td>ZIP code for local context</td></tr>
+        <tr><td><code>vin</code></td><td>string</td><td><span class="required">Yes</span></td><td>17-character VIN</td></tr><tr><td><code>miles</code></td><td>number</td><td>No</td><td>Current mileage (auto-inferred from the most recent priced listing if omitted)</td></tr><tr><td><code>zip</code></td><td>string</td><td>No</td><td>ZIP for the FMV prediction (auto-inferred from the most recent priced listing if omitted)</td></tr>
       </tbody>
     </table>
   </div>
@@ -421,7 +461,7 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Timeline visualization with dealer hops</div><div class="render-item"><div class="render-dot"></div>stepped-line price chart</div><div class="render-item"><div class="render-dot"></div>red flag alerts (excessive relisting</div><div class="render-item"><div class="render-dot"></div>price volatility)</div><div class="render-item"><div class="render-dot"></div>current value vs historical range</div>
+      <div class="render-item"><div class="render-dot"></div>Vehicle identity card (VIN + YMMT + specs)</div><div class="render-item"><div class="render-dot"></div>4-KPI journey summary (listings / dealers / total DOM / total price change)</div><div class="render-item"><div class="render-dot"></div>stepped-line price timeline (one color per dealer)</div><div class="render-item"><div class="render-dot"></div>horizontal dealer-hop chain with inter-dealer price deltas</div><div class="render-item"><div class="render-dot"></div>price-trajectory narrative</div><div class="render-item"><div class="render-dot"></div>red-flag alerts (severity-tagged)</div><div class="render-item"><div class="render-dot"></div>current FMV-vs-asking bar with variance</div><div class="render-item"><div class="render-dot"></div>and a full detail table of every listing in the VIN's history</div>
     </div>
   </div>
 

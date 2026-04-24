@@ -71,10 +71,31 @@ function _mcIncentives(p) { const q={...p}; if(q.oem&&!q.make){q.make=q.oem;dele
 function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
 function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
 
-async function _fetchDirect(args) {
+async function _fetchDirect(args: { vin: string; miles?: number | string; zip?: string }) {
   const decode = await _mcDecode(args.vin);
-  const [history,prediction] = await Promise.all([_mcHistory(args.vin),_mcPredict({vin:args.vin,miles:args.miles,dealer_type:"franchise",zip:args.zip})]);
-  return {decode,history,prediction};
+  const history = await _mcHistory(args.vin);
+  // Price prediction requires miles AND (zip OR city+state). If caller didn't
+  // provide miles, fall back to the most recent priced history entry's miles.
+  let miles = args.miles ? Number(args.miles) : 0;
+  if (!miles && Array.isArray(history)) {
+    const priced = history.filter((h: any) => h.price && h.miles).sort((a: any, b: any) => (b.last_seen_at ?? 0) - (a.last_seen_at ?? 0));
+    if (priced.length) miles = Number(priced[0].miles);
+  }
+  // Derive a zip from the most recent listing if the caller didn't provide one.
+  let zip = args.zip || "";
+  if (!zip && Array.isArray(history)) {
+    const withZip = history.filter((h: any) => h.zip).sort((a: any, b: any) => (b.last_seen_at ?? 0) - (a.last_seen_at ?? 0));
+    if (withZip.length) zip = String(withZip[0].zip);
+  }
+  let prediction: any = null;
+  if (miles && zip) {
+    try {
+      prediction = await _mcPredict({ vin: args.vin, miles, dealer_type: "franchise", zip });
+    } catch (e) {
+      console.warn("predict failed", e);
+    }
+  }
+  return { decode, history, prediction };
 }
 
 async function _callTool(toolName, args) {
@@ -236,52 +257,201 @@ interface VinHistoryData {
   redFlags: RedFlag[];
 }
 
+// ── Live API → VinHistoryData transform ───────────────────────────────────
+
+function _daysBetween(start: string, end: string): number {
+  const s = new Date(start).getTime();
+  const e = new Date(end).getTime();
+  if (!isFinite(s) || !isFinite(e) || e < s) return 0;
+  return Math.max(1, Math.round((e - s) / 86400000));
+}
+
+function _titleCase(s: string): string {
+  if (!s) return "";
+  return s.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function transformLive(raw: { decode: any; history: any; prediction: any }, vin: string): VinHistoryData {
+  const decode = raw?.decode ?? {};
+  const historyArr: any[] = Array.isArray(raw?.history) ? raw.history : [];
+
+  const vehicle: VehicleSpec = {
+    vin: String(decode.vin ?? vin),
+    year: Number(decode.year ?? 0) || 0,
+    make: String(decode.make ?? ""),
+    model: String(decode.model ?? ""),
+    trim: String(decode.trim ?? ""),
+    bodyType: String(decode.body_type ?? ""),
+    engine: String(decode.engine ?? ""),
+    transmission: String(decode.transmission_description ?? decode.transmission ?? ""),
+    drivetrain: String(decode.drivetrain ?? ""),
+    fuelType: String(decode.fuel_type ?? ""),
+    msrp: Number(decode.combined_msrp ?? decode.mc_msrp ?? decode.msrp ?? 0) || 0,
+  };
+
+  // Filter to priced listings with a valid first-seen date, sort chronologically.
+  const priced = historyArr
+    .filter((h) => h.price && h.first_seen_at_date)
+    .map((h) => ({
+      date: String(h.first_seen_at_date),
+      endDate: String(h.last_seen_at_date ?? h.first_seen_at_date),
+      price: Number(h.price) || 0,
+      dealerName: _titleCase(String(h.seller_name ?? "Unknown")),
+      city: String(h.city ?? ""),
+      state: String(h.state ?? ""),
+      miles: Number(h.miles ?? 0) || 0,
+      dom: 0,
+      source: String(h.source ?? "").replace(/\.com$/, ""),
+    }))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  // Compute dom from first/last seen dates, since the history endpoint doesn't
+  // always return a `dom` field.
+  for (const l of priced) l.dom = _daysBetween(l.date, l.endDate);
+
+  // Collapse consecutive same-dealer listings into a single dealer hop.
+  const dealers: DealerHop[] = [];
+  for (const l of priced) {
+    const last = dealers[dealers.length - 1];
+    if (last && last.dealerName === l.dealerName && last.city === l.city && last.state === l.state) {
+      last.exitDate = l.endDate;
+      last.exitPrice = l.price;
+      last.daysHeld = _daysBetween(last.entryDate, last.exitDate);
+    } else {
+      dealers.push({
+        dealerName: l.dealerName,
+        city: l.city,
+        state: l.state,
+        entryDate: l.date,
+        exitDate: l.endDate,
+        entryPrice: l.price,
+        exitPrice: l.price,
+        daysHeld: _daysBetween(l.date, l.endDate),
+      });
+    }
+  }
+
+  const totalListings = priced.length;
+  const totalDealers = dealers.length;
+  const totalDaysOnMarket = priced.reduce((s, l) => s + (l.dom || 0), 0);
+  const firstPrice = priced[0]?.price ?? 0;
+  const lastPrice = priced[priced.length - 1]?.price ?? 0;
+  const totalPriceChange = lastPrice - firstPrice;
+  const currentFmv = Number(raw?.prediction?.marketcheck_price ?? 0) || 0;
+
+  // Red flags
+  const redFlags: RedFlag[] = [];
+  if (totalDealers >= 4) {
+    redFlags.push({
+      severity: totalDealers >= 6 ? "high" : "medium",
+      title: "Excessive Dealer Transfers",
+      detail: `This vehicle has been through ${totalDealers} different dealers. Typical vehicles change hands 1-2 times — repeated transfers may indicate undisclosed issues.`,
+    });
+  }
+  if (totalDaysOnMarket > 180) {
+    redFlags.push({
+      severity: totalDaysOnMarket > 365 ? "high" : "medium",
+      title: "Prolonged Total Market Time",
+      detail: `${totalDaysOnMarket} total days on market across all listings. The average vehicle sells within 45 days. Extended market time often signals pricing or condition issues.`,
+    });
+  }
+  if (firstPrice > 0 && totalPriceChange < 0) {
+    const dropPct = (Math.abs(totalPriceChange) / firstPrice) * 100;
+    if (dropPct >= 10) {
+      redFlags.push({
+        severity: dropPct >= 20 ? "high" : "medium",
+        title: "Significant Price Erosion",
+        detail: `Price has dropped ${fmtCurrency(Math.abs(totalPriceChange))} (${dropPct.toFixed(1)}%) from the original listing of ${fmtCurrency(firstPrice)} to ${fmtCurrency(lastPrice)}. Exceeds normal depreciation for this window.`,
+      });
+    }
+  }
+  const states = new Set(dealers.map((d) => d.state).filter(Boolean));
+  if (states.size >= 2) {
+    redFlags.push({
+      severity: "medium",
+      title: "Cross-State Transfer",
+      detail: `Vehicle moved across ${states.size} states (${Array.from(states).join(", ")}). Interstate transfers can indicate attempts to distance the vehicle from its history.`,
+    });
+  }
+  if (currentFmv > 0 && lastPrice > 0) {
+    const diff = lastPrice - currentFmv;
+    const pctDiff = Math.abs(diff) / currentFmv * 100;
+    if (diff < 0 && pctDiff >= 5) {
+      redFlags.push({
+        severity: "low",
+        title: "Current Price Below FMV",
+        detail: `Currently listed at ${fmtCurrency(lastPrice)}, which is ${fmtCurrency(Math.abs(diff))} (${pctDiff.toFixed(1)}%) below the predicted fair market value of ${fmtCurrency(currentFmv)}. Could be a deal — or a signal worth investigating.`,
+      });
+    } else if (diff > 0 && pctDiff >= 10) {
+      redFlags.push({
+        severity: "medium",
+        title: "Current Price Above FMV",
+        detail: `Currently listed at ${fmtCurrency(lastPrice)}, which is ${fmtCurrency(diff)} (${pctDiff.toFixed(1)}%) above the predicted fair market value of ${fmtCurrency(currentFmv)}.`,
+      });
+    }
+  }
+
+  return {
+    vehicle,
+    listings: priced,
+    dealers,
+    totalListings,
+    totalDealers,
+    totalDaysOnMarket,
+    totalPriceChange,
+    firstPrice,
+    lastPrice,
+    currentFmv: currentFmv || lastPrice, // fall back to last asking price if predict unavailable
+    redFlags,
+  };
+}
+
 // ── Mock Data ──────────────────────────────────────────────────────────────────
 
 function getMockData(vin: string): VinHistoryData {
   return {
     vehicle: {
-      vin: vin || "2T1BURHE0JC034567",
-      year: 2022,
-      make: "BMW",
-      model: "X3",
-      trim: "xDrive30i",
-      bodyType: "SUV / Crossover",
-      engine: "2.0L Turbo 4-Cylinder",
-      transmission: "8-Speed Automatic",
-      drivetrain: "All-Wheel Drive",
-      fuelType: "Gasoline",
-      msrp: 45400,
+      vin: vin || "KNDCB3LC9L5359658",
+      year: 2020,
+      make: "Kia",
+      model: "Niro",
+      trim: "LX",
+      bodyType: "Hatchback",
+      engine: "1.6L I4 Hybrid",
+      transmission: "6-Speed Dual-Clutch",
+      drivetrain: "FWD",
+      fuelType: "Hybrid",
+      msrp: 25845,
     },
     listings: [
-      { date: "2024-09-05", endDate: "2024-10-20", price: 32000, dealerName: "Premier BMW of Dallas", city: "Dallas", state: "TX", miles: 28400, dom: 45, source: "Dealer Website" },
-      { date: "2024-10-28", endDate: "2024-12-15", price: 31200, dealerName: "Park Place Motors", city: "Fort Worth", state: "TX", miles: 29100, dom: 48, source: "AutoTrader" },
-      { date: "2025-01-08", endDate: "2025-04-22", price: 29500, dealerName: "CarMax Denver", city: "Denver", state: "CO", miles: 30800, dom: 104, source: "CarMax" },
-      { date: "2025-05-01", endDate: "2025-08-10", price: 28200, dealerName: "Sonic Automotive", city: "Colorado Springs", state: "CO", miles: 32500, dom: 101, source: "Cars.com" },
-      { date: "2025-08-18", endDate: "2025-11-30", price: 27400, dealerName: "AutoNation BMW", city: "Denver", state: "CO", miles: 33800, dom: 104, source: "Dealer Website" },
-      { date: "2025-12-10", endDate: "2026-03-26", price: 26500, dealerName: "Mile High Auto Exchange", city: "Aurora", state: "CO", miles: 35200, dom: 106, source: "Dealer Website" },
+      { date: "2024-09-05", endDate: "2024-10-20", price: 19800, dealerName: "Leader Automotive Group", city: "Chicago", state: "IL", miles: 54600, dom: 45, source: "Dealer Website" },
+      { date: "2024-10-28", endDate: "2024-12-15", price: 18900, dealerName: "Toyota of Lincolnwood", city: "Lincolnwood", state: "IL", miles: 55100, dom: 48, source: "AutoTrader" },
+      { date: "2025-01-08", endDate: "2025-04-22", price: 17500, dealerName: "CarMax Milwaukee", city: "Milwaukee", state: "WI", miles: 56800, dom: 104, source: "CarMax" },
+      { date: "2025-05-01", endDate: "2025-08-10", price: 16200, dealerName: "Sonic Automotive", city: "Madison", state: "WI", miles: 58200, dom: 101, source: "Cars.com" },
+      { date: "2025-08-18", endDate: "2025-11-30", price: 15100, dealerName: "AutoNation Kia", city: "Minneapolis", state: "MN", miles: 59400, dom: 104, source: "Dealer Website" },
+      { date: "2025-12-10", endDate: "2026-03-26", price: 13900, dealerName: "Twin Cities Auto Exchange", city: "St. Paul", state: "MN", miles: 60800, dom: 106, source: "Dealer Website" },
     ],
     dealers: [
-      { dealerName: "Premier BMW of Dallas", city: "Dallas", state: "TX", entryDate: "2024-09-05", exitDate: "2024-10-20", entryPrice: 32000, exitPrice: 32000, daysHeld: 45 },
-      { dealerName: "Park Place Motors", city: "Fort Worth", state: "TX", entryDate: "2024-10-28", exitDate: "2024-12-15", entryPrice: 31200, exitPrice: 31200, daysHeld: 48 },
-      { dealerName: "CarMax Denver", city: "Denver", state: "CO", entryDate: "2025-01-08", exitDate: "2025-04-22", entryPrice: 29500, exitPrice: 29500, daysHeld: 104 },
-      { dealerName: "Sonic Automotive", city: "Colorado Springs", state: "CO", entryDate: "2025-05-01", exitDate: "2025-08-10", entryPrice: 28200, exitPrice: 28200, daysHeld: 101 },
-      { dealerName: "AutoNation BMW", city: "Denver", state: "CO", entryDate: "2025-08-18", exitDate: "2025-11-30", entryPrice: 27400, exitPrice: 27400, daysHeld: 104 },
-      { dealerName: "Mile High Auto Exchange", city: "Aurora", state: "CO", entryDate: "2025-12-10", exitDate: "2026-03-26", entryPrice: 26500, exitPrice: 26500, daysHeld: 106 },
+      { dealerName: "Leader Automotive Group", city: "Chicago", state: "IL", entryDate: "2024-09-05", exitDate: "2024-10-20", entryPrice: 19800, exitPrice: 19800, daysHeld: 45 },
+      { dealerName: "Toyota of Lincolnwood", city: "Lincolnwood", state: "IL", entryDate: "2024-10-28", exitDate: "2024-12-15", entryPrice: 18900, exitPrice: 18900, daysHeld: 48 },
+      { dealerName: "CarMax Milwaukee", city: "Milwaukee", state: "WI", entryDate: "2025-01-08", exitDate: "2025-04-22", entryPrice: 17500, exitPrice: 17500, daysHeld: 104 },
+      { dealerName: "Sonic Automotive", city: "Madison", state: "WI", entryDate: "2025-05-01", exitDate: "2025-08-10", entryPrice: 16200, exitPrice: 16200, daysHeld: 101 },
+      { dealerName: "AutoNation Kia", city: "Minneapolis", state: "MN", entryDate: "2025-08-18", exitDate: "2025-11-30", entryPrice: 15100, exitPrice: 15100, daysHeld: 104 },
+      { dealerName: "Twin Cities Auto Exchange", city: "St. Paul", state: "MN", entryDate: "2025-12-10", exitDate: "2026-03-26", entryPrice: 13900, exitPrice: 13900, daysHeld: 106 },
     ],
     totalListings: 6,
     totalDealers: 6,
     totalDaysOnMarket: 508,
-    totalPriceChange: -5500,
-    firstPrice: 32000,
-    lastPrice: 26500,
-    currentFmv: 27800,
+    totalPriceChange: -5900,
+    firstPrice: 19800,
+    lastPrice: 13900,
+    currentFmv: 14600,
     redFlags: [
       { severity: "high", title: "Excessive Dealer Transfers", detail: "This vehicle has been through 6 different dealers in 18 months. Typical vehicles change hands 1-2 times. This pattern may indicate undisclosed issues that prevent a sale." },
       { severity: "high", title: "Prolonged Total Market Time", detail: "508 total days on market across all listings. The average vehicle sells within 45 days. Extended market time strongly suggests pricing or condition issues." },
-      { severity: "medium", title: "Significant Price Erosion", detail: "Price has dropped $5,500 (17.2%) from the original listing of $32,000 to $26,500. This exceeds normal depreciation for this period and mileage increase." },
-      { severity: "medium", title: "Cross-State Transfer", detail: "Vehicle moved from Texas to Colorado between dealers. Interstate transfers sometimes indicate attempts to distance the vehicle from its history." },
-      { severity: "low", title: "Current Price Below FMV", detail: "Currently listed at $26,500, which is $1,300 below the predicted fair market value of $27,800. While this could be a deal, combined with other flags, investigate further." },
+      { severity: "medium", title: "Significant Price Erosion", detail: "Price has dropped $5,900 (29.8%) from the original listing of $19,800 to $13,900. This exceeds normal depreciation for this period and mileage increase." },
+      { severity: "medium", title: "Cross-State Transfer", detail: "Vehicle moved across IL → WI → MN. Interstate transfers sometimes indicate attempts to distance the vehicle from its history." },
+      { severity: "low", title: "Current Price Below FMV", detail: "Currently listed at $13,900, which is $700 below the predicted fair market value of $14,600. While this could be a deal, combined with other flags, investigate further." },
     ],
   };
 }
@@ -530,12 +700,39 @@ async function main() {
   const vinInput = document.createElement("input");
   vinInput.type = "text";
   vinInput.placeholder = "Enter 17-character VIN";
-  vinInput.value = urlParams.vin || "2T1BURHE0JC034567";
+  vinInput.value = urlParams.vin || "KNDCB3LC9L5359658";
   vinInput.style.cssText = "padding:10px 14px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:14px;outline:none;width:100%;";
   vinInput.addEventListener("focus", () => { vinInput.style.borderColor = "#8b5cf6"; });
   vinInput.addEventListener("blur", () => { vinInput.style.borderColor = "#334155"; });
   vinWrap.appendChild(vinInput);
   inputArea.appendChild(vinWrap);
+
+  const milesWrap = document.createElement("div");
+  milesWrap.style.cssText = "display:flex;flex-direction:column;gap:4px;width:120px;";
+  milesWrap.innerHTML = `<label style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Miles <span style="color:#475569;text-transform:none;">(optional)</span></label>`;
+  const milesInput = document.createElement("input");
+  milesInput.type = "number";
+  milesInput.placeholder = "Auto";
+  milesInput.value = urlParams.miles || "";
+  milesInput.style.cssText = "padding:10px 14px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:14px;outline:none;width:100%;box-sizing:border-box;";
+  milesInput.addEventListener("focus", () => { milesInput.style.borderColor = "#8b5cf6"; });
+  milesInput.addEventListener("blur", () => { milesInput.style.borderColor = "#334155"; });
+  milesWrap.appendChild(milesInput);
+  inputArea.appendChild(milesWrap);
+
+  const zipWrap = document.createElement("div");
+  zipWrap.style.cssText = "display:flex;flex-direction:column;gap:4px;width:120px;";
+  zipWrap.innerHTML = `<label style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">ZIP <span style="color:#475569;text-transform:none;">(optional)</span></label>`;
+  const zipInput = document.createElement("input");
+  zipInput.type = "text";
+  zipInput.placeholder = "Auto";
+  zipInput.value = urlParams.zip || "";
+  zipInput.maxLength = 5;
+  zipInput.style.cssText = "padding:10px 14px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:14px;outline:none;width:100%;box-sizing:border-box;";
+  zipInput.addEventListener("focus", () => { zipInput.style.borderColor = "#8b5cf6"; });
+  zipInput.addEventListener("blur", () => { zipInput.style.borderColor = "#334155"; });
+  zipWrap.appendChild(zipInput);
+  inputArea.appendChild(zipWrap);
 
   const traceBtn = document.createElement("button");
   traceBtn.textContent = "Trace History";
@@ -549,18 +746,15 @@ async function main() {
   results.id = "results";
   container.appendChild(results);
 
-  traceBtn.addEventListener("click", () => runTrace(vinInput.value.trim()));
-
-  // Allow pressing Enter in VIN field
-  vinInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") traceBtn.click();
-  });
+  const trigger = () => runTrace(vinInput.value.trim(), milesInput.value.trim(), zipInput.value.trim());
+  traceBtn.addEventListener("click", trigger);
+  [vinInput, milesInput, zipInput].forEach((inp) => inp.addEventListener("keydown", (e) => { if (e.key === "Enter") trigger(); }));
 
   if (urlParams.vin) {
-    runTrace(urlParams.vin);
+    runTrace(urlParams.vin, urlParams.miles || "", urlParams.zip || "");
   }
 
-  async function runTrace(vin: string) {
+  async function runTrace(vin: string, miles: string, zip: string) {
     if (!vin) { alert("Please enter a VIN."); return; }
 
     traceBtn.disabled = true;
@@ -572,20 +766,31 @@ async function main() {
       Investigating listing history for ${vin}...
     </div>`;
 
+    const mode = _detectAppMode();
     let data: VinHistoryData;
     try {
-      if (serverAvailable) {
-        const response = await _callTool("trace-vin-history", { vin });
-        const textContent = response.content.find((c: any) => c.type === "text");
-        data = JSON.parse(textContent?.text ?? "{}");
+      if (mode !== "demo") {
+        const args = { vin, miles: miles || undefined, zip: zip || undefined };
+        const response = await _callTool("trace-vin-history", args);
+        const textContent = response?.content?.find((c: any) => c.type === "text");
+        const raw = textContent?.text ? JSON.parse(textContent.text) : null;
+        if (raw && raw.decode) {
+          // Raw direct-fetch shape — transform it.
+          data = transformLive(raw, vin);
+        } else if (raw && raw.vehicle) {
+          // Proxy / MCP already transformed — use as-is.
+          data = raw as VinHistoryData;
+        } else {
+          throw new Error("Empty response");
+        }
       } else {
-        await new Promise(r => setTimeout(r, 900));
+        await new Promise((r) => setTimeout(r, 900));
         data = getMockData(vin);
       }
       renderResults(data);
     } catch (err: any) {
       console.error("Trace failed, using mock:", err);
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise((r) => setTimeout(r, 400));
       data = getMockData(vin);
       renderResults(data);
     }

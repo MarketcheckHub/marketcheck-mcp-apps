@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Lot Pricing Dashboard — MarketCheck Apps">
-  <meta property="og:description" content="Pulls a dealer's entire active inventory and overlays market pricing data — showing price gaps, aging alerts, and a hot seller list from sold volume data.">
+  <meta property="og:description" content="Pulls a dealer's entire active inventory in a single call and overlays MarketCheck reference pricing so inventory managers can see which units are overpriced, underpriced, or sitting too long. Each ro">
   <meta property="og:url" content="https://apps.marketcheck.com/app/lot-pricing-dashboard/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/lot-pricing-dashboard.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Lot Pricing Dashboard">
-  <meta name="twitter:description" content="Pulls a dealer's entire active inventory and overlays market pricing data — showing price gaps, aging alerts, and a hot seller list from sold volume data.">
+  <meta name="twitter:description" content="Pulls a dealer's entire active inventory in a single call and overlays MarketCheck reference pricing so inventory managers can see which units are overpriced, underpriced, or sitting too long. Each ro">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/lot-pricing-dashboard.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Lot Pricing Dashboard","description":"Pulls a dealer's entire active inventory and overlays market pricing data — showing price gaps, aging alerts, and a hot seller list from sold volume data.","url":"https://apps.marketcheck.com/app/lot-pricing-dashboard/","image":"https://apps.marketcheck.com/assets/screenshots/lot-pricing-dashboard.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Lot Pricing Dashboard","description":"Pulls a dealer's entire active inventory in a single call and overlays MarketCheck reference pricing so inventory managers can see which units are overpriced, underpriced, or sitting too long. Each row flags a DROP / HOLD / RAISE action based on the gap to market, and a state-level hot seller list from the Sold Summary API shows what to stock next. A floor plan burn calculator surfaces the real cash cost of aged units, and the aging heatmap lets you filter the table down to the 61-90 or 90+ day danger zones with one click.","url":"https://apps.marketcheck.com/app/lot-pricing-dashboard/","image":"https://apps.marketcheck.com/assets/screenshots/lot-pricing-dashboard.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -309,12 +309,49 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Pulls a dealer's entire active inventory and overlays market pricing data — showing price gaps, aging alerts, and a hot seller list from sold volume data.</p>
+    <p>Pulls a dealer's entire active inventory in a single call and overlays MarketCheck reference pricing so inventory managers can see which units are overpriced, underpriced, or sitting too long. Each row flags a DROP / HOLD / RAISE action based on the gap to market, and a state-level hot seller list from the Sold Summary API shows what to stock next. A floor plan burn calculator surfaces the real cash cost of aged units, and the aging heatmap lets you filter the table down to the 61-90 or 90+ day danger zones with one click.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Used Car Managers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Daily scan of the lot to spot overpriced units before they age past 60 days and start burning floor plan.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Dealer Principals</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Quick read on pricing discipline across the lot — what percent is overpriced, where the aged units are, and what the monthly floor plan burn looks like at the current rate.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Inventory Buyers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Hot list shows which make/model combinations are moving fastest in the state, so wholesale buys line up with real demand instead of gut.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key — triggers live mode</td></tr><tr><td><code>dealer_id</code></td><td>MarketCheck numeric dealer ID (not the dealer domain). Required for live mode.</td></tr><tr><td><code>state</code></td><td>2-letter state code (e.g. CA, TX) — powers the stocking hot list from the Sold Summary API</td></tr><tr><td><code>zip</code></td><td>Optional dealer ZIP code for geo context</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/lot-pricing-dashboard/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/lot-pricing-dashboard/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/lot-pricing-dashboard/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/lot-pricing-dashboard/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -339,7 +376,7 @@ pre.code-block {
             <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
             <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
             <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
-          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Fetch dealer's active inventory (with stats/facets) and state-level demand rankings in parallel</div></div>
+          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Fetch dealer's active inventory (with stats/facets + ref_price for gap analysis) and state-level make/model demand rankings in parallel</div></div>
     </div>
   </div>
 

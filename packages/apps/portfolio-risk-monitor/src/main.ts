@@ -334,9 +334,11 @@ function renderWatchlistTable(loans: Loan[]): string {
     </tr>`;
   }).join("");
 
+  // Fix 3: show loan count in watchlist header
   return `<div style="background:#1e293b;border-radius:10px;padding:16px;height:100%;display:flex;flex-direction:column;">
     <h3 style="color:#e2e8f0;font-size:14px;margin-bottom:12px;display:flex;align-items:center;gap:6px;">
-      <span style="color:#ef4444;">&#9888;</span> Risk Watchlist (LTV > 100%)
+      <span style="color:#ef4444;">&#9888;</span> Risk Watchlist (LTV &gt; 100%)
+      <span style="margin-left:auto;font-size:11px;font-weight:500;color:#ef4444;background:#ef444422;padding:2px 8px;border-radius:10px;">${underwater.length} loans</span>
     </h3>
     <div style="overflow-y:auto;flex:1;">
       <table style="width:100%;border-collapse:collapse;">
@@ -472,44 +474,66 @@ function drawLTVHistogram(canvas: HTMLCanvasElement, loans: Loan[]): void {
   }
 
   // Bars
+  const zoneLabels = ["Safe", "Caution", "At Risk", "Underwater"];
   buckets.forEach((b, i) => {
     const x = padLeft + i * barW + barGap / 2;
     const w = barW - barGap;
     const barH = (b.loans.length / maxCount) * chartH;
     const y = padTop + chartH - barH;
-
-    // Bar gradient
-    const grad = ctx.createLinearGradient(x, y, x, padTop + chartH);
-    grad.addColorStop(0, b.color);
-    grad.addColorStop(1, b.color + "44");
-    ctx.fillStyle = grad;
-
-    // Rounded top
     const radius = 4;
-    ctx.beginPath();
-    ctx.moveTo(x + radius, y);
-    ctx.lineTo(x + w - radius, y);
-    ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
-    ctx.lineTo(x + w, padTop + chartH);
-    ctx.lineTo(x, padTop + chartH);
-    ctx.lineTo(x, y + radius);
-    ctx.quadraticCurveTo(x, y, x + radius, y);
-    ctx.fill();
 
-    // Count label on bar
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 14px system-ui, sans-serif";
-    ctx.textAlign = "center";
-    if (b.loans.length > 0) {
-      ctx.fillText(b.loans.length.toString(), x + w / 2, y - 8);
-    }
+    if (b.loans.length === 0) {
+      // Fix 1: ghost outline for empty bucket so users know it exists
+      ctx.save();
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = b.color + "55";
+      ctx.lineWidth = 1.5;
+      const ghostH = chartH * 0.06;
+      const ghostY = padTop + chartH - ghostH;
+      ctx.strokeRect(x, ghostY, w, ghostH);
+      ctx.restore();
 
-    // Exposure amount below count
-    const exposure = b.loans.reduce((s, l) => s + l.loanBalance, 0);
-    if (b.loans.length > 0) {
-      ctx.fillStyle = b.color;
-      ctx.font = "10px system-ui, sans-serif";
-      ctx.fillText(fmt$(exposure), x + w / 2, y - 22 > padTop ? y - 22 : padTop + 12);
+      // "0" label above ghost bar
+      ctx.fillStyle = b.color + "88";
+      ctx.font = "bold 13px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("0", x + w / 2, ghostY - 8);
+    } else {
+      // Bar gradient
+      const grad = ctx.createLinearGradient(x, y, x, padTop + chartH);
+      grad.addColorStop(0, b.color);
+      grad.addColorStop(1, b.color + "44");
+      ctx.fillStyle = grad;
+
+      // Rounded top
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + w - radius, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+      ctx.lineTo(x + w, padTop + chartH);
+      ctx.lineTo(x, padTop + chartH);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.fill();
+
+      // Fix 2: count above bar, exposure inside bar (no overlap)
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 14px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(b.loans.length.toString(), x + w / 2, y - 10);
+
+      const exposure = b.loans.reduce((s, l) => s + l.loanBalance, 0);
+      if (barH > 28) {
+        // Draw exposure inside the bar near the top
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "10px system-ui, sans-serif";
+        ctx.fillText(fmt$(exposure), x + w / 2, y + 16);
+      } else {
+        // Bar too short — show exposure above count with clear gap
+        ctx.fillStyle = b.color;
+        ctx.font = "10px system-ui, sans-serif";
+        ctx.fillText(fmt$(exposure), x + w / 2, y - 26);
+      }
     }
 
     // X-axis label
@@ -521,7 +545,6 @@ function drawLTVHistogram(canvas: HTMLCanvasElement, loans: Loan[]): void {
     // Zone label
     ctx.fillStyle = b.color;
     ctx.font = "bold 10px system-ui, sans-serif";
-    const zoneLabels = ["Safe", "Caution", "At Risk", "Underwater"];
     ctx.fillText(zoneLabels[i], x + w / 2, padTop + chartH + 34);
   });
 
@@ -632,29 +655,29 @@ function drawSegmentDonut(canvas: HTMLCanvasElement, loans: Loan[]): void {
   ctx.font = "11px system-ui, sans-serif";
   ctx.fillText("Total Loans", cx, cy + 10);
 
-  // Legend on right side
-  const legendX = W * 0.68;
-  let legendY = H * 0.18;
-  const lineH = 38;
+  // Fix 4: legend — larger font and spacing so avg depr is easily readable
+  const legendX = W * 0.66;
+  let legendY = H * 0.16;
+  const lineH = 46;
 
   segments.forEach(seg => {
-    // Color dot
-    ctx.beginPath();
-    ctx.arc(legendX, legendY + 2, 5, 0, Math.PI * 2);
+    // Color swatch (pill instead of dot — easier to read)
     ctx.fillStyle = seg.color;
+    ctx.beginPath();
+    ctx.roundRect(legendX, legendY, 12, 12, 3);
     ctx.fill();
 
     // Name and percentage
     ctx.fillStyle = "#e2e8f0";
-    ctx.font = "bold 12px system-ui, sans-serif";
+    ctx.font = "bold 13px system-ui, sans-serif";
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    ctx.fillText(`${seg.name} (${seg.pct}%)`, legendX + 14, legendY - 5);
+    ctx.fillText(`${seg.name} (${seg.pct}%)`, legendX + 18, legendY);
 
-    // Avg depreciation
+    // Avg depreciation — larger, colored, with bullet
     ctx.fillStyle = deprColor(seg.avgDepr);
-    ctx.font = "11px system-ui, sans-serif";
-    ctx.fillText(`Avg depr: ${fmtPct(seg.avgDepr)}/yr`, legendX + 14, legendY + 11);
+    ctx.font = "13px system-ui, sans-serif";
+    ctx.fillText(`${fmtPct(seg.avgDepr)}/yr avg depr`, legendX + 18, legendY + 18);
 
     legendY += lineH;
   });

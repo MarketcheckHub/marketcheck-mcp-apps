@@ -660,12 +660,91 @@ function drawSegmentDonut(canvas: HTMLCanvasElement, loans: Loan[]): void {
   });
 }
 
+// ── Live Data Fetch ───────────────────────────────────────────────────
+
+async function _fetchDirect(state?: string): Promise<{ heatmapData: HeatmapCell[] } | null> {
+  const auth = _getAuth();
+  if (!auth.value) return null;
+
+  try {
+    const makeParam = `ranking_dimensions=make&ranking_measure=average_sale_price&ranking_order=desc&top_n=10&inventory_type=used`;
+    const stateQ = state ? `&state=${encodeURIComponent(state)}` : "";
+    const authQ = auth.mode === "api_key" ? `&api_key=${encodeURIComponent(auth.value)}` : `&access_token=${encodeURIComponent(auth.value)}`;
+    const base = _proxyBase();
+
+    // Fetch by-make data for 0-2 yr, 2-4 yr, 4-6 yr age buckets
+    const [r0, r2, r4] = await Promise.all([
+      fetch(`${base}/api/v1/sold-vehicles/summary?${makeParam}&year_min=2023&year_max=2026${stateQ}${authQ}`),
+      fetch(`${base}/api/v1/sold-vehicles/summary?${makeParam}&year_min=2021&year_max=2022${stateQ}${authQ}`),
+      fetch(`${base}/api/v1/sold-vehicles/summary?${makeParam}&year_min=2019&year_max=2020${stateQ}${authQ}`),
+    ]);
+
+    const [d0, d2, d4] = await Promise.all([
+      r0.ok ? r0.json() : null,
+      r2.ok ? r2.json() : null,
+      r4.ok ? r4.json() : null,
+    ]);
+
+    // Build heatmap from rankings
+    const MAKES = ["Toyota", "Honda", "Ford", "GM", "Tesla", "BMW"];
+    const buildMap = (data: any): Record<string, number> => {
+      const map: Record<string, number> = {};
+      const rows = data?.rankings ?? data?.data ?? [];
+      for (const row of rows) {
+        const m = row.make ?? row.dimension_value ?? "";
+        if (MAKES.includes(m) && row.average_sale_price > 0) {
+          map[m] = row.average_sale_price;
+        }
+      }
+      return map;
+    };
+
+    const avg0 = buildMap(d0);
+    const avg2 = buildMap(d2);
+    const avg4 = buildMap(d4);
+
+    const cells: HeatmapCell[] = [];
+    for (const make of MAKES) {
+      const p0 = avg0[make], p2 = avg2[make], p4 = avg4[make];
+      // Approximate annual depreciation rate from price drop between buckets
+      if (p0 && p2) {
+        const rate = ((p0 - p2) / p0) * 100 / 2; // over ~2yr spread
+        cells.push({ make, ageBucket: "0-2yr", deprRate: Math.max(0, rate) });
+      } else {
+        cells.push(...generateHeatmapData().filter(d => d.make === make && d.ageBucket === "0-2yr"));
+      }
+      if (p2 && p4) {
+        const rate = ((p2 - p4) / p2) * 100 / 2;
+        cells.push({ make, ageBucket: "2-4yr", deprRate: Math.max(0, rate) });
+      } else {
+        cells.push(...generateHeatmapData().filter(d => d.make === make && d.ageBucket === "2-4yr"));
+      }
+      // 4-6yr: use mock for now
+      cells.push(...generateHeatmapData().filter(d => d.make === make && d.ageBucket === "4-6yr"));
+    }
+
+    return cells.length > 0 ? { heatmapData: cells } : null;
+  } catch {
+    return null;
+  }
+}
+
 // ── Main ──────────────────────────────────────────────────────────────
 
 
 (async () => {
+  const mode = _detectAppMode();
+  const urlParams = _getUrlParams();
+  const state = urlParams.state;
+
   const loans = generateMockLoans();
-  const heatmapData = generateHeatmapData();
+  let heatmapData = generateHeatmapData();
+
+  // Fetch live market data if key is present
+  if (mode === "live" || mode === "mcp") {
+    const liveData = await _fetchDirect(state);
+    if (liveData) heatmapData = liveData.heatmapData;
+  }
 
   const el = document.body;
   el.style.fontFamily = "system-ui, -apple-system, sans-serif";
@@ -683,22 +762,20 @@ function drawSegmentDonut(canvas: HTMLCanvasElement, loans: Loan[]): void {
       <h1 style="font-size:22px;font-weight:700;color:#f1f5f9;margin-bottom:4px;">Portfolio Risk Monitor</h1>
       <p style="font-size:12px;color:#64748b;">Auto Loan Portfolio Health & LTV Analysis</p>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;">
-      <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite;"></span>
-      <span style="font-size:12px;color:#64748b;">Live</span>
-    </div>
   `;
   el.appendChild(header);
-
-  // Style for pulse animation
-  const style = document.createElement("style");
-  style.textContent = `@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`;
-  el.appendChild(style);
+  _addSettingsBar(header);
 
   // VIN Input Area
   const vinSection = document.createElement("div");
   vinSection.innerHTML = renderVINInput();
   el.appendChild(vinSection);
+
+  // Pre-fill VIN from URL params
+  const vinInputEl = vinSection.querySelector("#vin-input") as HTMLTextAreaElement | null;
+  if (vinInputEl && urlParams.vin) {
+    vinInputEl.value = urlParams.vin;
+  }
 
   // KPI Ribbon
   const kpiSection = document.createElement("div");

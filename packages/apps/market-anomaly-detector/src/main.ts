@@ -11,9 +11,13 @@ function _getAuth(): { mode: "api_key" | "oauth_token" | null; value: string | n
   if (key) return { mode: "api_key", value: key };
   return { mode: null, value: null };
 }
-function _detectAppMode(): "mcp" | "live" | "demo" { if (_getAuth().value) return "live"; if (_safeApp) return "mcp"; return "demo"; }
+function _detectAppMode(): "mcp" | "live" | "demo" {
+  if (_getAuth().value) return "live";
+  if (_safeApp && window.parent !== window) return "mcp";
+  return "demo";
+}
 function _isEmbedMode(): boolean { return new URLSearchParams(location.search).has("embed"); }
-function _getUrlParams(): Record<string, string> { const params = new URLSearchParams(location.search); const result: Record<string, string> = {}; for (const key of ["vin","zip","make","model","miles","state","dealer_id","ticker","price"]) { const v = params.get(key); if (v) result[key] = v; } return result; }
+function _getUrlParams(): Record<string, string> { const params = new URLSearchParams(location.search); const result: Record<string, string> = {}; for (const key of ["vin","zip","make","model","miles","state","dealer_id","ticker","price","year","sensitivity"]) { const v = params.get(key); if (v) result[key] = v; } return result; }
 function _proxyBase(): string { return location.protocol.startsWith("http") ? "" : "http://localhost:3001"; }
 
 // ── Direct MarketCheck API Client (browser → api.marketcheck.com) ──────
@@ -94,37 +98,40 @@ function _addSettingsBar(headerEl?: HTMLElement) {
     gear.addEventListener("click", () => { panel.style.display = panel.style.display === "none" ? "block" : "none"; });
     document.addEventListener("click", (e) => { if (!panel.contains(e.target as Node) && e.target !== gear) panel.style.display = "none"; });
     document.body.appendChild(panel);
-
-  // ── Demo mode banner ──
-  if (_detectAppMode() === "demo") {
-    const _db = document.createElement("div");
-    _db.id = "_demo_banner";
-    _db.style.cssText = "background:linear-gradient(135deg,#92400e22,#f59e0b11);border:1px solid #f59e0b44;border-radius:10px;padding:14px 20px;margin-bottom:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;";
-    _db.innerHTML = `
-      <div style="flex:1;min-width:200px;">
-        <div style="font-size:13px;font-weight:700;color:#fbbf24;margin-bottom:2px;">&#9888; Demo Mode — Showing sample data</div>
-        <div style="font-size:12px;color:#d97706;">Enter your MarketCheck API key to see real market data. <a href="https://developers.marketcheck.com" target="_blank" style="color:#fbbf24;text-decoration:underline;">Get a free key</a></div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <input id="_banner_key" type="text" placeholder="Paste your API key" style="padding:8px 12px;border-radius:6px;border:1px solid #f59e0b44;background:#0f172a;color:#e2e8f0;font-size:13px;width:220px;outline:none;" />
-        <button id="_banner_save" style="padding:8px 16px;border-radius:6px;border:none;background:#f59e0b;color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Activate</button>
-      </div>`;
-    document.body.insertBefore(_db, document.body.firstChild);
-    _db.querySelector("#_banner_save").addEventListener("click", () => {
-      const k = _db.querySelector("#_banner_key").value.trim();
-      if (!k) return;
-      localStorage.setItem("mc_api_key", k);
-      _db.style.background = "linear-gradient(135deg,#05966922,#10b98111)";
-      _db.style.borderColor = "#10b98144";
-      _db.innerHTML = '<div style="font-size:13px;font-weight:700;color:#10b981;">&#10003; API key saved — reloading with live data...</div>';
-      setTimeout(() => location.reload(), 800);
-    });
-    _db.querySelector("#_banner_key").addEventListener("keydown", (e) => { if (e.key === "Enter") _db.querySelector("#_banner_save").click(); });
-  }
     setTimeout(() => { document.getElementById("_mc_save")?.addEventListener("click", () => { const k = (document.getElementById("_mc_key_inp") as HTMLInputElement)?.value?.trim(); if (k) { localStorage.setItem("mc_api_key", k); location.reload(); } }); document.getElementById("_mc_clear")?.addEventListener("click", () => { localStorage.removeItem("mc_api_key"); localStorage.removeItem("mc_access_token"); location.reload(); }); }, 0);
     bar.appendChild(gear);
   }
   headerEl.appendChild(bar);
+}
+
+function _renderDemoBanner() {
+  if (_detectAppMode() !== "demo" || _isEmbedMode()) return;
+  if (document.getElementById("_demo_banner")) return;
+  const _db = document.createElement("div");
+  _db.id = "_demo_banner";
+  _db.style.cssText = "background:linear-gradient(135deg,#92400e22,#f59e0b11);border:1px solid #f59e0b44;border-radius:10px;padding:14px 20px;margin-bottom:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;";
+  _db.innerHTML = `
+    <div style="flex:1;min-width:200px;">
+      <div style="font-size:13px;font-weight:700;color:#fbbf24;margin-bottom:2px;">&#9888; Demo Mode — Showing sample data</div>
+      <div style="font-size:12px;color:#d97706;">Enter your MarketCheck API key to see real market data. <a href="https://developers.marketcheck.com" target="_blank" style="color:#fbbf24;text-decoration:underline;">Get a free key</a></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input id="_banner_key" type="text" placeholder="Paste your API key" style="padding:8px 12px;border-radius:6px;border:1px solid #f59e0b44;background:#0f172a;color:#e2e8f0;font-size:13px;width:220px;outline:none;" />
+      <button id="_banner_save" style="padding:8px 16px;border-radius:6px;border:none;background:#f59e0b;color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Activate</button>
+    </div>`;
+  document.body.insertBefore(_db, document.body.firstChild);
+  _db.querySelector("#_banner_save")!.addEventListener("click", () => {
+    const k = (_db.querySelector("#_banner_key") as HTMLInputElement).value.trim();
+    if (!k) return;
+    localStorage.setItem("mc_api_key", k);
+    _db.style.background = "linear-gradient(135deg,#05966922,#10b98111)";
+    _db.style.borderColor = "#10b98144";
+    _db.innerHTML = '<div style="font-size:13px;font-weight:700;color:#10b981;">&#10003; API key saved — reloading with live data...</div>';
+    setTimeout(() => location.reload(), 800);
+  });
+  _db.querySelector("#_banner_key")!.addEventListener("keydown", (e) => {
+    if ((e as KeyboardEvent).key === "Enter") (_db.querySelector("#_banner_save") as HTMLButtonElement).click();
+  });
 }
 (function injectResponsiveStyles() { const s = document.createElement("style"); s.textContent = `@media(max-width:768px){body{font-size:13px!important}table{font-size:12px!important}th,td{padding:6px 8px!important}h1{font-size:18px!important}h2{font-size:15px!important}canvas{max-width:100%!important}input,select,button{font-size:14px!important}[style*="display:flex"][style*="gap"],[style*="display: flex"][style*="gap"]{flex-wrap:wrap!important}[style*="grid-template-columns: repeat"]{grid-template-columns:1fr!important}[style*="grid-template-columns:repeat"]{grid-template-columns:1fr!important}table{min-width:600px}[style*="width:35%"],[style*="width:40%"],[style*="width:25%"],[style*="width:50%"],[style*="width:60%"],[style*="width:65%"],[style*="width: 35%"],[style*="width: 40%"],[style*="width: 25%"],[style*="width: 50%"],[style*="width: 60%"],[style*="width: 65%"]{width:100%!important;min-width:0!important}}@media(max-width:480px){body{padding:8px!important}h1{font-size:16px!important}th,td{padding:4px 6px!important;font-size:11px!important}input,select{max-width:100%!important;width:100%!important;box-sizing:border-box!important}}`; document.head.appendChild(s); })();
 
@@ -666,7 +673,7 @@ function drawBoxWhiskerPlot(canvasId: string, data: ScanResult): void {
 }
 
 function renderPriceDropAlerts(listings: Listing[]): string {
-  const drops = listings.filter(l => l.priceDropPct > 10).sort((a, b) => b.priceDropPct - a.priceDropPct);
+  const drops = listings.filter(l => l.priceDropPct >= 5).sort((a, b) => b.priceDropPct - a.priceDropPct);
   if (drops.length === 0) {
     return `<div style="background:${SURFACE};border-radius:10px;padding:16px;margin-bottom:20px;border:1px solid ${BORDER};">
       <h3 style="color:${TEXT};font-size:14px;margin-bottom:8px;">Price Drop Alerts</h3>
@@ -675,7 +682,7 @@ function renderPriceDropAlerts(listings: Listing[]): string {
   }
 
   const rows = drops.slice(0, 10).map(l => {
-    const dropColor = l.priceDropPct > 20 ? RED : l.priceDropPct > 15 ? ORANGE : YELLOW;
+    const dropColor = l.priceDropPct > 15 ? RED : l.priceDropPct > 10 ? ORANGE : YELLOW;
     return `<div style="display:flex;align-items:center;gap:12px;padding:10px;border-bottom:1px solid ${BORDER};">
       <div style="width:40px;height:40px;border-radius:8px;background:${dropColor}22;display:flex;align-items:center;justify-content:center;">
         <span style="color:${dropColor};font-size:14px;font-weight:700;">&#8595;</span>
@@ -693,7 +700,7 @@ function renderPriceDropAlerts(listings: Listing[]): string {
 
   return `<div style="background:${SURFACE};border-radius:10px;padding:16px;margin-bottom:20px;border:1px solid ${BORDER};">
     <h3 style="color:${TEXT};font-size:14px;margin-bottom:12px;display:flex;align-items:center;gap:6px;">
-      <span style="color:${ORANGE};">&#9660;</span> Price Drop Alerts (> 10% reduction) - ${drops.length} vehicles
+      <span style="color:${ORANGE};">&#9660;</span> Price Drop Alerts (&ge; 5% reduction) - ${drops.length} vehicles
     </h3>
     ${rows}
   </div>`;
@@ -741,77 +748,139 @@ function renderLoading(): string {
 let currentData: ScanResult | null = null;
 
 async function loadData(make: string, model: string, year: string, state: string, sensitivity: number): Promise<ScanResult> {
-  const result = await _callTool("detect-market-anomalies", { make, model, year, state, sensitivity });
-
-  if (result?.content?.[0]?.text) {
-    try {
-      const parsed = JSON.parse(result.content[0].text);
-      const searchData = parsed.results || parsed.search || parsed;
-      if (searchData?.listings && Array.isArray(searchData.listings)) {
-        const rawListings = searchData.listings;
-        const predictions = parsed.predictions || [];
-        const predMap = new Map(predictions.filter((p: any) => !p.error).map((p: any) => [p.vin, p.prediction]));
-
-        const listings: Listing[] = rawListings.map((raw: any, i: number) => {
-          const pred = predMap.get(raw.vin);
-          const predictedPrice = pred?.predicted_price || raw.price * (1.05 + Math.random() * 0.15);
-          const discountPct = ((predictedPrice - raw.price) / predictedPrice) * 100;
-          return {
-            vin: raw.vin || generateVin(i),
-            year: raw.year || 2023,
-            make: raw.make || make,
-            model: raw.model || model,
-            trim: raw.trim || "",
-            price: raw.price || 25000,
-            predictedPrice: Math.round(predictedPrice),
-            discountPct: Math.max(0, discountPct),
-            miles: raw.miles || 30000,
-            dom: raw.dom || 30,
-            dealer: raw.dealer?.name || raw.dealer_name || "Unknown Dealer",
-            city: raw.dealer?.city || raw.city || "",
-            state: raw.dealer?.state || raw.state || state,
-            isAnomaly: false,
-            priceDropPct: Math.random() * 15,
-          };
-        });
-
-        const prices = listings.map(l => l.price);
-        const stats = computeStats(prices);
-        const threshold = stats.mean - sensitivity * stats.stdDev;
-        listings.forEach(l => { l.isAnomaly = l.price < threshold; });
-
-        const anomalies = listings.filter(l => l.isAnomaly);
-        const avgDiscount = anomalies.length > 0 ? anomalies.reduce((s, l) => s + l.discountPct, 0) / anomalies.length : 0;
-
-        listings.sort((a, b) => {
-          if (a.isAnomaly && !b.isAnomaly) return -1;
-          if (!a.isAnomaly && b.isAnomaly) return 1;
-          return b.discountPct - a.discountPct;
-        });
-
-        return {
-          listings,
-          stats,
-          totalScanned: searchData.num_found || listings.length,
-          anomalyCount: anomalies.length,
-          avgDiscount,
-          biggestOutlier: anomalies[0] || null,
-          sensitivity,
-        };
-      }
-    } catch {}
+  const mode = _detectAppMode();
+  if (mode === "demo") {
+    return generateMockData(make, model, year, state, sensitivity);
   }
 
-  return generateMockData(make, model, year, state, sensitivity);
+  const result = await _callTool("detect-market-anomalies", { make, model, year, state, sensitivity });
+  if (!result?.content?.[0]?.text) {
+    // Fall through to mock only if live call produced nothing at all.
+    return generateMockData(make, model, year, state, sensitivity);
+  }
+
+  let parsed: any;
+  try { parsed = JSON.parse(result.content[0].text); } catch { return generateMockData(make, model, year, state, sensitivity); }
+  const searchData = parsed?.results ?? parsed?.search ?? parsed ?? {};
+  const rawListings: any[] = Array.isArray(searchData?.listings) ? searchData.listings : [];
+
+  if (rawListings.length === 0) {
+    // Empty result set — return an empty ScanResult so runResults can render
+    // an "nothing found" state rather than silently showing demo data.
+    return {
+      listings: [],
+      stats: { min: 0, q1: 0, median: 0, q3: 0, max: 0, mean: 0, stdDev: 0 },
+      totalScanned: 0,
+      anomalyCount: 0,
+      avgDiscount: 0,
+      biggestOutlier: null,
+      sensitivity,
+    };
+  }
+
+  // Predicted-price baseline: use the API's stats.price.mean when available
+  // (it represents the true market mean for the full num_found set, not just
+  // the page we received). Falls back to computing from the page.
+  const apiStats = searchData?.stats?.price ?? {};
+  const apiMean = Number(apiStats.mean) || 0;
+  const apiStdDev = Number(apiStats.stddev ?? apiStats.std_dev) || 0;
+
+  // Optional server-side predictions (proxy / MCP may supply these).
+  const predictions = parsed?.predictions ?? [];
+  const predMap = new Map(
+    (Array.isArray(predictions) ? predictions : [])
+      .filter((p: any) => !p.error && p.vin && p.prediction?.predicted_price)
+      .map((p: any) => [p.vin, Number(p.prediction.predicted_price)])
+  );
+
+  const listings: Listing[] = rawListings.map((raw: any, i: number) => {
+    const build = raw.build ?? {};
+    const dealer = raw.dealer ?? {};
+    const price = Number(raw.price) || 0;
+    const miles = Number(raw.miles ?? raw.days_on_market ?? 0) || 0;
+    const dom = Number(raw.dom ?? raw.days_on_market ?? 0) || 0;
+    // Prefer per-listing prediction, then the API's own market mean, then the
+    // listing's own price (so discount% = 0 instead of a random number).
+    const predictedPrice = Math.round(predMap.get(raw.vin) ?? (apiMean > 0 ? apiMean : price));
+    const discountPct = predictedPrice > 0 ? ((predictedPrice - price) / predictedPrice) * 100 : 0;
+    // Real price-drop signal from the listing's own price history.
+    const priceDropPct = Math.max(0, -Number(raw.price_change_percent ?? 0) || 0);
+
+    return {
+      vin: String(raw.vin || generateVin(i)),
+      year: Number(build.year ?? raw.year ?? 0) || 0,
+      make: String(build.make ?? raw.make ?? make),
+      model: String(build.model ?? raw.model ?? model),
+      trim: String(build.trim ?? raw.trim ?? ""),
+      price,
+      predictedPrice,
+      discountPct,
+      miles,
+      dom,
+      dealer: String(dealer.name ?? raw.dealer_name ?? "Unknown Dealer"),
+      city: String(dealer.city ?? raw.city ?? ""),
+      state: String(dealer.state ?? raw.state ?? state ?? ""),
+      isAnomaly: false,
+      priceDropPct,
+    };
+  });
+
+  // Stats: prefer the API block (it reflects the full num_found population),
+  // fall back to the page-computed stats.
+  const prices = listings.map((l) => l.price).filter((p) => p > 0);
+  const computed = prices.length ? computeStats(prices) : { min: 0, q1: 0, median: 0, q3: 0, max: 0, mean: 0, stdDev: 0 };
+  const stats: PriceStats = {
+    min: Number(apiStats.min ?? computed.min) || computed.min,
+    q1: Number(apiStats?.percentiles?.["25.0"] ?? computed.q1) || computed.q1,
+    median: Number(apiStats.median ?? computed.median) || computed.median,
+    q3: Number(apiStats?.percentiles?.["75.0"] ?? computed.q3) || computed.q3,
+    max: Number(apiStats.max ?? computed.max) || computed.max,
+    mean: apiMean || computed.mean,
+    stdDev: apiStdDev || computed.stdDev,
+  };
+
+  const threshold = stats.mean - sensitivity * stats.stdDev;
+  listings.forEach((l) => { l.isAnomaly = l.price > 0 && l.price < threshold; });
+
+  const anomalies = listings.filter((l) => l.isAnomaly);
+  const avgDiscount = anomalies.length > 0 ? anomalies.reduce((s, l) => s + l.discountPct, 0) / anomalies.length : 0;
+
+  listings.sort((a, b) => {
+    if (a.isAnomaly && !b.isAnomaly) return -1;
+    if (!a.isAnomaly && b.isAnomaly) return 1;
+    return b.discountPct - a.discountPct;
+  });
+
+  return {
+    listings,
+    stats,
+    totalScanned: Number(searchData.num_found) || listings.length,
+    anomalyCount: anomalies.length,
+    avgDiscount,
+    biggestOutlier: anomalies[0] ?? null,
+    sensitivity,
+  };
 }
 
 function renderResults(data: ScanResult): void {
   const container = document.getElementById("results-container");
   if (!container) return;
 
+  if (data.listings.length === 0) {
+    container.innerHTML = `
+      <div style="background:${SURFACE};border:1px solid ${BORDER};border-radius:10px;padding:24px;display:flex;gap:16px;align-items:flex-start;">
+        <div style="width:36px;height:36px;border-radius:50%;background:${YELLOW}22;border:1px solid ${YELLOW}55;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:${YELLOW};flex-shrink:0;">!</div>
+        <div>
+          <div style="font-size:15px;font-weight:700;color:#f8fafc;margin-bottom:4px;">No active listings found</div>
+          <div style="font-size:13px;color:${TEXT_SEC};line-height:1.5;">The MarketCheck API returned zero active listings for the current filters. Try broadening the search — remove the state filter, widen the year, or pick a more common make/model.</div>
+        </div>
+      </div>`;
+    return;
+  }
+
   container.innerHTML = `
     ${renderKPIs(data)}
-    ${renderOutlierTable(data)}
+    ${renderOutlierTable(data.listings)}
     <div style="display:flex;gap:16px;">
       <div style="flex:1.2;">${renderBoxWhiskerContainer()}</div>
       <div style="flex:0.8;">${renderQuickStats(data.stats)}</div>
@@ -826,12 +895,13 @@ function renderResults(data: ScanResult): void {
 
 function initApp(): void {
   const urlParams = _getUrlParams();
+  const sensParam = parseFloat(urlParams.sensitivity ?? "");
   const defaults = {
     make: urlParams.make || "Toyota",
     model: urlParams.model || "RAV4",
-    year: "2023",
-    state: urlParams.state || "CO",
-    sensitivity: 2.0,
+    year: String(urlParams.year ?? "2023"),
+    state: (urlParams.state || "CO").toUpperCase(),
+    sensitivity: isFinite(sensParam) && sensParam >= 1 && sensParam <= 3 ? sensParam : 2.0,
   };
 
   document.body.style.cssText = `margin:0;padding:20px;background:${BG};color:${TEXT};font-family:system-ui,-apple-system,sans-serif;min-height:100vh;`;
@@ -841,6 +911,8 @@ function initApp(): void {
     ${renderSearchForm(defaults)}
     <div id="results-container">${renderLoading()}</div>
   `;
+
+  _renderDemoBanner();
 
   // Settings bar
   const header = document.getElementById("app-header");

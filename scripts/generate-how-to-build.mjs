@@ -729,15 +729,27 @@ const APPS = [
     tagline: "Morning signal scan across your portfolio",
     segment: "Analyst",
     toolName: null,
-    description: "Morning scan dashboard for analyst watchlists. Monitors sold volume, pricing, and market share changes for tracked OEMs and dealer groups.",
+    description: "Bloomberg-style morning signal scan for equity analysts covering the US auto sector. Monitors a 10-ticker watchlist spanning OEMs (F, GM, TM, HMC, TSLA, STLA) and dealer groups (AN, LAD, KMX, CVNA) against live MarketCheck 90-day sold and active-inventory data. Each ticker is classified ALERT / WATCH / STABLE / STRONG based on four real-time signals: volume momentum (90-day sold share vs expected), ASP spread (sold avg vs active avg — a pricing-power proxy), days-supply (active ÷ monthly-sold × 30), and discount-change (bps derived from the sold-vs-active gap). A sector summary bar rolls up industry volume trend, average ASP, EV penetration, and a macro BULLISH/BEARISH/NEUTRAL call from the signal mix. Click any ticker row to open a detail panel with a 6-month sparkline, metric breakdown, and 3–4 bullet signal analysis explaining why the flag fired. Optional `state=XX` query parameter scopes every signal to a US state.",
+    useCases: [
+      { persona: "Sell-Side Auto Analysts", desc: "Kick off the day with a 10-second scan of your auto watchlist — the table surfaces which issuers have days-supply breaching 90 days or pricing premium turning negative, so you can triage channel checks before the 9am morning call." },
+      { persona: "Buy-Side PMs / Hedge Funds", desc: "Pre-position ahead of OEM prints: the ALERT badges flag which names in your book are showing margin-stress signals (incentive escalation, ASP erosion) that consensus EPS models haven't yet reflected." },
+      { persona: "Credit Analysts", desc: "Monitor dealer-group and OEM leverage names — KMX/CVNA/AN days-supply and pricing spread are leading indicators of covenant-level dealer-channel stress 1–2 quarters before it shows up in 10-Q filings." },
+      { persona: "Automotive Equity Research Associates", desc: "Paste the ticker signals and sparklines directly into the weekly channel-check memo — each ALERT row has ready-made bullet explanations tied to real MarketCheck volume and pricing data." },
+      { persona: "Portfolio Risk Managers", desc: "Cross-ticker health-check: the macro-signal pill on the sector bar gives a one-glance read on whether the automotive book should be de-risked going into the next print cycle." },
+    ],
     inputParams: [
-      { name: "makes", type: "string", required: false, desc: "Comma-separated OEM brands to track" },
-      { name: "state", type: "string", required: false, desc: "State for regional data" },
+      { name: "state", type: "string", required: false, desc: "2-letter US state code (e.g., CA, TX) — scopes all signals to that region" },
+      { name: "tickers", type: "string", required: false, desc: "Reserved for future ticker-list customization; default universe is fixed at the 10 major US auto OEMs + dealer groups" },
+    ],
+    urlParams: [
+      { name: "api_key", desc: "Your MarketCheck API key — required for live 90-day data; omitted keys show demo-mode sample signals" },
+      { name: "state", desc: "2-letter US state code — scopes every ticker's volume, pricing, and days-supply signals regionally (omit for national)" },
     ],
     apiFlow: [
-      { step: 1, label: "Watchlist Data", apis: ["soldSummary"], parallel: false, note: "Fetch sold summary for tracked brands" },
+      { step: 1, label: "Industry Baselines", apis: ["searchRecents", "searchActive", "searchActive"], parallel: true, note: "Three parallel calls: 90-day sold industry-wide (for share %), full active inventory count (for EV penetration denominator), and EV-only active slice — all scoped to optional state filter" },
+      { step: 2, label: "Per-Ticker Scans", apis: ["searchRecents", "searchActive"], parallel: true, note: "For each of the 10 tickers, issue a recents + active pair in parallel. OEM tickers use make=Ford,Lincoln-style filters; dealer-group tickers use car_type + year-range slices that approximate each issuer's used-market focus. All 20 calls run concurrently." },
     ],
-    renders: "Watchlist cards with signal indicators, volume change alerts, price trend sparklines, market share shifts",
+    renders: "Header with scope + data-source label, sector summary bar (industry volume trend, avg ASP, EV penetration, macro signal pill), sortable 8-column ticker table (ticker, company, signal badge, Vol MoM%, ASP MoM%, days supply, discount change bps, 6-month sparkline canvas), row click opens 340px detail panel with metric grid, enlarged sparkline, and 3–4 bullet signal analysis explaining the badge",
   },
   {
     id: "dealer-group-scorecard",

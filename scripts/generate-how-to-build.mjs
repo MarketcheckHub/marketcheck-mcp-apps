@@ -701,14 +701,27 @@ const APPS = [
     tagline: "Pre-earnings channel check for auto tickers",
     segment: "Analyst",
     toolName: null,
-    description: "Channel check dashboard for financial analysts tracking auto sector stocks. Uses sold volume data as a leading indicator for OEM and dealer group earnings.",
+    description: "Pre-earnings channel-check dashboard for financial analysts covering auto OEM equities (F, GM, TM, HMC, TSLA, STLA, HYMTF, NSANY, RIVN). Select a ticker and the app aggregates MarketCheck sold-vehicle and active-inventory data across that issuer's brand portfolio (e.g., GM → Chevrolet+GMC+Buick+Cadillac) and produces a composite BULLISH / BEARISH / MIXED / NEUTRAL signal with confidence score. The 6-Dimension Signal Matrix scores Volume Momentum (monthly sold units + industry share), Pricing Power (average selling price and % vs MSRP), Inventory Health (days supply from active÷monthly-sold), DOM Velocity, EV Mix, and New/Used Ratio — each with its own BULL/BEAR/NEUTRAL badge and 6-month sparkline. A Bull/Bear scenario panel turns the signals into directional thesis bullets and a Key Risk callout sized to forward-EPS impact.",
+    useCases: [
+      { persona: "Sell-Side Analysts", desc: "Ahead of the F/GM/TM print, pull the ticker and get an independent channel read on volume, pricing, and days-supply to sanity-check your model and identify surprise-potential drivers." },
+      { persona: "Buy-Side / Hedge Fund PMs", desc: "Pre-earnings positioning — see which OEMs are showing MSRP-premium erosion or days-supply blowout versus industry; size trades against consensus EPS." },
+      { persona: "Equity Research Associates", desc: "Monthly channel-check memo in seconds — the 6-dimension matrix and scenario bullets drop straight into an investor note or morning call snippet." },
+      { persona: "Portfolio Risk Managers", desc: "Cross-ticker scan: flip through each held auto ticker to surface the one with the weakest inventory/pricing signal before an earnings miss hits the book." },
+      { persona: "Credit Analysts", desc: "OEM bond cover requires read-through on dealer channel health — days-supply and pricing-power deterioration precede covenant stress by a quarter or two." },
+    ],
     inputParams: [
-      { name: "state", type: "string", required: false, desc: "State for regional signals" },
+      { name: "ticker", type: "string", required: false, desc: "Auto OEM ticker (F, GM, TM, HMC, TSLA, STLA, HYMTF, NSANY, RIVN) — selects issuer's brand portfolio" },
+      { name: "state", type: "string", required: false, desc: "2-letter US state code to scope signals regionally (e.g., CA, TX)" },
+    ],
+    urlParams: [
+      { name: "api_key", desc: "Your MarketCheck API key — required for live market data" },
+      { name: "ticker", desc: "Auto ticker (F, GM, TM, HMC, TSLA, STLA, HYMTF, NSANY, RIVN) — auto-selects and runs analysis on load" },
+      { name: "state", desc: "2-letter US state code — scopes all signals to that region (omit for national)" },
     ],
     apiFlow: [
-      { step: 1, label: "Market Intelligence", apis: ["soldSummary"], parallel: false, note: "Fetch sold summary by make with volume and price measures" },
+      { step: 1, label: "Recents + Active + Industry", apis: ["searchRecents", "searchRecents", "searchRecents", "searchActive", "searchRecents"], parallel: true, note: "Five parallel calls across the ticker's makes: 90-day sold (used), 90-day sold (new), 90-day sold (EV slice via fuel_type=Electric), current active inventory with DOM stats, and industry-wide 90-day sold baseline for share%" },
     ],
-    renders: "Ticker-style signal cards, volume momentum charts, price trend indicators, sector comparison, earnings estimate impact",
+    renders: "Composite signal banner (BULLISH/BEARISH/MIXED/NEUTRAL + confidence bar), 6-dimension signal matrix with sparklines (volume, pricing, inventory, DOM, EV mix, new/used), Bull/Bear scenario panel with thesis bullets, Key Risk callout sized to EPS impact",
   },
   {
     id: "watchlist-monitor",

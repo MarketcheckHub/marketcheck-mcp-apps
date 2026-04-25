@@ -223,16 +223,7 @@ async function apiSearch(args: Record<string,any>): Promise<any> {
     }
     const r = await fetch(url.toString());
     if (r.ok) return r.json();
-  } catch(e) { console.error("Direct API error, trying proxy:", e); }
-  // Proxy fallback
-  try {
-    const r = await fetch("/api/proxy/search-cars", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({...args, _auth_mode:"api_key", _auth_value:k}),
-    });
-    if (r.ok) return r.json();
-  } catch(e) { console.error("Proxy error:",e); }
+  } catch(e) { console.error("Direct API error:", e); }
   return null;
 }
 

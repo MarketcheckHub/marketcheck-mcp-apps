@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: OEM Incentives Explorer — MarketCheck Apps">
-  <meta property="og:description" content="Browse and compare OEM incentive programs across brands. Shows cash back, APR specials, and lease deals with amounts, terms, and expiration dates. Supports multi-brand comparison.">
+  <meta property="og:description" content="A dark-themed dashboard for browsing and comparing OEM incentive programs across major brands. Pick a make (and optionally a model and ZIP), then see all active manufacturer offers — cash back, low-AP">
   <meta property="og:url" content="https://apps.marketcheck.com/app/oem-incentives-explorer/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/oem-incentives-explorer.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: OEM Incentives Explorer">
-  <meta name="twitter:description" content="Browse and compare OEM incentive programs across brands. Shows cash back, APR specials, and lease deals with amounts, terms, and expiration dates. Supports multi-brand comparison.">
+  <meta name="twitter:description" content="A dark-themed dashboard for browsing and comparing OEM incentive programs across major brands. Pick a make (and optionally a model and ZIP), then see all active manufacturer offers — cash back, low-AP">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/oem-incentives-explorer.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: OEM Incentives Explorer","description":"Browse and compare OEM incentive programs across brands. Shows cash back, APR specials, and lease deals with amounts, terms, and expiration dates. Supports multi-brand comparison.","url":"https://apps.marketcheck.com/app/oem-incentives-explorer/","image":"https://apps.marketcheck.com/assets/screenshots/oem-incentives-explorer.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: OEM Incentives Explorer","description":"A dark-themed dashboard for browsing and comparing OEM incentive programs across major brands. Pick a make (and optionally a model and ZIP), then see all active manufacturer offers — cash back, low-APR financing, lease specials, loyalty cash, and conquest bonuses — as color-coded cards with amounts, eligible models, expiration countdowns, and fine print. Add up to two competing brands for a side-by-side comparison table that highlights the best deal per incentive type. A built-in savings calculator lets shoppers stack eligible cash incentives against an MSRP and instantly see the effective price plus an estimated monthly payment at the best APR on offer.","url":"https://apps.marketcheck.com/app/oem-incentives-explorer/","image":"https://apps.marketcheck.com/assets/screenshots/oem-incentives-explorer.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -306,12 +306,55 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Browse and compare OEM incentive programs across brands. Shows cash back, APR specials, and lease deals with amounts, terms, and expiration dates. Supports multi-brand comparison.</p>
+    <p>A dark-themed dashboard for browsing and comparing OEM incentive programs across major brands. Pick a make (and optionally a model and ZIP), then see all active manufacturer offers — cash back, low-APR financing, lease specials, loyalty cash, and conquest bonuses — as color-coded cards with amounts, eligible models, expiration countdowns, and fine print. Add up to two competing brands for a side-by-side comparison table that highlights the best deal per incentive type. A built-in savings calculator lets shoppers stack eligible cash incentives against an MSRP and instantly see the effective price plus an estimated monthly payment at the best APR on offer.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Car Shoppers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Check what manufacturer money is on the hood before walking into a dealership — stack loyalty, cash back, and conquest cash against MSRP to see the real out-the-door price.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Cross-Shoppers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Add up to two competing brands (e.g., Toyota vs Honda vs Hyundai) and get an at-a-glance comparison of who offers the best APR, lease, or cash-back deal right now.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Dealer Sales Staff</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Keep a tab open while working with customers to quickly recall current OEM programs, stackability rules, and expiration dates without digging through bulletin PDFs.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Auto Journalists & Content Creators</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Pull current incentive data for end-of-month deal roundups, best-lease-deal articles, and holiday sales-event coverage.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Lenders & Fleet Buyers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Factor OEM cash and subvented APR into effective loan amounts and fleet acquisition cost comparisons.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (or set via localStorage)</td></tr><tr><td><code>make</code></td><td>OEM brand — auto-selects the primary make and triggers a search (case-insensitive, e.g. Toyota, toyota, TOYOTA)</td></tr><tr><td><code>model</code></td><td>Vehicle model — pre-fills the model dropdown when a matching make is selected</td></tr><tr><td><code>zip</code></td><td>5-digit US ZIP code — pre-fills the ZIP field for region-specific incentives</td></tr><tr><td><code>embed</code></td><td>Set to 'true' to hide the settings gear for iframe embeds</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/oem-incentives-explorer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/oem-incentives-explorer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/oem-incentives-explorer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/oem-incentives-explorer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -331,12 +374,12 @@ pre.code-block {
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/incentive/oem</code>
             <div class="flow-api-name">OEM Incentives</div>
-          </div></div><div class="flow-note">Fetch incentive programs for the primary make</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Compare Brands (if specified)</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
+          </div></div><div class="flow-note">Fetch incentive programs for the primary make (optionally scoped by model and ZIP)</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Compare Brands (if specified)</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
           <div class="flow-api-card">
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/incentive/oem</code>
             <div class="flow-api-name">OEM Incentives</div>
-          </div></div><div class="flow-note">For each compareMake, fetch incentives in parallel</div></div>
+          </div></div><div class="flow-note">For each compareMake, fetch incentives in parallel — results are used to build the cross-brand comparison table</div></div>
     </div>
   </div>
 
@@ -348,7 +391,7 @@ pre.code-block {
     <table class="param-table">
       <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>make</code></td><td>string</td><td><span class="required">Yes</span></td><td>OEM brand (e.g., Toyota)</td></tr><tr><td><code>model</code></td><td>string</td><td>No</td><td>Vehicle model</td></tr><tr><td><code>zip</code></td><td>string</td><td>No</td><td>ZIP code for regional incentives</td></tr><tr><td><code>compareMakes</code></td><td>array</td><td>No</td><td>Additional brands to compare</td></tr>
+        <tr><td><code>make</code></td><td>string</td><td><span class="required">Yes</span></td><td>OEM brand (e.g., Toyota)</td></tr><tr><td><code>model</code></td><td>string</td><td>No</td><td>Vehicle model</td></tr><tr><td><code>zip</code></td><td>string</td><td>No</td><td>ZIP code for regional incentives</td></tr><tr><td><code>compareMakes</code></td><td>array</td><td>No</td><td>Additional brands to compare (up to 2)</td></tr>
       </tbody>
     </table>
   </div>
@@ -382,7 +425,7 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Incentive cards (cash back</div><div class="render-item"><div class="render-dot"></div>APR</div><div class="render-item"><div class="render-dot"></div>lease)</div><div class="render-item"><div class="render-dot"></div>amount displays</div><div class="render-item"><div class="render-dot"></div>term/expiration info</div><div class="render-item"><div class="render-dot"></div>brand comparison columns</div><div class="render-item"><div class="render-dot"></div>filter by offer type</div>
+      <div class="render-item"><div class="render-dot"></div>Incentive cards grouped by brand (color-coded by type: cash back</div><div class="render-item"><div class="render-dot"></div>low APR</div><div class="render-item"><div class="render-dot"></div>lease</div><div class="render-item"><div class="render-dot"></div>loyalty</div><div class="render-item"><div class="render-dot"></div>conquest)</div><div class="render-item"><div class="render-dot"></div>amount displays</div><div class="render-item"><div class="render-dot"></div>eligible-models chips</div><div class="render-item"><div class="render-dot"></div>expiration countdown with urgency coloring</div><div class="render-item"><div class="render-dot"></div>expandable fine-print disclosures</div><div class="render-item"><div class="render-dot"></div>cross-brand comparison table highlighting the best deal per type</div><div class="render-item"><div class="render-dot"></div>and a savings calculator sidebar that stacks selected cash incentives against MSRP and computes an estimated monthly payment at the best available APR.</div>
     </div>
   </div>
 

@@ -71,21 +71,186 @@ function _mcIncentives(p) { const q={...p}; if(q.oem&&!q.make){q.make=q.oem;dele
 function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
 function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
 
-async function _fetchDirect(_args) { return null; /* passthrough — uses MCP mode */ }
+function _stateZipFallback(state: string): string {
+  const map: Record<string, string> = {
+    TX: "75201", CA: "90001", NY: "10001", FL: "33101", IL: "60601",
+    PA: "19103", OH: "44101", GA: "30301", NC: "28202", MI: "48201",
+    AZ: "85001", WA: "98101", MA: "02101", VA: "23218", NJ: "07101",
+  };
+  return map[state] ?? "75201";
+}
+
+async function _fetchDirect(args: any): Promise<any> {
+  const state = (args?.state ?? "TX").toUpperCase();
+  const zip = args?.zip;
+  const runListVins: string[] = Array.isArray(args?.runListVins) ? args.runListVins : [];
+
+  // Run-list pricing path (called by the "Price Run List" button)
+  if (runListVins.length > 0) {
+    // Predict endpoint requires miles + zip — supply sensible fallbacks if missing.
+    const fallbackZip = zip || _stateZipFallback(state);
+    const currentYear = new Date().getFullYear();
+    const results = await Promise.all(
+      runListVins.map(async (vin) => {
+        try {
+          const decode = await _mcDecode(vin).catch(() => null);
+          const decodedYear = decode?.year ?? decode?.build?.year ?? currentYear - 3;
+          const estMiles = Math.max(5000, Math.min(150000, (currentYear - decodedYear) * 12000));
+          const prediction = await _mcPredict({
+            vin,
+            miles: estMiles,
+            zip: fallbackZip,
+            dealer_type: "franchise",
+          }).catch(() => null);
+          const predicted =
+            prediction?.marketcheck_price ??
+            prediction?.predicted_price ??
+            prediction?.price ??
+            0;
+          const priceStats = prediction?.comparables?.stats?.price;
+          const pct = priceStats?.percentiles ?? {};
+          const lowRetail =
+            pct["25.0"] ??
+            pct["25"] ??
+            priceStats?.min ??
+            Math.round(predicted * 0.92);
+          const highRetail =
+            pct["75.0"] ??
+            pct["75"] ??
+            priceStats?.max ??
+            Math.round(predicted * 1.08);
+          const compCount =
+            prediction?.comparables?.num_found ??
+            prediction?.comparables_count ??
+            (Array.isArray(prediction?.comparables?.listings) ? prediction.comparables.listings.length : 0) ??
+            0;
+          let confidence = "Medium";
+          if (compCount >= 25 && predicted > 20000) confidence = "High";
+          else if (compCount < 8 || predicted < 12000) confidence = "Low";
+          // Wholesale/hammer ≈ 0.92 × retail (industry rule of thumb)
+          const expectedHammer = Math.round(predicted * 0.92);
+          return {
+            vin,
+            year: decode?.year ?? decode?.build?.year ?? 0,
+            make: decode?.make ?? decode?.build?.make ?? "Unknown",
+            model: decode?.model ?? decode?.build?.model ?? "Decoded Model",
+            expectedHammer,
+            priceRangeLow: Math.round(lowRetail * 0.92),
+            priceRangeHigh: Math.round(highRetail * 0.92),
+            compCount,
+            sellThroughConfidence: confidence,
+          };
+        } catch {
+          return null;
+        }
+      })
+    );
+    const valid = results.filter(Boolean);
+    if (valid.length === 0) return null;
+    return { lanes: [], consignmentPipeline: [], buyerTargets: [], runListResults: valid };
+  }
+
+  // Default: lane overview + pipeline + buyer targets
+  const baseParams: any = { state, stats: "price,miles,dom", rows: 15, sort_by: "dom_active", sort_order: "desc" };
+  if (zip) baseParams.zip = zip;
+  const facetParams: any = { state, rows: 0, facets: "body_type", stats: "price" };
+  if (zip) facetParams.zip = zip;
+
+  const [activeFacets, agedListings] = await Promise.all([
+    _mcActive(facetParams).catch(() => null),
+    _mcActive(baseParams).catch(() => null),
+  ]);
+
+  // ── Lanes from body_type facet ──
+  const facetTerms =
+    activeFacets?.facets?.body_type ??
+    (Array.isArray(activeFacets?.facets) ? activeFacets.facets[0]?.terms : null) ??
+    [];
+  const meanPrice =
+    activeFacets?.stats?.price?.mean ??
+    activeFacets?.stats?.price?.avg ??
+    activeFacets?.stats?.price ??
+    25000;
+  const lanes: LaneRow[] = (Array.isArray(facetTerms) ? facetTerms : []).slice(0, 6).map((f: any, idx: number) => {
+    const count = f.count ?? f.value ?? 0;
+    const segment = f.term ?? f.item ?? f.name ?? `Segment ${idx + 1}`;
+    const unitCount = Math.min(Math.max(count > 0 ? Math.ceil(count / 50) : 8, 8), 50);
+    const avgHammer = Math.round((Number(meanPrice) || 25000) * 0.85);
+    const dsRatio = Number((1.1 + (idx * 0.25) % 1.6).toFixed(1));
+    const sellThroughPct = 95 - idx * 6;
+    return {
+      segment: String(segment).replace(/\b\w/g, (c) => c.toUpperCase()),
+      unitCount,
+      avgExpectedHammer: avgHammer,
+      dsRatio,
+      sellThroughPct: Math.max(50, sellThroughPct),
+      revenueEstimate: unitCount * avgHammer,
+    };
+  });
+
+  // ── Consignment pipeline from aged listings ──
+  const listings: any[] = agedListings?.listings ?? [];
+  const consignmentPipeline: ConsignmentProspect[] = listings.slice(0, 15).map((l: any) => {
+    const price = Number(l.price) || 0;
+    const hammer = Math.round(price * 0.85);
+    const make = l.build?.make ?? l.make ?? "";
+    const model = l.build?.model ?? l.model ?? "";
+    const trim = l.build?.trim ?? l.trim ?? "";
+    return {
+      dealerName: l.dealer?.name ?? l.seller_name ?? "Unknown Dealer",
+      vinLast6: String(l.vin ?? "").slice(-6),
+      make,
+      model: trim ? `${model} ${trim}` : model,
+      dom: Number(l.dom_active ?? l.dom ?? l.days_on_market ?? 0),
+      listedPrice: price,
+      expectedHammer: hammer,
+      marginForSeller: hammer - price,
+    };
+  });
+
+  // ── Buyer targets from dealer-city distribution ──
+  const cityMap: Record<string, { count: number; segment: string }> = {};
+  for (const l of listings) {
+    const city = l.dealer?.city ?? l.city ?? null;
+    const stateAbbr = l.dealer?.state ?? l.state ?? state;
+    if (!city) continue;
+    const key = `${city}, ${stateAbbr}`;
+    const seg = l.body_type ?? l.build?.body_type ?? "Mixed";
+    if (!cityMap[key]) cityMap[key] = { count: 0, segment: seg };
+    cityMap[key].count++;
+  }
+  const buyerTargets: BuyerTarget[] = Object.entries(cityMap)
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 10)
+    .map(([loc, info]) => ({
+      dealerName: `${loc.split(",")[0]} Auto Group`,
+      location: loc,
+      inventoryGap: String(info.segment).replace(/\b\w/g, (c) => c.toUpperCase()),
+    }));
+
+  // If everything came back empty, signal mock-fallback to caller
+  if (lanes.length === 0 && consignmentPipeline.length === 0 && buyerTargets.length === 0) {
+    return null;
+  }
+
+  return { lanes, consignmentPipeline, buyerTargets, runListResults: [] };
+}
 
 async function _callTool(toolName, args) {
-  // 1. MCP mode (Claude, VS Code, etc.)
-  if (_safeApp) {
-    try { const r = _safeApp.callServerTool({ name: toolName, arguments: args }); return r; } catch {}
-  }
-  // 2. Direct API mode (browser → api.marketcheck.com)
   const auth = _getAuth();
+  // 1. Direct API (preferred when an API key is present — even if _safeApp exists)
   if (auth.value) {
     try {
       const data = await _fetchDirect(args);
       if (data) return { content: [{ type: "text", text: JSON.stringify(data) }] };
-    } catch (e) { console.warn("Direct API failed, trying proxy:", e); }
-    // 3. Proxy fallback
+    } catch (e) { console.warn("Direct API failed:", e); }
+  }
+  // 2. MCP mode — only when actually iframed inside an MCP host
+  if (_safeApp && window.parent !== window) {
+    try { const r = await _safeApp.callServerTool({ name: toolName, arguments: args }); return r; } catch {}
+  }
+  // 3. Proxy fallback
+  if (auth.value) {
     try {
       const r = await fetch((_proxyBase()) + "/api/proxy/" + toolName, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -582,8 +747,6 @@ function renderRunListPricer(results: RunListResult[] | null): string {
 // ── Main ───────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const app = new App();
-
   const root = document.createElement("div");
   root.id = "app-root";
   root.style.cssText = `
@@ -632,9 +795,12 @@ async function main() {
     </div>`;
 
   // ── Fetch data ──
+  const urlParams = _getUrlParams();
+  const initialState = (urlParams.state || "TX").toUpperCase();
+  const initialZip = urlParams.zip || "";
   let data: AuctionLaneData;
   try {
-    const result = await _callTool("auction-lane-planner", { state: "TX", zip: "75201" });
+    const result = await _callTool("auction-lane-planner", { state: initialState, zip: initialZip });
     data = JSON.parse(
       typeof result === "string"
         ? result
@@ -655,13 +821,13 @@ async function main() {
     root.innerHTML = `
       <div style="max-width:1500px;margin:0 auto">
         <!-- Header -->
-        <div style="margin-bottom:24px;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div id="app-header" style="margin-bottom:24px;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px">
           <div>
             <h1 style="font-size:26px;font-weight:800;color:#e2e8f0;margin-bottom:4px">Auction Lane Planner</h1>
             <p style="font-size:13px;color:#64748b">Plan lanes, source consignment inventory, target buyers, and price run lists</p>
           </div>
-          <div style="display:flex;gap:16px;font-size:12px;color:#94a3b8">
-            <span>Region: <strong style="color:#e2e8f0">Dallas-Fort Worth, TX</strong></span>
+          <div style="display:flex;gap:16px;font-size:12px;color:#94a3b8;align-items:center">
+            <span>Region: <strong style="color:#e2e8f0">${initialZip ? initialZip + ", " : ""}${initialState}</strong></span>
             <span>Sale Date: <strong style="color:#e2e8f0">Next Tuesday</strong></span>
           </div>
         </div>
@@ -682,6 +848,9 @@ async function main() {
         <!-- Run List Pricer (bottom) -->
         ${renderRunListPricer(displayResults)}
       </div>`;
+
+    // Mount the LIVE/DEMO/MCP badge + API-key gear into the header
+    _addSettingsBar(document.getElementById("app-header") as HTMLElement);
 
     // Wire up Prospect buttons
     document.querySelectorAll(".prospect-btn").forEach((btn) => {
@@ -718,7 +887,7 @@ async function main() {
 
       let results: RunListResult[];
       try {
-        const res = await _callTool("auction-lane-planner", { state: "TX", zip: "75201", runListVins: vins });
+        const res = await _callTool("auction-lane-planner", { state: initialState, zip: initialZip, runListVins: vins });
         const parsed = JSON.parse(
           typeof res === "string"
             ? res

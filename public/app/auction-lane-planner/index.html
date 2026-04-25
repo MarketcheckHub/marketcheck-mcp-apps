@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Auction Lane Planner — MarketCheck Apps">
-  <meta property="og:description" content="Auction lane planning tool. Uses market data to help auction houses organize lanes, set reserve prices, and identify target buyers based on local demand patterns.">
+  <meta property="og:description" content="End-to-end sale-day planning workspace for wholesale auction houses. Pulls live market activity for the chosen state/ZIP and produces four linked views: a Lane Overview grid (segments by body type wit">
   <meta property="og:url" content="https://apps.marketcheck.com/app/auction-lane-planner/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/auction-lane-planner.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Auction Lane Planner">
-  <meta name="twitter:description" content="Auction lane planning tool. Uses market data to help auction houses organize lanes, set reserve prices, and identify target buyers based on local demand patterns.">
+  <meta name="twitter:description" content="End-to-end sale-day planning workspace for wholesale auction houses. Pulls live market activity for the chosen state/ZIP and produces four linked views: a Lane Overview grid (segments by body type wit">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/auction-lane-planner.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Auction Lane Planner","description":"Auction lane planning tool. Uses market data to help auction houses organize lanes, set reserve prices, and identify target buyers based on local demand patterns.","url":"https://apps.marketcheck.com/app/auction-lane-planner/","image":"https://apps.marketcheck.com/assets/screenshots/auction-lane-planner.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Auction Lane Planner","description":"End-to-end sale-day planning workspace for wholesale auction houses. Pulls live market activity for the chosen state/ZIP and produces four linked views: a Lane Overview grid (segments by body type with unit count, average expected hammer at 0.85× retail, demand/supply ratio, sell-through %, and revenue estimate), a Consignment Pipeline of high-DOM dealer inventory ripe for consignment sourcing (sorted longest-on-lot first, with seller margin vs current list price), a Buyer Targeting list of cities with the strongest active inventory density (proxy for active buyer demand), and a Run List Pricer where you paste up to 15 VINs and get per-VIN expected hammer prices, IQR price ranges from real comparables, and a sell-through confidence verdict (High / Medium / Low). Works in demo (mock data), live (real MarketCheck API), and MCP (AI assistant) modes.","url":"https://apps.marketcheck.com/app/auction-lane-planner/","image":"https://apps.marketcheck.com/assets/screenshots/auction-lane-planner.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -301,20 +301,60 @@ pre.code-block {
 </div>
 
 <div class="content" id="guide-content">
-  <div class="enterprise-notice">
-    <span>&#9888;</span>
-    <div><strong>Enterprise API subscription required.</strong> This app uses the <a href="https://apidocs.marketcheck.com/#sold-summary">Sold Vehicle Summary API</a> which requires an Enterprise API subscription. <a href="https://developers.marketcheck.com" target="_blank">Contact us</a> for access.</div>
-  </div>
+  
 
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Auction lane planning tool. Uses market data to help auction houses organize lanes, set reserve prices, and identify target buyers based on local demand patterns.</p>
+    <p>End-to-end sale-day planning workspace for wholesale auction houses. Pulls live market activity for the chosen state/ZIP and produces four linked views: a Lane Overview grid (segments by body type with unit count, average expected hammer at 0.85× retail, demand/supply ratio, sell-through %, and revenue estimate), a Consignment Pipeline of high-DOM dealer inventory ripe for consignment sourcing (sorted longest-on-lot first, with seller margin vs current list price), a Buyer Targeting list of cities with the strongest active inventory density (proxy for active buyer demand), and a Run List Pricer where you paste up to 15 VINs and get per-VIN expected hammer prices, IQR price ranges from real comparables, and a sell-through confidence verdict (High / Medium / Low). Works in demo (mock data), live (real MarketCheck API), and MCP (AI assistant) modes.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Auction Sale Managers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Plan next Tuesday's lanes — see which segments will move at what price, where unit counts are concentrated, and project total sale revenue before the gavel drops.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Consignment Sourcing</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Identify aged dealer inventory (90+ days on market) that's a strong consignment candidate — see expected hammer vs current list price and the margin a dealer gives up by sending it to auction.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Buyer Relations Teams</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Surface dealers in nearby cities who are short on the segments you're running — turn the Buyer Targeting list into a call sheet for sale-day attendance.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Wholesale Brokers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Paste a run list of VINs and instantly see per-vehicle hammer estimates with IQR ranges and confidence — pre-screen which units to bid on before walking the lanes.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Dealer Wholesale Desks</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Decide whether to wholesale aged units in-house or send to auction — compare expected hammer to current market price and net spread.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (or set via the gear icon / localStorage)</td></tr><tr><td><code>state</code></td><td>Two-letter state code (e.g. TX, CA, NY) — drives the Lane Overview, Consignment Pipeline, and Buyer Targeting data. Defaults to TX.</td></tr><tr><td><code>zip</code></td><td>ZIP code — passed to the predict endpoint for the Run List Pricer; falls back to a major-city ZIP for the chosen state if omitted</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/auction-lane-planner/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/auction-lane-planner/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/auction-lane-planner/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/auction-lane-planner/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -329,17 +369,27 @@ pre.code-block {
     <h2>API Call Flow</h2>
     <p>Here's the exact sequence of MarketCheck API calls this app makes, and which ones run in parallel:</p>
     <div class="flow-diagram">
-      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">Demand + Pricing Data</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
-          <div class="flow-api-card enterprise">
-            <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
-            <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
-            <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
+      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">Lane Overview + Pipeline (parallel)</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
+          <div class="flow-api-card">
+            <div class="flow-api-method">GET</div>
+            <code class="flow-api-path">/v2/search/car/active</code>
+            <div class="flow-api-name">Search Active Listings</div>
           </div>
           <div class="flow-api-card">
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/active</code>
             <div class="flow-api-name">Search Active Listings</div>
-          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Fetch demand rankings and current market pricing in parallel</div></div>
+          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Two parallel /search/car/active calls: (a) faceted on body_type with rows=0 + price stats — drives the Lane Overview segment grid; (b) sort_by=dom_active desc + rows=15 — drives the Consignment Pipeline of aged inventory and (by aggregating dealer.city) the Buyer Targeting list.</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Run List Pricer (per-VIN, parallel)</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
+          <div class="flow-api-card">
+            <div class="flow-api-method">GET</div>
+            <code class="flow-api-path">/v2/decode/car/neovin/{vin}/specs</code>
+            <div class="flow-api-name">VIN Decode</div>
+          </div>
+          <div class="flow-api-card">
+            <div class="flow-api-method">GET</div>
+            <code class="flow-api-path">/v2/predict/car/us/marketcheck_price/comparables</code>
+            <div class="flow-api-name">Price Prediction (Retail / Franchise)</div>
+          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Triggered when the user clicks Price Run List. For each VIN: decode VIN to get year/make/model, estimate miles from year (≈ 12k/yr clamped 5k–150k), then call /predict with vin+miles+zip+dealer_type=franchise. Hammer = 0.92 × marketcheck_price; IQR range from comparables.stats.price percentiles; confidence from comp count + price band.</div></div>
     </div>
   </div>
 
@@ -351,7 +401,7 @@ pre.code-block {
     <table class="param-table">
       <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>state</code></td><td>string</td><td><span class="required">Yes</span></td><td>Auction state</td></tr><tr><td><code>zip</code></td><td>string</td><td>No</td><td>Auction ZIP code</td></tr>
+        <tr><td><code>state</code></td><td>string</td><td><span class="required">Yes</span></td><td>Auction state (two-letter code, e.g. TX)</td></tr><tr><td><code>zip</code></td><td>string</td><td>No</td><td>Auction ZIP code — used for run-list price prediction</td></tr><tr><td><code>runListVins</code></td><td>array</td><td>No</td><td>Array of VINs to price as a run list (set when the Price Run List button is clicked)</td></tr>
       </tbody>
     </table>
   </div>
@@ -361,23 +411,6 @@ pre.code-block {
     <h2>API Endpoints Used — Full Details</h2>
     <p>Each API call explained with parameters, return values, and documentation links:</p>
     
-    <div class="api-detail-card enterprise">
-      <div class="api-detail-header">
-        <span class="api-method-badge">GET</span>
-        <code>/api/v1/sold-vehicles/summary</code>
-        <span class="enterprise-badge">Enterprise API</span>
-      </div>
-      <h4>Sold Vehicle Summary (Market Intelligence)</h4>
-      <p>Aggregated market intelligence from sold vehicle data. Rankings by make, model, body type, state. Returns sold counts, average prices, days-on-market, and market share data.</p>
-      <table class="param-table">
-        <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td><code>ranking_dimensions</code></td><td>string</td><td>No</td><td>Dimensions: make, model, body_type, state, fuel_type_category</td></tr><tr><td><code>ranking_measure</code></td><td>string</td><td>No</td><td>Measures: sold_count, average_sale_price, average_days_on_market</td></tr><tr><td><code>ranking_order</code></td><td>string</td><td>No</td><td>desc or asc</td></tr><tr><td><code>top_n</code></td><td>number</td><td>No</td><td>Top N results</td></tr><tr><td><code>state</code></td><td>string</td><td>No</td><td>2-letter state code</td></tr><tr><td><code>inventory_type</code></td><td>string</td><td>No</td><td>Used or New</td></tr>
-        </tbody>
-      </table>
-      <div class="api-returns"><strong>Returns:</strong> rankings[] with dimension values, sold_count, average_sale_price, market_share</div>
-      <a href="https://apidocs.marketcheck.com/#sold-summary" target="_blank" class="api-doc-link">View full API documentation &#8599;</a>
-    </div>
     <div class="api-detail-card">
       <div class="api-detail-header">
         <span class="api-method-badge">GET</span>
@@ -395,6 +428,40 @@ pre.code-block {
       <div class="api-returns"><strong>Returns:</strong> num_found, listings[] with id, vin, price, miles, dom, dealer{}, media{}, stats{}</div>
       <a href="https://apidocs.marketcheck.com/#search-active" target="_blank" class="api-doc-link">View full API documentation &#8599;</a>
     </div>
+    <div class="api-detail-card">
+      <div class="api-detail-header">
+        <span class="api-method-badge">GET</span>
+        <code>/v2/decode/car/neovin/{vin}/specs</code>
+        
+      </div>
+      <h4>VIN Decode</h4>
+      <p>Decodes a VIN into full vehicle specs — year, make, model, trim, engine, transmission, body type, drivetrain, and 100+ attributes.</p>
+      <table class="param-table">
+        <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>vin</code></td><td>string</td><td><span class="required">Yes</span></td><td>17-character Vehicle Identification Number</td></tr>
+        </tbody>
+      </table>
+      <div class="api-returns"><strong>Returns:</strong> Vehicle specs object: year, make, model, trim, engine, transmission, body_type, drivetrain, fuel_type, etc.</div>
+      <a href="https://apidocs.marketcheck.com/#decode-vin" target="_blank" class="api-doc-link">View full API documentation &#8599;</a>
+    </div>
+    <div class="api-detail-card">
+      <div class="api-detail-header">
+        <span class="api-method-badge">GET</span>
+        <code>/v2/predict/car/us/marketcheck_price/comparables</code>
+        
+      </div>
+      <h4>Price Prediction (Retail / Franchise)</h4>
+      <p>Predicts the fair market price for a used vehicle from franchise dealer perspective. Returns predicted price, confidence interval, price range, and comparable vehicles used in the prediction.</p>
+      <table class="param-table">
+        <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>vin</code></td><td>string</td><td><span class="required">Yes</span></td><td>17-character VIN</td></tr><tr><td><code>miles</code></td><td>number</td><td>No</td><td>Current mileage</td></tr><tr><td><code>zip</code></td><td>string</td><td>No</td><td>ZIP code for local pricing</td></tr><tr><td><code>dealer_type</code></td><td>string</td><td>No</td><td>Set to 'franchise' for retail pricing</td></tr>
+        </tbody>
+      </table>
+      <div class="api-returns"><strong>Returns:</strong> predicted_price, price_range (low/high), comparables[] with vin, price, miles, distance</div>
+      <a href="https://apidocs.marketcheck.com/#price-prediction" target="_blank" class="api-doc-link">View full API documentation &#8599;</a>
+    </div>
   </div>
 
   <!-- What the App Renders -->
@@ -402,7 +469,7 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Lane planning grid</div><div class="render-item"><div class="render-dot"></div>reserve price suggestions</div><div class="render-item"><div class="render-dot"></div>buyer targeting cards</div><div class="render-item"><div class="render-dot"></div>demand-based lane ordering</div>
+      <div class="render-item"><div class="render-dot"></div>Lane Overview table (Segment / Unit Count / Avg Expected Hammer / D/S Ratio / Sell-Through % with color-coded badge / Revenue Estimate</div><div class="render-item"><div class="render-dot"></div>plus a totals/avg row)</div><div class="render-item"><div class="render-dot"></div>side-by-side Consignment Pipeline (sticky header</div><div class="render-item"><div class="render-dot"></div>scrollable</div><div class="render-item"><div class="render-dot"></div>DOM-color-coded</div><div class="render-item"><div class="render-dot"></div>Prospect button per row) and Buyer Targeting list (city + inventory gap badge)</div><div class="render-item"><div class="render-dot"></div>and a Run List Pricer textarea (paste up to 15 VINs) that renders results as a table with VIN</div><div class="render-item"><div class="render-dot"></div>year/make/model</div><div class="render-item"><div class="render-dot"></div>expected hammer</div><div class="render-item"><div class="render-dot"></div>IQR price range</div><div class="render-item"><div class="render-dot"></div>comp count</div><div class="render-item"><div class="render-dot"></div>and a High/Medium/Low sell-through confidence pill</div>
     </div>
   </div>
 

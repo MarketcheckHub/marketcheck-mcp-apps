@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Market Anomaly Detector — MarketCheck Apps">
-  <meta property="og:description" content="Scans active listings for pricing anomalies — underpriced vehicles, overpriced outliers, and unusual patterns. Uses statistical analysis of search results to identify opportunities.">
+  <meta property="og:description" content="Scans up to 50 active listings for a given make/model/year/state window and flags the pricing outliers using z-score anomaly detection. The market mean and standard deviation come directly from the Ma">
   <meta property="og:url" content="https://apps.marketcheck.com/app/market-anomaly-detector/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/market-anomaly-detector.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Market Anomaly Detector">
-  <meta name="twitter:description" content="Scans active listings for pricing anomalies — underpriced vehicles, overpriced outliers, and unusual patterns. Uses statistical analysis of search results to identify opportunities.">
+  <meta name="twitter:description" content="Scans up to 50 active listings for a given make/model/year/state window and flags the pricing outliers using z-score anomaly detection. The market mean and standard deviation come directly from the Ma">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/market-anomaly-detector.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Market Anomaly Detector","description":"Scans active listings for pricing anomalies — underpriced vehicles, overpriced outliers, and unusual patterns. Uses statistical analysis of search results to identify opportunities.","url":"https://apps.marketcheck.com/app/market-anomaly-detector/","image":"https://apps.marketcheck.com/assets/screenshots/market-anomaly-detector.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Market Anomaly Detector","description":"Scans up to 50 active listings for a given make/model/year/state window and flags the pricing outliers using z-score anomaly detection. The market mean and standard deviation come directly from the MarketCheck API's `stats.price` block (computed on the full matching population, not just the page shown). A 1σ–3σ sensitivity slider lets the user tune how aggressive the 'underpriced' threshold is. Each listing's discount% is measured against the real market mean, and the Price Drop Alerts section uses the listing's actual `price_change_percent` — no synthetic markups.","url":"https://apps.marketcheck.com/app/market-anomaly-detector/","image":"https://apps.marketcheck.com/assets/screenshots/market-anomaly-detector.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -306,12 +306,52 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Scans active listings for pricing anomalies — underpriced vehicles, overpriced outliers, and unusual patterns. Uses statistical analysis of search results to identify opportunities.</p>
+    <p>Scans up to 50 active listings for a given make/model/year/state window and flags the pricing outliers using z-score anomaly detection. The market mean and standard deviation come directly from the MarketCheck API's `stats.price` block (computed on the full matching population, not just the page shown). A 1σ–3σ sensitivity slider lets the user tune how aggressive the 'underpriced' threshold is. Each listing's discount% is measured against the real market mean, and the Price Drop Alerts section uses the listing's actual `price_change_percent` — no synthetic markups.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Used-Car Shoppers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Spot the single listing that's $10K below market for a reason worth investigating — or because the seller needs to move it fast.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Dealers & Appraisers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Benchmark your own listings against the broader market; see if your asking price falls inside or outside the 1σ band.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Auction Buyers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Find stale inventory with recent price drops in a target market — classic buy-low signals.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Fraud & Risk</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Sharply below-market listings on an otherwise tight market can be flagged for title/condition review.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key — switches the app to live mode</td></tr><tr><td><code>access_token</code></td><td>OAuth bearer token (alternative to api_key)</td></tr><tr><td><code>make</code></td><td>Pre-fill the Make dropdown</td></tr><tr><td><code>model</code></td><td>Pre-fill the Model dropdown</td></tr><tr><td><code>year</code></td><td>Pre-fill the Year dropdown</td></tr><tr><td><code>state</code></td><td>Pre-fill the State dropdown (2-letter code)</td></tr><tr><td><code>sensitivity</code></td><td>Pre-fill the σ slider (1.0–3.0)</td></tr><tr><td><code>embed</code></td><td>Hide settings bar — for embedding in another dashboard</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/market-anomaly-detector/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/market-anomaly-detector/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/market-anomaly-detector/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/market-anomaly-detector/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -331,7 +371,7 @@ pre.code-block {
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/active</code>
             <div class="flow-api-name">Search Active Listings</div>
-          </div></div><div class="flow-note">Search active listings with stats (price, miles, DOM) for statistical analysis</div></div>
+          </div></div><div class="flow-note">Call /search/car/active with make, model, year, state, rows=50, sort_by=price asc, and stats=price,miles,dom. The response's stats.price.mean and stats.price.stddev become the population-level baseline for anomaly detection.</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Score each listing</div></div><div class="flow-note">Client-side: flag every listing with price < mean − (sensitivity × stddev) as an anomaly. Each listing's discount% = (mean − price) / mean × 100. The Price Drop Alerts section reads listing.price_change_percent directly — no synthetic values.</div></div>
     </div>
   </div>
 
@@ -343,7 +383,7 @@ pre.code-block {
     <table class="param-table">
       <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>make</code></td><td>string</td><td>No</td><td>Vehicle make</td></tr><tr><td><code>model</code></td><td>string</td><td>No</td><td>Vehicle model</td></tr><tr><td><code>year</code></td><td>string</td><td>No</td><td>Year or range</td></tr><tr><td><code>state</code></td><td>string</td><td>No</td><td>State to search</td></tr>
+        <tr><td><code>make</code></td><td>string</td><td>No</td><td>Vehicle make (defaults to Toyota)</td></tr><tr><td><code>model</code></td><td>string</td><td>No</td><td>Vehicle model (defaults to RAV4)</td></tr><tr><td><code>year</code></td><td>string</td><td>No</td><td>Model year (defaults to 2023)</td></tr><tr><td><code>state</code></td><td>string</td><td>No</td><td>2-letter state code (defaults to CO)</td></tr><tr><td><code>sensitivity</code></td><td>number</td><td>No</td><td>Z-score threshold in standard deviations, 1.0–3.0 (defaults to 2.0)</td></tr>
       </tbody>
     </table>
   </div>
@@ -377,7 +417,7 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Anomaly scatter plot (price vs miles)</div><div class="render-item"><div class="render-dot"></div>Z-score distribution</div><div class="render-item"><div class="render-dot"></div>underpriced opportunity cards</div><div class="render-item"><div class="render-dot"></div>overpriced alerts</div><div class="render-item"><div class="render-dot"></div>market histogram</div>
+      <div class="render-item"><div class="render-dot"></div>5-KPI ribbon (total scanned</div><div class="render-item"><div class="render-dot"></div>anomalies found</div><div class="render-item"><div class="render-dot"></div>avg discount %</div><div class="render-item"><div class="render-dot"></div>biggest outlier)</div><div class="render-item"><div class="render-dot"></div>outlier table with dealer+location+DOM+discount%</div><div class="render-item"><div class="render-dot"></div>box-and-whisker price distribution with anomaly-threshold line and individual points</div><div class="render-item"><div class="render-dot"></div>quick-stats grid (min/Q1/median/Q3/max/stdDev)</div><div class="render-item"><div class="render-dot"></div>and real price-drop alert cards from price_change_percent</div>
     </div>
   </div>
 

@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Auction Dealer Targeting — MarketCheck Apps">
-  <meta property="og:description" content="Identifies active dealers in a target market by analyzing inventory patterns. Uses active listing facets to find high-volume dealers, categorizes them by type (franchise vs independent), and assesses ">
+  <meta property="og:description" content="Identifies active dealers in a target market by analyzing inventory patterns. Uses active listing facets (dealer_id, make, body_type) to find high-volume dealers, categorizes them by seller type (fran">
   <meta property="og:url" content="https://apps.marketcheck.com/app/auction-dealer-targeting/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/auction-dealer-targeting.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Auction Dealer Targeting">
-  <meta name="twitter:description" content="Identifies active dealers in a target market by analyzing inventory patterns. Uses active listing facets to find high-volume dealers, categorizes them by type (franchise vs independent), and assesses ">
+  <meta name="twitter:description" content="Identifies active dealers in a target market by analyzing inventory patterns. Uses active listing facets (dealer_id, make, body_type) to find high-volume dealers, categorizes them by seller type (fran">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/auction-dealer-targeting.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Auction Dealer Targeting","description":"Identifies active dealers in a target market by analyzing inventory patterns. Uses active listing facets to find high-volume dealers, categorizes them by type (franchise vs independent), and assesses buying capacity based on inventory size, mix, and turnover patterns.","url":"https://apps.marketcheck.com/app/auction-dealer-targeting/","image":"https://apps.marketcheck.com/assets/screenshots/auction-dealer-targeting.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Auction Dealer Targeting","description":"Identifies active dealers in a target market by analyzing inventory patterns. Uses active listing facets (dealer_id, make, body_type) to find high-volume dealers, categorizes them by seller type (franchise vs independent), estimates buying capacity from inventory size and turnover (DOM), and scores each dealer's segment preference match using cosine similarity against market-level make distribution.","url":"https://apps.marketcheck.com/app/auction-dealer-targeting/","image":"https://apps.marketcheck.com/assets/screenshots/auction-dealer-targeting.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -301,20 +301,54 @@ pre.code-block {
 </div>
 
 <div class="content" id="guide-content">
-  <div class="enterprise-notice">
-    <span>&#9888;</span>
-    <div><strong>Enterprise API subscription required.</strong> This app uses the <a href="https://apidocs.marketcheck.com/#sold-summary">Sold Vehicle Summary API</a> which requires an Enterprise API subscription. <a href="https://developers.marketcheck.com" target="_blank">Contact us</a> for access.</div>
-  </div>
+  
 
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Identifies active dealers in a target market by analyzing inventory patterns. Uses active listing facets to find high-volume dealers, categorizes them by type (franchise vs independent), and assesses buying capacity based on inventory size, mix, and turnover patterns.</p>
+    <p>Identifies active dealers in a target market by analyzing inventory patterns. Uses active listing facets (dealer_id, make, body_type) to find high-volume dealers, categorizes them by seller type (franchise vs independent), estimates buying capacity from inventory size and turnover (DOM), and scores each dealer's segment preference match using cosine similarity against market-level make distribution.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Auction Sales Reps</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Build a target list of high-volume dealers to invite to your next auction — prioritize by buying capacity and segment fit.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Auction Managers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Understand the buyer landscape in a market before opening a new auction lane or expanding to a new region.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Wholesale Distributors</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Find dealers whose inventory mix aligns with your wholesale supply — target dealers who buy what you sell.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (or set via localStorage)</td></tr><tr><td><code>zip</code></td><td>Target market ZIP code — auto-fills form and triggers search</td></tr><tr><td><code>radius</code></td><td>Search radius in miles (default: 50)</td></tr><tr><td><code>make</code></td><td>Filter by vehicle make (e.g., Toyota)</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/auction-dealer-targeting/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/auction-dealer-targeting/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/auction-dealer-targeting/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/auction-dealer-targeting/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -334,17 +368,12 @@ pre.code-block {
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/active</code>
             <div class="flow-api-name">Search Active Listings</div>
-          </div></div><div class="flow-note">Search active listings in target area with dealer_id facets to identify all active dealers</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Demand + Segment Data</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
-          <div class="flow-api-card enterprise">
-            <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
-            <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
-            <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
-          </div>
-          <div class="flow-api-card enterprise">
-            <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
-            <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
-            <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
-          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Fetch sold demand by make/model and body type to assess buyer preferences in the market</div></div>
+          </div></div><div class="flow-note">Search active listings in target area with dealer_id, make, and body_type facets to identify all active dealers and market mix</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Demand + Segment Data</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
+          <div class="flow-api-card">
+            <div class="flow-api-method">GET</div>
+            <code class="flow-api-path">/v2/search/car/active</code>
+            <div class="flow-api-name">Search Active Listings</div>
+          </div></div><div class="flow-note">Market demand derived from facets in Step 1 (soldSummary is enterprise-only); make and body_type facets provide segment distribution</div></div>
     </div>
   </div>
 
@@ -382,23 +411,6 @@ pre.code-block {
       </table>
       <div class="api-returns"><strong>Returns:</strong> num_found, listings[] with id, vin, price, miles, dom, dealer{}, media{}, stats{}</div>
       <a href="https://apidocs.marketcheck.com/#search-active" target="_blank" class="api-doc-link">View full API documentation &#8599;</a>
-    </div>
-    <div class="api-detail-card enterprise">
-      <div class="api-detail-header">
-        <span class="api-method-badge">GET</span>
-        <code>/api/v1/sold-vehicles/summary</code>
-        <span class="enterprise-badge">Enterprise API</span>
-      </div>
-      <h4>Sold Vehicle Summary (Market Intelligence)</h4>
-      <p>Aggregated market intelligence from sold vehicle data. Rankings by make, model, body type, state. Returns sold counts, average prices, days-on-market, and market share data.</p>
-      <table class="param-table">
-        <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td><code>ranking_dimensions</code></td><td>string</td><td>No</td><td>Dimensions: make, model, body_type, state, fuel_type_category</td></tr><tr><td><code>ranking_measure</code></td><td>string</td><td>No</td><td>Measures: sold_count, average_sale_price, average_days_on_market</td></tr><tr><td><code>ranking_order</code></td><td>string</td><td>No</td><td>desc or asc</td></tr><tr><td><code>top_n</code></td><td>number</td><td>No</td><td>Top N results</td></tr><tr><td><code>state</code></td><td>string</td><td>No</td><td>2-letter state code</td></tr><tr><td><code>inventory_type</code></td><td>string</td><td>No</td><td>Used or New</td></tr>
-        </tbody>
-      </table>
-      <div class="api-returns"><strong>Returns:</strong> rankings[] with dimension values, sold_count, average_sale_price, market_share</div>
-      <a href="https://apidocs.marketcheck.com/#sold-summary" target="_blank" class="api-doc-link">View full API documentation &#8599;</a>
     </div>
   </div>
 

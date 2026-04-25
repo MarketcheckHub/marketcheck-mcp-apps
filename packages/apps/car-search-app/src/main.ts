@@ -168,6 +168,23 @@ const MOCK: CarListing[] = [
   {id:"m20",vin:"YV4A22RL6P1000020",heading:"2024 Volvo XC60 B5 Plus",year:2024,make:"Volvo",model:"XC60",trim:"B5 Plus",body_type:"SUV",fuel_type:"Hybrid",drivetrain:"AWD",transmission:"8-Speed Auto",engine:"2.0L I4 Turbo Mild-Hybrid",exterior_color:"Crystal White",interior_color:"Charcoal",price:47800,miles:9100,city:"Philadelphia",state:"PA",zip:"19101",dealer_name:"Main Line Volvo",vdp_url:"https://example.com/v20",dom:10,first_seen:"2026-03-16",city_mpg:26,highway_mpg:33,doors:4,is_cpo:true},
 ].map(c=>({...c,photo_urls:[],options:["Bluetooth","Backup Camera","Keyless Entry","Alloy Wheels"],features:["Apple CarPlay","Android Auto"],seller_comments:"",cylinders:4,engine_size:"2.0L",msrp:0} as CarListing));
 
+// ─── Auth & Mode Detection ──────────────────────────────────────
+
+function _getAuth(): { mode: "api_key" | "oauth_token" | null; value: string | null } {
+  const params = new URLSearchParams(location.search);
+  const token = params.get("access_token") ?? localStorage.getItem("mc_access_token");
+  if (token) return { mode: "oauth_token", value: token };
+  const key = params.get("api_key") ?? localStorage.getItem("mc_api_key");
+  if (key) return { mode: "api_key", value: key };
+  return { mode: null, value: null };
+}
+
+function _detectAppMode(): "mcp" | "live" | "demo" {
+  if (_getAuth().value) return "live";
+  if (window.parent !== window) return "mcp";
+  return "demo";
+}
+
 // ─── Application State ──────────────────────────────────────────
 
 const S = {
@@ -184,13 +201,13 @@ const S = {
   filters: { rows: 24, start: 0 } as SearchFilters,
   _lastNlp: "" as string,
   _detailPhotoIdx: 0,
+  _nlpWarning: "" as string,
 };
 
 // ─── API Layer ───────────────────────────────────────────────────
 
 function apiKey(): string|null {
-  const p = new URLSearchParams(location.search);
-  return p.get("api_key") ?? localStorage.getItem("mc_api_key") ?? null;
+  return _getAuth().value;
 }
 
 async function apiSearch(args: Record<string,any>): Promise<any> {
@@ -480,7 +497,9 @@ function stats() {
 }
 
 function comps(car: CarListing) {
-  return MOCK.filter(c => c.id !== car.id && (c.make === car.make || c.body_type === car.body_type)).slice(0,5);
+  // Use live listings first, fall back to MOCK for demo mode
+  const pool = S.listings.length > 1 ? S.listings : MOCK;
+  return pool.filter(c => c.id !== car.id && (c.make === car.make || c.body_type === car.body_type)).slice(0,5);
 }
 
 // ─── Routing ─────────────────────────────────────────────────────
@@ -816,12 +835,33 @@ function vSearch(): string {
     <div class="fov${S.drawerOpen?" vis":""}" data-a="cdw"></div>
     <div class="fdw${S.drawerOpen?" op":""}">${hFilters(true)}</div>
     <main class="mn">
+      ${_detectAppMode() === "demo" ? `<div id="_demo_banner" style="background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid #f59e0b55;border-radius:14px;padding:18px 24px;margin-bottom:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;box-shadow:0 4px 20px rgba(245,158,11,0.08);">
+        <div style="width:42px;height:42px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <span style="font-size:20px;">⚡</span>
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:14px;font-weight:700;color:#fbbf24;margin-bottom:2px;">Demo Mode — Showing sample data</div>
+          <div style="font-size:12px;color:#94a3b8;">Add your MarketCheck API key to search real inventory.
+            <a href="https://developers.marketcheck.com" target="_blank" style="color:#fbbf24;text-decoration:underline;font-weight:600;">Get a free key →</a></div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="_banner_key" type="text" placeholder="Paste API key"
+            style="padding:10px 14px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:13px;width:200px;outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#334155'" />
+          <button id="_banner_save"
+            style="padding:10px 20px;border-radius:8px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#0f172a;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Activate</button>
+        </div>
+      </div>` : ""}
       <div class="nlp-bar">
         <div class="nlp-wrap">
           <input type="text" id="nlpBarIn" class="nlp-input" placeholder="Describe what you're looking for... e.g. 'red Toyota SUV under $35,000'" value="${S._lastNlp||""}" />
           <button class="nlp-go" data-a="nlpbar">${IC.search}</button>
         </div>
       </div>
+      ${S._nlpWarning ? `<div style="background:linear-gradient(135deg,#7f1d1d22,#ef444411);border:1px solid #ef444444;border-radius:8px;padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;gap:10px;">
+        <span style="font-size:16px;">⚠️</span>
+        <span style="font-size:13px;color:#f87171;">${esc(S._nlpWarning)}</span>
+        <span style="margin-left:auto;cursor:pointer;color:#ef4444;font-size:16px;font-weight:700;" data-a="cnlpw">×</span>
+      </div>` : ""}
       <button class="mft" data-a="odw">${IC.filter} Filters</button>
       <div class="rb">
         <div class="rc"><b>${fmt(S.total)}</b> vehicles found${S.mock?`<span class="mb">Sample Data</span>`:""}</div>
@@ -973,6 +1013,21 @@ function draw() {
 // ─── Event Binding (non-click only; clicks via delegation) ──────
 
 function bind() {
+  // Demo banner activation
+  const bannerSave = document.getElementById("_banner_save");
+  const bannerKey = document.getElementById("_banner_key") as HTMLInputElement;
+  if (bannerSave && bannerKey) {
+    bannerSave.onclick = () => {
+      const k = bannerKey.value.trim();
+      if (!k) return;
+      localStorage.setItem("mc_api_key", k);
+      const banner = document.getElementById("_demo_banner");
+      if (banner) banner.innerHTML = '<div style="font-size:13px;font-weight:700;color:#10b981;">&#10003; API key saved — reloading...</div>';
+      setTimeout(() => location.reload(), 800);
+    };
+    bannerKey.onkeydown = (e) => { if (e.key === "Enter") bannerSave.click(); };
+  }
+
   const ak = document.getElementById("akIn") as HTMLInputElement;
   if (ak) {
     ak.onchange = () => {
@@ -1044,6 +1099,7 @@ function resetAll() {
   keys.forEach(k => delete S.filters[k]);
   S.filters.start=0; S.filters.rows=24; S.page=0;
   S.mock=true; S.listings=[...MOCK]; S.total=MOCK.length;
+  S._nlpWarning=""; S._lastNlp="";
 }
 
 function toggleChip(key: keyof SearchFilters, val: string) {
@@ -1065,11 +1121,28 @@ function runNlp(query: string) {
   if (!query.trim()) return;
   S._lastNlp = query;
   const p = parseNlp(query);
+  const matched = Object.entries(p).filter(([_,v])=>v);
   const el = document.getElementById("nlpP");
   if (el) {
-    const tags = Object.entries(p).filter(([_,v])=>v).map(([k,v])=>`<span class="np">${k}: ${v}</span>`).join("");
+    const tags = matched.map(([k,v])=>`<span class="np">${k}: ${v}</span>`).join("");
     el.innerHTML = tags?`<div class="nps"><h4>Parsed Parameters</h4><div class="npt">${tags}</div></div>`:"";
   }
+
+  // Detect unmatched terms — warn user if query had words we couldn't parse
+  const matchedWords = matched.map(([_,v])=>String(v).toLowerCase()).join(" ").split(/[\s,]+/).filter(Boolean);
+  const queryWords = query.toLowerCase().replace(/[^a-z0-9\s-]/g,"").split(/\s+/).filter(w => w.length > 2);
+  const stopWords = ["the","and","with","for","under","below","above","over","less","than","more","near","around","car","cars","vehicle","vehicles","find","show","search","looking","want","need","get","buy","used","new","good","best","great","nice","cheap","affordable","luxury","family","friendly"];
+  const unmatched = queryWords.filter(w => !stopWords.includes(w) && !matchedWords.some(m => m.includes(w) || w.includes(m)));
+
+  if (unmatched.length > 0 && matched.length === 0) {
+    // Nothing parsed at all — show prominent warning in NLP bar area
+    S._nlpWarning = `Could not match "${unmatched.join(" ")}" to any known filter. Try using specific make/model names (e.g. "Mercedes-Benz"), body types, or price ranges.`;
+  } else if (unmatched.length > 0) {
+    S._nlpWarning = `Note: "${unmatched.join(", ")}" was not recognized as a filter and was ignored.`;
+  } else {
+    S._nlpWarning = "";
+  }
+
   Object.assign(S.filters, p);
   S.filters.start=0; S.filters.rows=24; S.page=0;
   setTimeout(()=>{ S.view="search"; setHash(); doSearch(); }, 600);
@@ -1161,6 +1234,8 @@ function onClick(e: Event) {
       const pi=parseInt(t.dataset.pi||"0");
       S._detailPhotoIdx = pi; draw();
     } break;
+    case "cnlpw":
+      S._nlpWarning = ""; draw(); break;
   }
 }
 
@@ -1186,6 +1261,24 @@ function onClick(e: Event) {
   // Initial render
   onHash();
 
-  // If API key present, auto-search
-  if (apiKey() && S.view === "search") doSearch();
+  // Read URL params for deep-linking filters
+  const _urlP = new URLSearchParams(location.search);
+  if (_urlP.get("make")) S.filters.make = _urlP.get("make")!;
+  if (_urlP.get("model")) S.filters.model = _urlP.get("model")!;
+  if (_urlP.get("year")) S.filters.year_range = _urlP.get("year")!;
+  if (_urlP.get("zip")) S.filters.zip = _urlP.get("zip")!;
+  if (_urlP.get("radius")) S.filters.radius = _urlP.get("radius")!;
+  if (_urlP.get("body_type")) S.filters.body_type = _urlP.get("body_type")!;
+  if (_urlP.get("fuel_type")) S.filters.fuel_type = _urlP.get("fuel_type")!;
+  if (_urlP.get("drivetrain")) S.filters.drivetrain = _urlP.get("drivetrain")!;
+  if (_urlP.get("price_range")) S.filters.price_range = _urlP.get("price_range")!;
+  if (_urlP.get("miles_range")) S.filters.miles_range = _urlP.get("miles_range")!;
+  if (_urlP.get("exterior_color")) S.filters.exterior_color = _urlP.get("exterior_color")!;
+  if (_urlP.get("interior_color")) S.filters.interior_color = _urlP.get("interior_color")!;
+  if (_urlP.get("sort_by")) S.filters.sort_by = _urlP.get("sort_by")!;
+
+  // If API key or URL filters present, auto-search
+  const hasUrlFilters = ["make","model","year","zip","body_type","fuel_type","drivetrain","price_range","miles_range"].some(k => _urlP.get(k));
+  if ((apiKey() || hasUrlFilters) && S.view === "search") doSearch();
+  else if (hasUrlFilters) { S.listings = filterLocal(); S.total = S.listings.length; draw(); }
 })();

@@ -11,7 +11,13 @@ function _getAuth(): { mode: "api_key" | "oauth_token" | null; value: string | n
   if (key) return { mode: "api_key", value: key };
   return { mode: null, value: null };
 }
-function _detectAppMode(): "mcp" | "live" | "demo" { if (_getAuth().value) return "live"; if (_safeApp) return "mcp"; return "demo"; }
+function _detectAppMode(): "mcp" | "live" | "demo" {
+  // Auth (URL or localStorage) takes priority — run in standalone live mode
+  if (_getAuth().value) return "live";
+  // Only use MCP mode when no auth AND we're actually iframed into an MCP host
+  if (_safeApp && window.parent !== window) return "mcp";
+  return "demo";
+}
 function _isEmbedMode(): boolean { return new URLSearchParams(location.search).has("embed"); }
 function _getUrlParams(): Record<string, string> { const params = new URLSearchParams(location.search); const result: Record<string, string> = {}; for (const key of ["vin","zip","make","model","miles","state","dealer_id","ticker","price","postal_code"]) { const v = params.get(key); if (v) result[key] = v; } return result; }
 function _proxyBase(): string { return location.protocol.startsWith("http") ? "" : "http://localhost:3001"; }
@@ -44,26 +50,60 @@ function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
 function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
 
 async function _fetchDirect(args) {
-  const myInventory = await _mcActive({dealer_id:args.dealer_id,rows:50,facets:"make,model,body_type"});
-  const marketInventory = await _mcActive({zip:args.zip,radius:args.radius??50,rows:0,facets:"make,model,body_type"});
-  const demand = await _mcSold({state:args.state,ranking_dimensions:"make,model",ranking_measure:"sold_count",ranking_order:"desc",top_n:20});
-  return {myInventory,marketInventory,demand};
+  // Stage 1 — run the 3 core calls + top-competitor-IDs lookup in parallel.
+  // `demand` (sold-summary) is Enterprise-only and returns 403 on free tier;
+  // we swallow that error and let buildLiveResult derive a market-count
+  // demand proxy instead.
+  const radius = args.radius ?? 50;
+  const [myInventory, marketInventory, demand, topCompetitorIds] = await Promise.all([
+    _mcActive({ dealer_id: args.dealer_id, rows: 0, facets: "make,model,body_type" }).catch(() => null),
+    _mcActive({ zip: args.zip, radius, rows: 10, stats: "price,dom", facets: "make,model,body_type" }).catch(() => null),
+    _mcSold({
+      state: args.state,
+      ranking_dimensions: "make,model",
+      ranking_measure: "sold_count",
+      ranking_order: "desc",
+      top_n: 20,
+    }).catch(() => null),
+    _mcActive({ zip: args.zip, radius, rows: 0, facets: "dealer_id" })
+      .then((d: any) => (d?.facets?.dealer_id || []).slice(0, 5).map((f: any) => String(f.item)))
+      .catch(() => []),
+  ]);
+
+  // Stage 2 — fan out per-competitor make/model facet lookups (5 parallel calls).
+  // Filters out the user's own dealer_id so we never compare them to themselves.
+  const competitorIds: string[] = (topCompetitorIds || []).filter(
+    (id: string) => id && id !== String(args.dealer_id)
+  );
+  const competitors = await Promise.all(
+    competitorIds.map(async (did: string) => {
+      const inv = await _mcActive({ dealer_id: did, rows: 0, facets: "make,model" }).catch(
+        () => null
+      );
+      return { dealerId: did, inv };
+    })
+  );
+
+  return { myInventory, marketInventory, demand, competitors };
 }
 async function _callTool(toolName, args) {
   const auth = _getAuth();
   if (auth.value) {
-    // 1. Proxy (same-origin, reliable)
+    // 1. Direct API first — the shared proxy handler for analyze-dealer-conquest
+    // has the same shape that doesn't match the UI and doesn't fetch per-competitor
+    // data, so going direct gives us the correct data with no hop. Proxy remains
+    // as a fallback in case it's updated server-side.
+    try {
+      const data = await _fetchDirect(args);
+      if (data) return { content: [{ type: "text", text: JSON.stringify(data) }] };
+    } catch {}
+    // 2. Proxy fallback
     try {
       const r = await fetch((_proxyBase()) + "/api/proxy/" + toolName, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...args, _auth_mode: auth.mode, _auth_value: auth.value }),
       });
       if (r.ok) { const d = await r.json(); return { content: [{ type: "text", text: JSON.stringify(d) }] }; }
-    } catch {}
-    // 2. Direct API fallback
-    try {
-      const data = await _fetchDirect(args);
-      if (data) return { content: [{ type: "text", text: JSON.stringify(data) }] };
     } catch {}
   }
   // 3. MCP mode (Claude, VS Code, etc.)
@@ -304,6 +344,260 @@ function generateMockData(): ConquestData {
   };
 }
 
+// ── Live Data Transformer ──────────────────────────────────────────────
+// Transforms the raw proxy/direct response into the UI's expected ConquestData
+// shape. Without this, live mode silently fell through to mock because the
+// raw {myInventory, marketInventory, demand, competitors?} shape never
+// matched the UI's {yourInventory, competitors, gapAnalysis, ...} check.
+//
+// Notes on derivations:
+//  - yourInventory: derived from myInventory.facets.model (joined with make
+//    facet so we can attribute each model to a make). If facets are empty,
+//    returns a zero-state profile so the UI still renders without crashing.
+//  - demand rankings: MarketCheck's sold-summary is an Enterprise endpoint
+//    and returns 403 on free-tier keys, so when `demand` is null we derive
+//    a demand proxy from marketInventory.facets.model (listing count as a
+//    crude but reasonable stand-in for "what's selling").
+//  - gap analysis: makes/models prevalent in the market but missing from
+//    your inventory. Ranked by demand score, capped at 10.
+function buildLiveResult(raw: any): ConquestData {
+  const myInv = raw?.myInventory ?? null;
+  const marketInv = raw?.marketInventory ?? null;
+  const demand = raw?.demand ?? null;
+  const rawCompetitors: Array<{ dealerId: string; inv: any }> = raw?.competitors ?? [];
+
+  // ── Your inventory ──────────────────────────────────────────────────
+  const myMakeCounts = facetMap(myInv?.facets?.make);
+  const myModelFacet: Array<{ item: string; count: number }> = myInv?.facets?.model ?? [];
+  const myTotalUnits = myInv?.num_found ?? 0;
+
+  // The API returns model facets as a flat list without the make — we infer
+  // the make by scanning the make facet for whichever make has a count ≥
+  // this model's count (a reasonable heuristic for franchise-heavy dealers).
+  const yourMakeModel: MakeModelCount[] = myModelFacet.slice(0, 15).map((m) => ({
+    make: attributeMake(m.item, myMakeCounts),
+    model: m.item,
+    count: m.count,
+  }));
+
+  // ── Market stats ────────────────────────────────────────────────────
+  const marketMakeCounts = facetMap(marketInv?.facets?.make);
+  const marketModelFacet: Array<{ item: string; count: number }> = marketInv?.facets?.model ?? [];
+  const totalMarketListings = marketInv?.num_found ?? 0;
+  const priceStats = marketInv?.stats?.price ?? {};
+  const domStats = marketInv?.stats?.dom ?? marketInv?.stats?.days_on_market ?? {};
+  const avgPrice = Number(priceStats.mean ?? priceStats.avg ?? 0);
+  const avgDom = Math.round(Number(domStats.mean ?? domStats.avg ?? 0));
+
+  // ── Demand source ───────────────────────────────────────────────────
+  // Prefer Enterprise sold-summary rankings when available, else fall back
+  // to market-listing counts as a demand proxy.
+  const demandRanks: Array<{ make: string; model: string; score: number }> = [];
+  const soldData: any[] = demand?.data ?? demand?.rankings ?? demand ?? [];
+  if (Array.isArray(soldData) && soldData.length > 0 && soldData[0]?.sold_count != null) {
+    for (const row of soldData) {
+      demandRanks.push({
+        make: row.make ?? row.dimension_make ?? "",
+        model: row.model ?? row.dimension_model ?? "",
+        score: Number(row.sold_count ?? row.ranking_value ?? 0),
+      });
+    }
+  } else {
+    // Fallback: use market listing counts as a demand proxy.
+    for (const m of marketModelFacet.slice(0, 30)) {
+      demandRanks.push({
+        make: attributeMake(m.item, marketMakeCounts),
+        model: m.item,
+        score: m.count,
+      });
+    }
+  }
+
+  // ── Gap analysis: what the market stocks that you don't ─────────────
+  const yourModelSet = new Set(yourMakeModel.map((m) => `${m.make}|${m.model}`));
+  const gapAnalysis: GapModel[] = demandRanks
+    .filter((d) => d.make && d.model && !yourModelSet.has(`${d.make}|${d.model}`))
+    .slice(0, 10)
+    .map((d) => ({
+      make: d.make,
+      model: d.model,
+      demandScore: Math.round(d.score),
+      avgMarketPrice: avgPrice > 0 ? avgPrice : 30000,
+      potentialVolume: Math.max(1, Math.round(d.score / Math.max(1, demandRanks[0]?.score || 1) * 8)),
+    }));
+
+  // ── Competitors ─────────────────────────────────────────────────────
+  const competitors: CompetitorDetail[] = rawCompetitors
+    .filter((c) => c.inv)
+    .map((c) => {
+      const inv = c.inv;
+      const makeFacet: Array<{ item: string; count: number }> = inv?.facets?.make ?? [];
+      const modelFacet: Array<{ item: string; count: number }> = inv?.facets?.model ?? [];
+      return {
+        dealerId: c.dealerId,
+        // The API doesn't return the dealer's display name when querying by
+        // dealer_id alone, so we fall back to showing the ID. This is a known
+        // tier limitation called out in the PR description.
+        dealerName: `Dealer ${c.dealerId}`,
+        totalUnits: inv?.num_found ?? 0,
+        topMakes: makeFacet.slice(0, 5).map((f) => ({ make: f.item, count: f.count })),
+        topModels: modelFacet.slice(0, 6).map((f) => ({ model: f.item, count: f.count })),
+      };
+    });
+
+  // ── Market share comparison (top 5 makes by market volume) ──────────
+  const yourTotal = myTotalUnits || yourMakeModel.reduce((s, m) => s + m.count, 0);
+  const marketShareComparison: MarketShareEntry[] = (marketInv?.facets?.make ?? [])
+    .slice(0, 5)
+    .map((f: any) => {
+      const make = f.item as string;
+      const marketCount = Number(f.count);
+      const yourCount = Number(myMakeCounts[make] ?? 0);
+      return {
+        make,
+        marketCount,
+        marketPct: totalMarketListings ? (marketCount / totalMarketListings) * 100 : 0,
+        yourCount,
+        yourPct: yourTotal ? (yourCount / yourTotal) * 100 : 0,
+      };
+    });
+
+  return {
+    yourInventory: {
+      totalUnits: yourTotal,
+      makeModelBreakdown: yourMakeModel,
+    },
+    competitors,
+    gapAnalysis,
+    acquisitionRecommendations: gapAnalysis,
+    marketShareComparison,
+    marketStats: {
+      totalMarketListings,
+      avgPrice,
+      avgDom,
+    },
+  };
+}
+
+function facetMap(facet: Array<{ item: string; count: number }> | undefined): Record<string, number> {
+  const m: Record<string, number> = {};
+  for (const f of facet ?? []) m[f.item] = f.count;
+  return m;
+}
+
+// Returns the dominant make from a make-facet map (the make with the highest
+// listing count).
+function dominantMake(makes: Record<string, number>): string | null {
+  const makeList = Object.keys(makes).sort((a, b) => makes[b] - makes[a]);
+  return makeList[0] ?? null;
+}
+
+// The active-search API returns `model` facets as a flat list without the
+// parent make, and on the free tier we can't page through enough raw listings
+// to rebuild the mapping. This static table covers the most common US models
+// across mainstream, luxury, and exotic segments — sufficient for the dealers
+// and markets this app targets. For anything unknown, attributeMake falls
+// back to dominantMake (useful for single-franchise dealers).
+const MODEL_TO_MAKE: Record<string, string> = {
+  // Ford
+  "F-150": "Ford", "F-250": "Ford", "F-350": "Ford", "Explorer": "Ford",
+  "Escape": "Ford", "Mustang": "Ford", "Edge": "Ford", "Bronco": "Ford",
+  "Expedition": "Ford", "Ranger": "Ford", "Transit": "Ford", "Fusion": "Ford",
+  "Bronco Sport": "Ford", "Maverick": "Ford",
+  // Chevrolet
+  "Silverado 1500": "Chevrolet", "Silverado 2500": "Chevrolet",
+  "Silverado 2500 HD": "Chevrolet", "Equinox": "Chevrolet", "Malibu": "Chevrolet",
+  "Traverse": "Chevrolet", "Tahoe": "Chevrolet", "Suburban": "Chevrolet",
+  "Corvette": "Chevrolet", "Trax": "Chevrolet", "Trailblazer": "Chevrolet",
+  "Colorado": "Chevrolet", "Blazer": "Chevrolet", "Camaro": "Chevrolet",
+  // Toyota
+  "Camry": "Toyota", "RAV4": "Toyota", "Corolla": "Toyota", "Tacoma": "Toyota",
+  "Tundra": "Toyota", "Highlander": "Toyota", "Prius": "Toyota", "4Runner": "Toyota",
+  "Sienna": "Toyota", "Avalon": "Toyota", "Grand Highlander": "Toyota",
+  "Corolla Cross": "Toyota", "Venza": "Toyota", "Sequoia": "Toyota", "C-HR": "Toyota",
+  // Honda
+  "CR-V": "Honda", "Accord": "Honda", "Civic": "Honda", "Pilot": "Honda",
+  "Odyssey": "Honda", "HR-V": "Honda", "Passport": "Honda", "Ridgeline": "Honda",
+  "Insight": "Honda", "Element": "Honda", "Fit": "Honda",
+  // Nissan
+  "Rogue": "Nissan", "Altima": "Nissan", "Sentra": "Nissan", "Pathfinder": "Nissan",
+  "Frontier": "Nissan", "Murano": "Nissan", "Maxima": "Nissan", "Kicks": "Nissan",
+  "Versa": "Nissan", "Titan": "Nissan", "Armada": "Nissan", "Leaf": "Nissan",
+  "Ariya": "Nissan",
+  // Jeep / RAM
+  "Compass": "Jeep", "Grand Cherokee": "Jeep", "Wrangler": "Jeep",
+  "Wrangler Unlimited": "Jeep", "Cherokee": "Jeep", "Renegade": "Jeep",
+  "Gladiator": "Jeep", "Grand Wagoneer": "Jeep", "Wagoneer": "Jeep",
+  "Ram 1500 Pickup": "RAM", "Ram 2500 Pickup": "RAM", "Ram 3500 Pickup": "RAM",
+  "Ram 3500 Chassis Cab": "RAM", "Ram ProMaster": "RAM",
+  // KIA / Hyundai
+  "Soul": "KIA", "Sportage": "KIA", "K4": "KIA", "Telluride": "KIA",
+  "Forte": "KIA", "Sorento": "KIA", "Seltos": "KIA", "Carnival": "KIA",
+  "K5": "KIA", "EV6": "KIA", "Niro": "KIA",
+  "Tucson": "Hyundai", "Elantra": "Hyundai", "Santa Fe": "Hyundai",
+  "Sonata": "Hyundai", "Kona": "Hyundai", "Palisade": "Hyundai", "Venue": "Hyundai",
+  "IONIQ 5": "Hyundai", "IONIQ 6": "Hyundai", "Santa Cruz": "Hyundai",
+  // Subaru / Mazda / VW
+  "Outback": "Subaru", "Forester": "Subaru", "Crosstrek": "Subaru",
+  "Impreza": "Subaru", "WRX": "Subaru", "Ascent": "Subaru", "Legacy": "Subaru",
+  "CX-5": "Mazda", "CX-30": "Mazda", "CX-50": "Mazda", "CX-90": "Mazda",
+  "Mazda3": "Mazda", "Mazda6": "Mazda", "MX-5 Miata": "Mazda",
+  "Tiguan": "Volkswagen", "Jetta": "Volkswagen", "Atlas": "Volkswagen",
+  "Taos": "Volkswagen", "ID.4": "Volkswagen", "Golf GTI": "Volkswagen",
+  "Passat": "Volkswagen", "Arteon": "Volkswagen",
+  // Luxury — German
+  "3 Series": "BMW", "5 Series": "BMW", "7 Series": "BMW", "X1": "BMW",
+  "X3": "BMW", "X5": "BMW", "X7": "BMW", "4 Series": "BMW", "iX": "BMW",
+  "M3": "BMW", "M5": "BMW", "Z4": "BMW", "8 Series": "BMW", "2 Series": "BMW",
+  "C-Class": "Mercedes-Benz", "E-Class": "Mercedes-Benz", "S-Class": "Mercedes-Benz",
+  "G-Class": "Mercedes-Benz", "GLC": "Mercedes-Benz", "GLE": "Mercedes-Benz",
+  "GLS": "Mercedes-Benz", "GLA": "Mercedes-Benz", "GLB": "Mercedes-Benz",
+  "CLA": "Mercedes-Benz", "A-Class": "Mercedes-Benz", "EQS": "Mercedes-Benz",
+  "EQE": "Mercedes-Benz", "AMG GT": "Mercedes-Benz",
+  "A4": "Audi", "A5": "Audi", "New A5": "Audi", "A6": "Audi", "A8": "Audi",
+  "Q3": "Audi", "Q5": "Audi", "Q7": "Audi", "Q8": "Audi",
+  "e-tron": "Audi", "RS5": "Audi", "S5": "Audi",
+  // Luxury — Japanese
+  "RX 350": "Lexus", "NX": "Lexus", "GX": "Lexus", "LX": "Lexus",
+  "IS": "Lexus", "ES": "Lexus", "LS": "Lexus", "RC": "Lexus", "LC": "Lexus",
+  "MDX": "Acura", "RDX": "Acura", "TLX": "Acura", "Integra": "Acura",
+  // Luxury — British / ultra
+  "Bentayga": "Bentley", "Continental": "Bentley", "Continental GT": "Bentley",
+  "Continental GTC": "Bentley", "Flying Spur": "Bentley", "Mulsanne": "Bentley",
+  "Cullinan": "Rolls-Royce", "Ghost": "Rolls-Royce", "Phantom": "Rolls-Royce",
+  "Dawn": "Rolls-Royce", "Wraith": "Rolls-Royce", "Spectre": "Rolls-Royce",
+  // Luxury — sports / exotic
+  "911": "Porsche", "Cayenne": "Porsche", "Taycan": "Porsche", "Panamera": "Porsche",
+  "Macan": "Porsche", "Cayman": "Porsche", "Boxster": "Porsche", "718 Cayman": "Porsche",
+  "Aventador": "Lamborghini", "Huracan": "Lamborghini", "Urus": "Lamborghini",
+  "Revuelto": "Lamborghini",
+  "F8": "Ferrari", "488": "Ferrari", "Roma": "Ferrari", "Portofino": "Ferrari",
+  "SF90": "Ferrari", "812": "Ferrari", "296": "Ferrari",
+  "720S": "McLaren", "570S": "McLaren", "GT": "McLaren", "Artura": "McLaren",
+  // EV / Tesla
+  "Model S": "Tesla", "Model 3": "Tesla", "Model X": "Tesla", "Model Y": "Tesla",
+  "Cybertruck": "Tesla",
+  // Volvo / Polestar
+  "XC90": "Volvo", "XC60": "Volvo", "XC40": "Volvo", "S60": "Volvo", "S90": "Volvo",
+  "V60": "Volvo", "V90": "Volvo", "EX30": "Volvo", "EX90": "Volvo",
+  "Polestar 2": "Polestar", "Polestar 3": "Polestar",
+  // Cadillac / Buick / GMC / Lincoln
+  "Escalade": "Cadillac", "XT5": "Cadillac", "XT6": "Cadillac", "CT5": "Cadillac",
+  "CT4": "Cadillac", "Lyriq": "Cadillac",
+  "Encore GX": "Buick", "Enclave": "Buick", "Envision": "Buick",
+  "Sierra 1500": "GMC", "Sierra 2500": "GMC", "Yukon": "GMC", "Acadia": "GMC",
+  "Terrain": "GMC", "Canyon": "GMC",
+  "Navigator": "Lincoln", "Aviator": "Lincoln", "Corsair": "Lincoln",
+  "Nautilus": "Lincoln",
+};
+
+// Attributes a model string to a make using the static lookup first, then
+// falls back to the dominant make in the current result set (useful for
+// single-franchise dealers where the fallback is usually correct).
+function attributeMake(model: string, makes: Record<string, number>): string {
+  return MODEL_TO_MAKE[model] ?? dominantMake(makes) ?? "Unknown";
+}
+
 // ── Formatters ─────────────────────────────────────────────────────────
 function fmtCurrency(v: number): string {
   return "$" + Math.round(v).toLocaleString();
@@ -324,6 +618,23 @@ async function main() {
     "margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#e2e8f0;overflow-x:hidden;";
 
   renderInputForm();
+
+  // Auto-submit in two cases:
+  //  1. Demo mode (no key) — so gallery visitors immediately see a fully
+  //     populated dashboard with the yellow banner still accessible via "New
+  //     Search".
+  //  2. Live mode with a deep-link dealer_id URL param — so shareable URLs
+  //     like ?api_key=...&dealer_id=1009280&zip=78216 auto-analyze on load.
+  // Otherwise: leave the input form so live users supply their own dealer_id.
+  const mode = _detectAppMode();
+  const params = _getUrlParams();
+  const hasDeepLink = !!params.dealer_id;
+  if (mode === "demo") {
+    currentData = generateMockData();
+    renderDashboard(currentData);
+  } else if (hasDeepLink) {
+    await handleAnalyze();
+  }
 }
 
 // ── Input Form ─────────────────────────────────────────────────────────
@@ -395,8 +706,8 @@ function renderInputForm() {
   const dealerInput = document.createElement("input");
   dealerInput.id = "dealer-id-input";
   dealerInput.type = "text";
-  dealerInput.placeholder = "e.g. LARRY-MILLER-TOYOTA";
-  dealerInput.value = _getUrlParams().dealer_id ?? "";
+  dealerInput.placeholder = "MarketCheck dealer ID (numeric)";
+  dealerInput.value = _getUrlParams().dealer_id ?? "1009280";
   dealerInput.style.cssText = "width:100%;padding:10px 12px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:13px;margin-bottom:14px;box-sizing:border-box;";
   formPanel.appendChild(dealerInput);
 
@@ -408,8 +719,8 @@ function renderInputForm() {
   const zipInput = document.createElement("input");
   zipInput.id = "zip-input";
   zipInput.type = "text";
-  zipInput.placeholder = "e.g. 80202";
-  zipInput.value = _getUrlParams().zip ?? "80202";
+  zipInput.placeholder = "e.g. 78216";
+  zipInput.value = _getUrlParams().zip ?? "78216";
   zipInput.style.cssText = "width:100%;padding:10px 12px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:13px;margin-bottom:14px;box-sizing:border-box;";
   formPanel.appendChild(zipInput);
 
@@ -469,18 +780,25 @@ async function handleAnalyze() {
     Scanning competitor inventory within ${radius} miles of ${zip}...
   </div>`;
 
+  // Infer state from URL param or default — MarketCheck sold-summary needs a state
+  const stateCode = (_getUrlParams().state || "TX").toUpperCase();
+
   try {
     const result = await _callTool("analyze-dealer-conquest", {
       dealer_id: dealerId,
       zip,
       radius,
-      state: "CO",
+      state: stateCode,
     });
     const text = result?.content?.find((c: any) => c.type === "text")?.text;
     if (text) {
       const parsed = JSON.parse(text);
       if (parsed.yourInventory) {
+        // Future composite shape — already transformed server-side.
         currentData = parsed as ConquestData;
+      } else if (parsed.myInventory || parsed.marketInventory) {
+        // Raw direct/proxy shape — transform client-side.
+        currentData = buildLiveResult(parsed);
       } else {
         currentData = generateMockData();
       }
@@ -513,6 +831,32 @@ function renderDashboard(data: ConquestData) {
 
   _addSettingsBar(header);
   document.body.appendChild(header);
+
+  // Demo-mode banner stays visible on the dashboard so the gallery visitor
+  // always has a clear "activate live data" affordance.
+  if (_detectAppMode() === "demo") {
+    const _db = document.createElement("div");
+    _db.style.cssText = "background:linear-gradient(135deg,#92400e22,#f59e0b11);border:1px solid #f59e0b44;border-radius:10px;padding:14px 20px;margin:12px 20px 0;display:flex;align-items:center;gap:14px;flex-wrap:wrap;";
+    _db.innerHTML = `
+      <div style="flex:1;min-width:200px;">
+        <div style="font-size:13px;font-weight:700;color:#fbbf24;margin-bottom:2px;">&#9888; Demo Mode — Showing sample data</div>
+        <div style="font-size:12px;color:#d97706;">Enter your MarketCheck API key to see real market data. <a href="https://developers.marketcheck.com" target="_blank" style="color:#fbbf24;text-decoration:underline;">Get a free key</a></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input id="_banner_key" type="text" placeholder="Paste your API key" style="padding:8px 12px;border-radius:6px;border:1px solid #f59e0b44;background:#0f172a;color:#e2e8f0;font-size:13px;width:220px;outline:none;" />
+        <button id="_banner_save" style="padding:8px 16px;border-radius:6px;border:none;background:#f59e0b;color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Activate</button>
+      </div>`;
+    document.body.appendChild(_db);
+    _db.querySelector("#_banner_save")?.addEventListener("click", () => {
+      const k = (_db.querySelector("#_banner_key") as HTMLInputElement)?.value?.trim();
+      if (!k) return;
+      localStorage.setItem("mc_api_key", k);
+      location.reload();
+    });
+    _db.querySelector("#_banner_key")?.addEventListener("keydown", (e) => {
+      if ((e as KeyboardEvent).key === "Enter") (_db.querySelector("#_banner_save") as HTMLButtonElement)?.click();
+    });
+  }
 
   const content = el("div", { style: "padding:16px 20px;" });
   document.body.appendChild(content);

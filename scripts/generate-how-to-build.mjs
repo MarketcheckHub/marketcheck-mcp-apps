@@ -501,7 +501,20 @@ const APPS = [
     tagline: "Find competitors' best-sellers you should stock",
     segment: "Dealer",
     toolName: "analyze-dealer-conquest",
-    description: "Identifies what competitors are selling that you're missing. Compares your inventory facets against the market, then overlays demand data to find conquest opportunities.",
+    description: "Enter your MarketCheck dealer ID, a ZIP, and a competitive radius; the app fans out four parallel MarketCheck queries — your inventory mix (make/model/body facets), the surrounding market's inventory mix, the top-5 competitor dealer IDs by listing volume in the radius, and an Enterprise sold-vehicles demand ranking — then per-competitor make/model facet lookups for the top 5. The dashboard renders a KPI ribbon (your units, market listings, competitors scanned, gap models, average market price, average DOM), a your-inventory breakdown with model-level counts and percentage bars, 5 competitor cards with make chips and top models, a gap-analysis table ranked by demand score with HIGH/MEDIUM/LOW priority badges, an inventory-mix-vs-market canvas bar chart with over-/under-indexed annotations, acquisition recommendation cards with potential revenue, and a market-share comparison table with an index multiplier per make. On a free-tier API key the Enterprise sold-summary call 403s and the app automatically falls back to deriving demand from market listing counts, so the gap analysis keeps working.",
+    useCases: [
+      { persona: "Used Car Buyers", desc: "Compare your lot's make/model mix against competing rooftops in your market. The gap table tells you which models your competitors stock that you don't — and how much local demand exists for each." },
+      { persona: "Dealer Group Strategists", desc: "Run the same zip against multiple owned rooftops to see which one should absorb a given conquest opportunity. Over-indexed stores get visibility; under-indexed segments get priority." },
+      { persona: "Franchise Managers", desc: "See whether you're under- or over-indexed against market share for your own franchise brand. A BMW dealer stocking 94% BMW in a market that's 60% BMW + 40% mixed might be missing complementary inventory." },
+      { persona: "Market Analysts", desc: "Snapshot a regional competitive landscape — top 5 dealers by listing volume, their brand mix, and which models dominate the area. Useful for M&A due diligence and territory planning." },
+    ],
+    urlParams: [
+      { name: "api_key", desc: "Your MarketCheck API key (or set via localStorage)" },
+      { name: "dealer_id", desc: "MarketCheck dealer ID (numeric) — pre-fills the form and triggers auto-analysis" },
+      { name: "zip", desc: "ZIP code for the competitive radius (used to find nearby competitor dealers)" },
+      { name: "state", desc: "2-letter state code — used for the Enterprise sold-summary demand ranking (optional; defaults to TX)" },
+      { name: "embed", desc: "Set to 'true' to hide the settings gear (for iframe embedding)" },
+    ],
     inputParams: [
       { name: "dealer_id", type: "string", required: true, desc: "Your MarketCheck dealer ID" },
       { name: "zip", type: "string", required: false, desc: "Dealer ZIP code" },
@@ -509,10 +522,10 @@ const APPS = [
       { name: "state", type: "string", required: false, desc: "State for demand data" },
     ],
     apiFlow: [
-      { step: 1, label: "Your Inventory", apis: ["searchActive"], parallel: false, note: "Fetch your inventory with facets (make, model, body type)" },
-      { step: 2, label: "Market + Demand", apis: ["searchActive", "soldSummary"], parallel: true, note: "Fetch market inventory (nearby dealers) and sold demand rankings in parallel" },
+      { step: 1, label: "Your inventory + market + demand + top competitors", apis: ["searchActive", "searchActive", "soldSummary", "searchActive"], parallel: true, note: "4 API calls in parallel: your dealer's facet breakdown, market-wide facets in the radius, Enterprise sold-vehicle demand rankings (graceful 403 fallback to market-listing proxy on free tiers), and top-5 competitor dealer IDs via dealer_id facet" },
+      { step: 2, label: "Per-competitor inventory facets", apis: ["searchActive"], parallel: true, note: "For each of the top-5 competitor dealer IDs, fetch their make/model facet breakdown in parallel" },
     ],
-    renders: "Gap analysis chart (your mix vs market), conquest opportunity cards, demand-weighted recommendations, competitive heat map",
+    renders: "KPI ribbon (units, listings, competitors, gap models, avg price, avg DOM), your-inventory breakdown with percentage bars, 5 competitor cards with make chips + top models, gap-analysis table ranked by demand with HIGH/MEDIUM/LOW priority, inventory-mix-vs-market canvas bar chart with over-/under-indexed annotations, acquisition recommendation cards with potential revenue, market-share comparison table with index multiplier",
   },
   {
     id: "deal-finder",

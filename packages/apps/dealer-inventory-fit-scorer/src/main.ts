@@ -72,29 +72,179 @@ function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
 function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
 
 async function _fetchDirect(args) {
-  const vins = (args.vins??"").split(",").map(v=>v.trim()).filter(Boolean);
+  const vins = (args.vins ?? "").split(",").map((v: string) => v.trim()).filter(Boolean);
   const results = await Promise.all(vins.map(async (vin) => {
-    const [decode,prediction] = await Promise.all([_mcDecode(vin),_mcPredict({vin,dealer_type:"franchise",zip:args.zip})]);
-    return {vin,decode,prediction};
+    // Decode is specs-only (no odometer) and predict requires `miles` — so look up
+    // the active listing for this VIN in parallel to grab real miles before
+    // predicting. Falls back to a year-based guess if the VIN has no active listing.
+    const [decode, listingSearch] = await Promise.all([
+      _mcDecode(vin).catch(() => null),
+      _mcActive({ vin, rows: 1 }).catch(() => null),
+    ]);
+    const listing = listingSearch?.listings?.[0];
+    const miles =
+      listing?.miles ??
+      listing?.dom ??
+      (decode?.year ? Math.max(5000, (2026 - Number(decode.year)) * 12000) : 30000);
+    const prediction = await _mcPredict({
+      vin,
+      dealer_type: "franchise",
+      zip: args.zip,
+      miles,
+    }).catch(() => null);
+    // Attach miles onto the prediction object so buildLiveResult can read it back.
+    if (prediction) prediction.miles = miles;
+    return { vin, decode, prediction };
   }));
-  return {dealerId:args.dealer_id,results};
+  return { dealerId: args.dealer_id, results };
+}
+
+// Transforms the raw proxy/direct response {dealerId, results: [{vin, decode, prediction}]}
+// plus an optional dealer profile (from _fetchDealerProfile) into the UI's expected
+// {dealer, candidates} shape. This is the bridge that was missing — without it, live
+// mode silently fell through to mock data.
+function buildLiveResult(
+  raw: { dealerId?: string; results?: any[] },
+  profile: any | null,
+  fallbackDealerId: string
+): FitScorerResult {
+  const results = raw.results || [];
+
+  // Infer franchise when profile has no top makes — use majority make among decoded VINs.
+  const decodedMakes = results
+    .map((r: any) => r?.decode?.make)
+    .filter(Boolean) as string[];
+  const makeCounts: Record<string, number> = {};
+  for (const m of decodedMakes) makeCounts[m] = (makeCounts[m] || 0) + 1;
+  const inferredFranchise =
+    Object.entries(makeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "Unknown";
+
+  const topMakes = profile?.topMakes?.length ? profile.topMakes : [inferredFranchise];
+  const topBodyTypes = profile?.topBodyTypes?.length
+    ? profile.topBodyTypes
+    : ["SUV", "Sedan", "Truck"];
+
+  const dealer: DealerProfile = {
+    dealerId: raw.dealerId || fallbackDealerId,
+    dealerName: raw.dealerId || fallbackDealerId,
+    franchise: topMakes[0] || "Unknown",
+    city: profile?.city || "",
+    state: profile?.state || "",
+    avgInventory: profile?.numFound || 0,
+    topMakes,
+    topBodyTypes,
+  };
+
+  const candidates: CandidateVehicle[] = results.map((r: any) => {
+    const d = r?.decode || {};
+    const p = r?.prediction || {};
+    const vin = r?.vin || "";
+
+    const year = Number(d.year) || 2022;
+    const make = d.make || "Unknown";
+    const model = d.model || "Vehicle";
+    const trim = d.trim || "";
+    const bodyType = d.body_type || d.body_subtype || "Unknown";
+    // Neovin returns exterior_color as an object {name, code, base, ...} — pull the name.
+    const exteriorColor =
+      typeof d.exterior_color === "string"
+        ? d.exterior_color
+        : d.exterior_color?.name || d.exterior_color?.base || "";
+    // Decode has no odometer — use prediction.miles if present, else median from comparables, else default.
+    const compMiles = (p.comparables?.cars || p.comparables?.listings || [])
+      .map((c: any) => c.miles ?? c.dom ?? null)
+      .filter((n: any) => typeof n === "number");
+    const medianCompMiles = compMiles.length
+      ? compMiles.sort((a: number, b: number) => a - b)[Math.floor(compMiles.length / 2)]
+      : 0;
+    const miles = Number(p.miles) || medianCompMiles || 30000;
+
+    const predictedPrice = Math.round(
+      Number(p.marketcheck_price) || Number(p.price_prediction) || 0
+    );
+    const estimatedCost = Math.round(predictedPrice * 0.85);
+    const marginEstimate = predictedPrice - estimatedCost;
+    const marginPercent = estimatedCost
+      ? Math.round((marginEstimate / estimatedCost) * 1000) / 10
+      : 0;
+
+    const { fitScore, reason, badge } = scoreCandidate(
+      { make, bodyType, miles, year },
+      { franchise: dealer.franchise, topMakes, topBodyTypes }
+    );
+
+    return {
+      vin,
+      year,
+      make,
+      model,
+      trim,
+      bodyType,
+      miles,
+      exteriorColor,
+      engine: d.engine || d.displacement || "",
+      drivetrain: d.drivetrain || "",
+      fitScore,
+      predictedPrice,
+      estimatedCost,
+      marginEstimate,
+      marginPercent,
+      badge,
+      reason,
+    };
+  });
+
+  return { dealer, candidates };
+}
+
+// Fetches dealer inventory and infers profile (franchise, top makes/body types, location).
+// Returns null if the dealer ID is invalid or the API call fails — caller should fall back.
+async function _fetchDealerProfile(dealerId: string): Promise<any | null> {
+  if (!dealerId) return null;
+  try {
+    const inv: any = await _mcActive({
+      dealer_id: dealerId,
+      rows: 0,
+      stats: "price",
+      facets: "make,body_type,city,state",
+    });
+    if (!inv || !inv.facets) return null;
+    const topOf = (facetKey: string, n: number) =>
+      (inv.facets[facetKey] || []).slice(0, n).map((f: any) => f.item ?? f.term ?? "").filter(Boolean);
+    const makes = topOf("make", 5);
+    const bodyTypes = topOf("body_type", 3);
+    const cities = topOf("city", 1);
+    const states = topOf("state", 1);
+    return {
+      topMakes: makes,
+      topBodyTypes: bodyTypes,
+      city: cities[0] || "",
+      state: states[0] || "",
+      numFound: inv.num_found || 0,
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function _callTool(toolName, args) {
   const auth = _getAuth();
   if (auth.value) {
-    // 1. Proxy (same-origin, reliable)
+    // 1. Direct API first — the shared proxy handler for score-dealer-fit currently
+    // forwards to predict/comparables without `miles`, which the endpoint requires,
+    // so every proxy call 500s. Going direct avoids that noise and gives us control
+    // over miles lookup per VIN. Proxy remains as a fallback in case it's fixed.
+    try {
+      const data = await _fetchDirect(args);
+      if (data) return { content: [{ type: "text", text: JSON.stringify(data) }] };
+    } catch {}
+    // 2. Proxy fallback
     try {
       const r = await fetch((_proxyBase()) + "/api/proxy/" + toolName, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...args, _auth_mode: auth.mode, _auth_value: auth.value }),
       });
       if (r.ok) { const d = await r.json(); return { content: [{ type: "text", text: JSON.stringify(d) }] }; }
-    } catch {}
-    // 2. Direct API fallback
-    try {
-      const data = await _fetchDirect(args);
-      if (data) return { content: [{ type: "text", text: JSON.stringify(data) }] };
     } catch {}
   }
   // 3. MCP mode (Claude, VS Code, etc.)
@@ -223,29 +373,80 @@ interface FitScorerResult {
 type SortKey = "fitScore" | "make" | "model" | "predictedPrice" | "marginEstimate" | "badge";
 type SortDir = "asc" | "desc";
 
+// ── Scoring ────────────────────────────────────────────────────────────────────
+
+// Shared scorer used by both mock and live paths. Given a candidate's spec and a
+// dealer profile (franchise + top makes + top body types), returns a 10-98 fit
+// score, a human-readable reason, and a BUY/CONSIDER/PASS badge.
+function scoreCandidate(
+  spec: { make: string; bodyType: string; miles: number; year: number },
+  dealer: { franchise: string; topMakes: string[]; topBodyTypes: string[] },
+  currentYear = 2026
+): { fitScore: number; reason: string; badge: FitBadge } {
+  let fitScore = 50;
+  let reason = "";
+
+  if (spec.make === dealer.franchise) {
+    fitScore += 30;
+    reason = "Perfect brand match for franchise dealer.";
+  } else if (dealer.topMakes.includes(spec.make)) {
+    fitScore += 15;
+    reason = `${spec.make} sells well as complementary inventory.`;
+  } else {
+    fitScore -= 15;
+    reason = `${spec.make} is not a natural fit for a ${dealer.franchise} franchise.`;
+  }
+
+  if (dealer.topBodyTypes.includes(spec.bodyType)) {
+    fitScore += 10;
+  } else {
+    fitScore -= 5;
+    reason += ` ${spec.bodyType} not in top-selling body types.`;
+  }
+
+  if (spec.miles < 20000) fitScore += 8;
+  else if (spec.miles < 35000) fitScore += 3;
+  else fitScore -= 5;
+
+  const age = currentYear - spec.year;
+  if (age <= 2) fitScore += 5;
+  else if (age > 4) fitScore -= 8;
+
+  fitScore = Math.max(10, Math.min(98, fitScore));
+
+  let badge: FitBadge = "CONSIDER";
+  if (fitScore >= 75) badge = "BUY";
+  else if (fitScore < 45) badge = "PASS";
+
+  return { fitScore, reason: reason.trim(), badge };
+}
+
 // ── Mock Data ──────────────────────────────────────────────────────────────────
 
 function generateMockData(dealerId: string, vins: string[]): FitScorerResult {
   const dealer: DealerProfile = {
-    dealerId: dealerId || "toyota-sunnyvale-123",
-    dealerName: "Sunnyvale Toyota",
+    dealerId: dealerId || "10010490",
+    dealerName: "Sample Toyota Franchise",
     franchise: "Toyota",
-    city: "Sunnyvale",
-    state: "CA",
+    city: "Fairfield",
+    state: "OH",
     avgInventory: 185,
     topMakes: ["Toyota", "Lexus", "Honda"],
     topBodyTypes: ["SUV", "Sedan", "Truck"],
   };
 
   const candidateSpecs: Record<string, Omit<CandidateVehicle, "fitScore" | "predictedPrice" | "estimatedCost" | "marginEstimate" | "marginPercent" | "badge" | "reason">> = {
-    "JTDKN3DU5A0123456": { vin: "JTDKN3DU5A0123456", year: 2023, make: "Toyota", model: "RAV4", trim: "XLE Premium AWD", bodyType: "SUV", miles: 15200, exteriorColor: "Lunar Rock", engine: "2.5L Hybrid", drivetrain: "AWD" },
-    "2T1BURHE7HC654321": { vin: "2T1BURHE7HC654321", year: 2022, make: "Toyota", model: "Corolla", trim: "SE CVT", bodyType: "Sedan", miles: 22400, exteriorColor: "Celestite Gray", engine: "2.0L I4", drivetrain: "FWD" },
-    "5TFCZ5AN1NX987654": { vin: "5TFCZ5AN1NX987654", year: 2022, make: "Toyota", model: "Tacoma", trim: "TRD Off-Road", bodyType: "Truck", miles: 28900, exteriorColor: "Army Green", engine: "3.5L V6", drivetrain: "4WD" },
-    "4T1BF1FK5HU111222": { vin: "4T1BF1FK5HU111222", year: 2023, make: "Toyota", model: "Camry", trim: "XSE V6", bodyType: "Sedan", miles: 11800, exteriorColor: "Wind Chill Pearl", engine: "3.5L V6", drivetrain: "FWD" },
-    "WBAPH5C55BA234567": { vin: "WBAPH5C55BA234567", year: 2022, make: "BMW", model: "X5", trim: "xDrive40i", bodyType: "SUV", miles: 32100, exteriorColor: "Alpine White", engine: "3.0L I6 Turbo", drivetrain: "AWD" },
-    "JTHBJ46G072222333": { vin: "JTHBJ46G072222333", year: 2022, make: "Lexus", model: "RX 350", trim: "Premium", bodyType: "SUV", miles: 24600, exteriorColor: "Eminent White Pearl", engine: "3.5L V6", drivetrain: "AWD" },
-    "1HGBH41JXMN444555": { vin: "1HGBH41JXMN444555", year: 2021, make: "Honda", model: "Accord", trim: "Sport 2.0T", bodyType: "Sedan", miles: 34200, exteriorColor: "Radiant Red", engine: "2.0L Turbo I4", drivetrain: "FWD" },
-    "WBA3A5C55FK666777": { vin: "WBA3A5C55FK666777", year: 2021, make: "BMW", model: "3 Series", trim: "330i xDrive", bodyType: "Sedan", miles: 38500, exteriorColor: "Black Sapphire", engine: "2.0L Turbo I4", drivetrain: "AWD" },
+    // All 8 are real VINs currently active on MarketCheck — they resolve in live
+    // mode (decode + price prediction) and are pre-seeded here so demo mode shows
+    // the same lineup with realistic specs and a good BUY/CONSIDER/PASS spread.
+    "2T3H1RFV8MW131458": { vin: "2T3H1RFV8MW131458", year: 2021, make: "Toyota", model: "RAV4", trim: "LE", bodyType: "SUV", miles: 32163, exteriorColor: "Ice Cap", engine: "2.5L I4", drivetrain: "FWD" },
+    "4T1G11AK9PU831626": { vin: "4T1G11AK9PU831626", year: 2023, make: "Toyota", model: "Camry", trim: "LE", bodyType: "Sedan", miles: 50801, exteriorColor: "Celestial Silver", engine: "2.5L I4", drivetrain: "FWD" },
+    "5TFMA5DB7RX139120": { vin: "5TFMA5DB7RX139120", year: 2024, make: "Toyota", model: "Tundra", trim: "SR5", bodyType: "Truck", miles: 26595, exteriorColor: "Magnetic Gray", engine: "3.4L V6 Twin-Turbo", drivetrain: "4WD" },
+    "5TDAAAB59RS038238": { vin: "5TDAAAB59RS038238", year: 2024, make: "Toyota", model: "Grand Highlander", trim: "XLE", bodyType: "SUV", miles: 15871, exteriorColor: "Wind Chill Pearl", engine: "2.4L Turbo I4", drivetrain: "AWD" },
+    "1C4JJXSJXMW860782": { vin: "1C4JJXSJXMW860782", year: 2021, make: "Jeep", model: "Wrangler Unlimited", trim: "Sahara", bodyType: "SUV", miles: 34992, exteriorColor: "Bright White", engine: "3.6L V6", drivetrain: "4WD" },
+    "WP0AA2Y11MSA15372": { vin: "WP0AA2Y11MSA15372", year: 2021, make: "Porsche", model: "Taycan", trim: "Base", bodyType: "Sedan", miles: 28142, exteriorColor: "Black", engine: "Electric", drivetrain: "RWD" },
+    "2GCUDEEDXP1126024": { vin: "2GCUDEEDXP1126024", year: 2023, make: "Chevrolet", model: "Silverado 1500", trim: "RST", bodyType: "Truck", miles: 41584, exteriorColor: "Summit White", engine: "5.3L V8", drivetrain: "4WD" },
+    "2C3CDZC90GH296809": { vin: "2C3CDZC90GH296809", year: 2016, make: "Dodge", model: "Challenger", trim: "SRT Hellcat", bodyType: "Coupe", miles: 29913, exteriorColor: "Pitch Black", engine: "6.2L V8 Supercharged", drivetrain: "RWD" },
   };
 
   // Scoring logic: Toyota franchise dealer
@@ -263,49 +464,14 @@ function generateMockData(dealerId: string, vins: string[]): FitScorerResult {
       drivetrain: "FWD",
     };
 
-    // Calculate fit score based on brand alignment
-    let fitScore = 50;
-    let reason = "";
-
-    // Brand fit
-    if (spec.make === dealer.franchise) {
-      fitScore += 30;
-      reason = "Perfect brand match for franchise dealer.";
-    } else if (dealer.topMakes.includes(spec.make)) {
-      fitScore += 15;
-      reason = `${spec.make} sells well as complementary inventory.`;
-    } else {
-      fitScore -= 15;
-      reason = `${spec.make} is not a natural fit for a ${dealer.franchise} franchise.`;
-    }
-
-    // Body type fit
-    if (dealer.topBodyTypes.includes(spec.bodyType)) {
-      fitScore += 10;
-    } else {
-      fitScore -= 5;
-      reason += ` ${spec.bodyType} not in top-selling body types.`;
-    }
-
-    // Mileage factor
-    if (spec.miles < 20000) fitScore += 8;
-    else if (spec.miles < 35000) fitScore += 3;
-    else fitScore -= 5;
-
-    // Year factor
-    const currentYear = 2026;
-    const age = currentYear - spec.year;
-    if (age <= 2) fitScore += 5;
-    else if (age > 4) fitScore -= 8;
-
-    // Clamp
-    fitScore = Math.max(10, Math.min(98, fitScore));
+    const { fitScore, reason, badge } = scoreCandidate(spec, dealer);
 
     // Predicted price
     const basePrices: Record<string, number> = {
-      "Toyota RAV4": 32500, "Toyota Corolla": 21800, "Toyota Tacoma": 35200,
-      "Toyota Camry": 28500, "BMW X5": 44800, "Lexus RX 350": 38200,
-      "Honda Accord": 25600, "BMW 3 Series": 33400,
+      "Toyota RAV4": 28500, "Toyota Camry": 27800, "Toyota Tundra": 52400,
+      "Toyota Grand Highlander": 48900, "Jeep Wrangler Unlimited": 38600,
+      "Porsche Taycan": 72000, "Chevrolet Silverado 1500": 41200,
+      "Dodge Challenger": 58000,
     };
     const baseP = basePrices[`${spec.make} ${spec.model}`] || 27000;
     const mileAdj = Math.floor(spec.miles / 1000) * 120;
@@ -316,11 +482,6 @@ function generateMockData(dealerId: string, vins: string[]): FitScorerResult {
     const marginEstimate = predictedPrice - estimatedCost;
     const marginPercent = Math.round((marginEstimate / estimatedCost) * 100 * 10) / 10;
 
-    // Badge
-    let badge: FitBadge = "CONSIDER";
-    if (fitScore >= 75) badge = "BUY";
-    else if (fitScore < 45) badge = "PASS";
-
     return {
       ...spec,
       fitScore,
@@ -329,7 +490,7 @@ function generateMockData(dealerId: string, vins: string[]): FitScorerResult {
       marginEstimate,
       marginPercent,
       badge,
-      reason: reason.trim(),
+      reason,
     };
   });
 
@@ -667,10 +828,10 @@ function makeField(label: string, html: string): HTMLDivElement {
   return d;
 }
 
-formRow1.appendChild(makeField("Dealer ID / Domain",
-  `<input id="dealerIdInput" type="text" value="toyota-sunnyvale-123" placeholder="e.g. dealer ID or domain" style="${inputStyle}width:200px;" />`));
+formRow1.appendChild(makeField("Dealer ID",
+  `<input id="dealerIdInput" type="text" value="10010490" placeholder="MarketCheck dealer ID (numeric)" style="${inputStyle}width:200px;" />`));
 formRow1.appendChild(makeField("ZIP Code",
-  `<input id="zipInput" type="text" value="94087" maxlength="5" style="${inputStyle}width:80px;" />`));
+  `<input id="zipInput" type="text" value="45014" maxlength="5" style="${inputStyle}width:80px;" />`));
 headerPanel.appendChild(formRow1);
 
 const vinRow = document.createElement("div");
@@ -683,7 +844,7 @@ const vinTextarea = document.createElement("textarea");
 vinTextarea.id = "vinInput";
 vinTextarea.placeholder = "Paste VINs to evaluate...";
 vinTextarea.style.cssText = `${inputStyle}width:100%;height:100px;resize:vertical;box-sizing:border-box;font-family:monospace;`;
-vinTextarea.value = "JTDKN3DU5A0123456\n2T1BURHE7HC654321\n5TFCZ5AN1NX987654\n4T1BF1FK5HU111222\nWBAPH5C55BA234567\nJTHBJ46G072222333\n1HGBH41JXMN444555\nWBA3A5C55FK666777";
+vinTextarea.value = "2T3H1RFV8MW131458\n4T1G11AK9PU831626\n5TFMA5DB7RX139120\n5TDAAAB59RS038238\n1C4JJXSJXMW860782\nWP0AA2Y11MSA15372\n2GCUDEEDXP1126024\n2C3CDZC90GH296809";
 vinGroup.appendChild(vinTextarea);
 vinRow.appendChild(vinGroup);
 headerPanel.appendChild(vinRow);
@@ -932,7 +1093,7 @@ function renderTopAcquisitions() {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">
             <div><span style="color:#64748b;">Price:</span> <span style="color:#f1f5f9;font-weight:600;">${fmtCurrency(c.predictedPrice)}</span></div>
             <div><span style="color:#64748b;">Margin:</span> <span style="color:#22c55e;font-weight:600;">${fmtCurrency(c.marginEstimate)}</span></div>
-            <div><span style="color:#64748b;">Miles:</span> <span style="color:#cbd5e1;">${fmtNum(c.miles)}</span></div>
+            <div><span style="color:#64748b;">Miles:</span> <span style="color:#cbd5e1;">${fmtNum(c.miles)} mi</span></div>
             <div><span style="color:#64748b;">Color:</span> <span style="color:#cbd5e1;">${c.exteriorColor}</span></div>
           </div>
         </div>
@@ -976,7 +1137,7 @@ function renderRejectPile() {
           </div>
           <div style="display:flex;gap:12px;font-size:11px;color:#64748b;margin-top:6px;">
             <span>Price: ${fmtCurrency(c.predictedPrice)}</span>
-            <span>Miles: ${fmtNum(c.miles)}</span>
+            <span>Miles: ${fmtNum(c.miles)} mi</span>
             <span>Margin: ${fmtCurrency(c.marginEstimate)}</span>
           </div>
         </div>
@@ -1027,15 +1188,23 @@ async function doScore() {
   const mode = _detectAppMode();
   if (mode === "mcp" || mode === "live") {
     try {
-      const toolResult = await _callTool("score-dealer-fit", {
-        dealer_id: dealerId,
-        zip,
-        vins: vins.join(","),
-      });
+      // Run the candidate scoring call and the dealer-profile inference in parallel.
+      // The profile call is best-effort — if it fails (e.g. dealer_id unknown), we
+      // infer franchise from the decoded VINs inside buildLiveResult.
+      const [toolResult, profile] = await Promise.all([
+        _callTool("score-dealer-fit", { dealer_id: dealerId, zip, vins: vins.join(",") }),
+        mode === "live" ? _fetchDealerProfile(dealerId) : Promise.resolve(null),
+      ]);
       if (toolResult?.content?.[0]?.text) {
         const parsed = JSON.parse(toolResult.content[0].text);
         if (parsed.dealer && parsed.candidates) {
+          // Future composite shape — already transformed server-side.
           result = parsed;
+        } else if (Array.isArray(parsed.results)) {
+          // Raw shape from proxy/direct: {dealerId, results: [{vin, decode, prediction}]}
+          result = buildLiveResult(parsed, profile, dealerId);
+        }
+        if (result && result.candidates?.length) {
           statusBar.style.display = "none";
           renderAll();
           scoreBtn.textContent = "Score Candidates";
@@ -1046,7 +1215,7 @@ async function doScore() {
     } catch {}
   }
 
-  // Fall back to mock data
+  // Fall back to mock data (demo mode, or live fetch failed)
   result = generateMockData(dealerId, vins);
   statusBar.style.display = "none";
   renderAll();
@@ -1075,5 +1244,16 @@ window.addEventListener("resize", () => {
     (document.getElementById("vinInput") as HTMLTextAreaElement).value = params.vin.replace(/,/g, "\n");
   }
 
-  await doScore();
+  // Auto-submit in demo (so the gallery visitor sees a rendered dashboard) or when
+  // the user deep-linked with real params. In live mode without params, let the
+  // user supply their own dealer_id + VINs rather than calling the API with our
+  // placeholder defaults (which would just produce a wave of 400s in the console).
+  const mode = _detectAppMode();
+  const hasDeepLinkParams = !!(params.dealer_id || params.vin);
+  if (mode === "demo" || mode === "mcp" || hasDeepLinkParams) {
+    await doScore();
+  } else {
+    statusBar.style.display = "block";
+    statusBar.innerHTML = `<span style="color:#60a5fa;">Enter your dealer ID and candidate VINs above, then click <strong>Score Candidates</strong>.</span>`;
+  }
 })();

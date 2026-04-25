@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Dealer Inventory Fit Scorer — MarketCheck Apps">
-  <meta property="og:description" content="Scores how well a batch of VINs fits a dealer's sales profile. Decodes each VIN, predicts prices, and compares against the dealer's existing inventory mix to find the best matches.">
+  <meta property="og:description" content="Paste a batch of candidate VINs (up to 20) and a dealer ID; the app decodes each VIN, predicts retail market price, and scores each candidate against the dealer's actual sales DNA — inferred by pullin">
   <meta property="og:url" content="https://apps.marketcheck.com/app/dealer-inventory-fit-scorer/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/dealer-inventory-fit-scorer.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Dealer Inventory Fit Scorer">
-  <meta name="twitter:description" content="Scores how well a batch of VINs fits a dealer's sales profile. Decodes each VIN, predicts prices, and compares against the dealer's existing inventory mix to find the best matches.">
+  <meta name="twitter:description" content="Paste a batch of candidate VINs (up to 20) and a dealer ID; the app decodes each VIN, predicts retail market price, and scores each candidate against the dealer's actual sales DNA — inferred by pullin">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/dealer-inventory-fit-scorer.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Dealer Inventory Fit Scorer","description":"Scores how well a batch of VINs fits a dealer's sales profile. Decodes each VIN, predicts prices, and compares against the dealer's existing inventory mix to find the best matches.","url":"https://apps.marketcheck.com/app/dealer-inventory-fit-scorer/","image":"https://apps.marketcheck.com/assets/screenshots/dealer-inventory-fit-scorer.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Dealer Inventory Fit Scorer","description":"Paste a batch of candidate VINs (up to 20) and a dealer ID; the app decodes each VIN, predicts retail market price, and scores each candidate against the dealer's actual sales DNA — inferred by pulling the dealer's active inventory facets to identify franchise brand, top-selling makes, and top body types. The 10–98 fit score weighs brand alignment (franchise match > complementary > off-brand), body-type match against the dealer's top sellers, mileage tier (fresh/mid/high), and vehicle age, then assigns a BUY / CONSIDER / PASS badge. Output: dealer profile card, sortable candidate table, fit-score-vs-profit-margin scatter plot, sorted fit-score bar chart, top-5 recommended acquisitions, and a reject pile with reasons. Designed for used-car buyers, acquisition managers, and auction pre-bid screening.","url":"https://apps.marketcheck.com/app/dealer-inventory-fit-scorer/","image":"https://apps.marketcheck.com/assets/screenshots/dealer-inventory-fit-scorer.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -306,12 +306,52 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Scores how well a batch of VINs fits a dealer's sales profile. Decodes each VIN, predicts prices, and compares against the dealer's existing inventory mix to find the best matches.</p>
+    <p>Paste a batch of candidate VINs (up to 20) and a dealer ID; the app decodes each VIN, predicts retail market price, and scores each candidate against the dealer's actual sales DNA — inferred by pulling the dealer's active inventory facets to identify franchise brand, top-selling makes, and top body types. The 10–98 fit score weighs brand alignment (franchise match > complementary > off-brand), body-type match against the dealer's top sellers, mileage tier (fresh/mid/high), and vehicle age, then assigns a BUY / CONSIDER / PASS badge. Output: dealer profile card, sortable candidate table, fit-score-vs-profit-margin scatter plot, sorted fit-score bar chart, top-5 recommended acquisitions, and a reject pile with reasons. Designed for used-car buyers, acquisition managers, and auction pre-bid screening.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Used Car Buyers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Pre-screen a list of auction or trade-in candidates against your rooftop's sales history before you bid. Skip the ones that won't turn on your lot.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Acquisition Managers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Batch-evaluate VINs sourced from wholesalers, lease returns, or direct-to-consumer programs. The fit score flags vehicles that fit your franchise profile vs. ones that would sit.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Dealer Group Buyers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Compare the same candidate pool against multiple dealer IDs to decide which rooftop should absorb which vehicle based on fit — not just who has the space.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Auction Runners</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Run an auction run-list through the scorer before lane day so the buyer knows which VINs are priority bids for their dealer's profile.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (or set via localStorage)</td></tr><tr><td><code>dealer_id</code></td><td>MarketCheck dealer ID — pre-fills the dealer field and triggers profile inference from active inventory</td></tr><tr><td><code>zip</code></td><td>Dealer ZIP — used when predicting regional retail pricing</td></tr><tr><td><code>vin</code></td><td>Single VIN to pre-fill the candidate list. For multiple VINs, comma-separate them; the input will expand one per line</td></tr><tr><td><code>embed</code></td><td>Set to 'true' to hide the settings gear (for iframe embedding)</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/dealer-inventory-fit-scorer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/dealer-inventory-fit-scorer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/dealer-inventory-fit-scorer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/dealer-inventory-fit-scorer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -336,7 +376,12 @@ pre.code-block {
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/predict/car/us/marketcheck_price/comparables</code>
             <div class="flow-api-name">Price Prediction (Retail / Franchise)</div>
-          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Decode and predict price for every VIN simultaneously</div></div>
+          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Decode and predict price for every VIN simultaneously</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Fetch dealer inventory profile</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
+          <div class="flow-api-card">
+            <div class="flow-api-method">GET</div>
+            <code class="flow-api-path">/v2/search/car/active</code>
+            <div class="flow-api-name">Search Active Listings</div>
+          </div></div><div class="flow-note">Search the dealer's active listings with make/body_type facets to infer franchise brand and top-selling body types</div></div>
     </div>
   </div>
 
@@ -392,6 +437,23 @@ pre.code-block {
       <div class="api-returns"><strong>Returns:</strong> predicted_price, price_range (low/high), comparables[] with vin, price, miles, distance</div>
       <a href="https://apidocs.marketcheck.com/#price-prediction" target="_blank" class="api-doc-link">View full API documentation &#8599;</a>
     </div>
+    <div class="api-detail-card">
+      <div class="api-detail-header">
+        <span class="api-method-badge">GET</span>
+        <code>/v2/search/car/active</code>
+        
+      </div>
+      <h4>Search Active Listings</h4>
+      <p>Search currently active car listings across 95%+ of US dealer inventory. Supports filters by make, model, year, ZIP, radius, price range, body type, and more. Returns listing details with photos, dealer info, and computed statistics.</p>
+      <table class="param-table">
+        <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>make</code></td><td>string</td><td>No</td><td>Vehicle make (e.g., Toyota)</td></tr><tr><td><code>model</code></td><td>string</td><td>No</td><td>Vehicle model (e.g., Camry)</td></tr><tr><td><code>year</code></td><td>string</td><td>No</td><td>Year or range (e.g., 2020-2022)</td></tr><tr><td><code>zip</code></td><td>string</td><td>No</td><td>Center ZIP for radius search</td></tr><tr><td><code>radius</code></td><td>number</td><td>No</td><td>Search radius in miles</td></tr><tr><td><code>rows</code></td><td>number</td><td>No</td><td>Number of results (max 50)</td></tr><tr><td><code>stats</code></td><td>string</td><td>No</td><td>Aggregate stats: price,miles,dom</td></tr><tr><td><code>sort_by</code></td><td>string</td><td>No</td><td>Sort field: price, miles, dom</td></tr><tr><td><code>sort_order</code></td><td>string</td><td>No</td><td>asc or desc</td></tr><tr><td><code>dealer_id</code></td><td>string</td><td>No</td><td>Filter by dealer ID</td></tr><tr><td><code>facets</code></td><td>string</td><td>No</td><td>Facet fields: make,model,body_type</td></tr>
+        </tbody>
+      </table>
+      <div class="api-returns"><strong>Returns:</strong> num_found, listings[] with id, vin, price, miles, dom, dealer{}, media{}, stats{}</div>
+      <a href="https://apidocs.marketcheck.com/#search-active" target="_blank" class="api-doc-link">View full API documentation &#8599;</a>
+    </div>
   </div>
 
   <!-- What the App Renders -->
@@ -399,7 +461,7 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Fit score cards for each VIN</div><div class="render-item"><div class="render-dot"></div>make/model/body type match indicators</div><div class="render-item"><div class="render-dot"></div>price tier alignment</div><div class="render-item"><div class="render-dot"></div>recommended vs skip badges</div>
+      <div class="render-item"><div class="render-dot"></div>Dealer profile card</div><div class="render-item"><div class="render-dot"></div>sortable fit-score table</div><div class="render-item"><div class="render-dot"></div>fit-score vs. profit-margin scatter plot</div><div class="render-item"><div class="render-dot"></div>sorted fit-score bar chart</div><div class="render-item"><div class="render-dot"></div>top-5 recommended acquisitions with margin breakdown</div><div class="render-item"><div class="render-dot"></div>reject pile with rejection reasons</div>
     </div>
   </div>
 
@@ -413,7 +475,7 @@ pre.code-block {
         <span class="api-method-badge" style="background:#dbeafe;color:#1e40af;">POST</span>
         <code>https://apps.marketcheck.com/api/proxy/score-dealer-fit</code>
       </div>
-      <p>This single endpoint runs all 2 API calls in the optimal sequence and returns the combined result.</p>
+      <p>This single endpoint runs all 3 API calls in the optimal sequence and returns the combined result.</p>
       <p><a href="/docs/derivative-apis/#score-dealer-fit">View full composite endpoint documentation &#8599;</a></p>
     </div>
     

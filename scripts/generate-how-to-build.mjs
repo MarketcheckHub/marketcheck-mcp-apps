@@ -470,7 +470,20 @@ const APPS = [
     tagline: "Which cars match your sales DNA?",
     segment: "Dealer",
     toolName: "score-dealer-fit",
-    description: "Scores how well a batch of VINs fits a dealer's sales profile. Decodes each VIN, predicts prices, and compares against the dealer's existing inventory mix to find the best matches.",
+    description: "Paste a batch of candidate VINs (up to 20) and a dealer ID; the app decodes each VIN, predicts retail market price, and scores each candidate against the dealer's actual sales DNA — inferred by pulling the dealer's active inventory facets to identify franchise brand, top-selling makes, and top body types. The 10–98 fit score weighs brand alignment (franchise match > complementary > off-brand), body-type match against the dealer's top sellers, mileage tier (fresh/mid/high), and vehicle age, then assigns a BUY / CONSIDER / PASS badge. Output: dealer profile card, sortable candidate table, fit-score-vs-profit-margin scatter plot, sorted fit-score bar chart, top-5 recommended acquisitions, and a reject pile with reasons. Designed for used-car buyers, acquisition managers, and auction pre-bid screening.",
+    useCases: [
+      { persona: "Used Car Buyers", desc: "Pre-screen a list of auction or trade-in candidates against your rooftop's sales history before you bid. Skip the ones that won't turn on your lot." },
+      { persona: "Acquisition Managers", desc: "Batch-evaluate VINs sourced from wholesalers, lease returns, or direct-to-consumer programs. The fit score flags vehicles that fit your franchise profile vs. ones that would sit." },
+      { persona: "Dealer Group Buyers", desc: "Compare the same candidate pool against multiple dealer IDs to decide which rooftop should absorb which vehicle based on fit — not just who has the space." },
+      { persona: "Auction Runners", desc: "Run an auction run-list through the scorer before lane day so the buyer knows which VINs are priority bids for their dealer's profile." },
+    ],
+    urlParams: [
+      { name: "api_key", desc: "Your MarketCheck API key (or set via localStorage)" },
+      { name: "dealer_id", desc: "MarketCheck dealer ID — pre-fills the dealer field and triggers profile inference from active inventory" },
+      { name: "zip", desc: "Dealer ZIP — used when predicting regional retail pricing" },
+      { name: "vin", desc: "Single VIN to pre-fill the candidate list. For multiple VINs, comma-separate them; the input will expand one per line" },
+      { name: "embed", desc: "Set to 'true' to hide the settings gear (for iframe embedding)" },
+    ],
     inputParams: [
       { name: "vins", type: "string", required: true, desc: "Comma-separated VINs to evaluate" },
       { name: "dealer_id", type: "string", required: false, desc: "Dealer ID for inventory comparison" },
@@ -478,8 +491,9 @@ const APPS = [
     ],
     apiFlow: [
       { step: 1, label: "For each VIN in parallel", apis: ["decode", "predictRetail"], parallel: true, note: "Decode and predict price for every VIN simultaneously" },
+      { step: 2, label: "Fetch dealer inventory profile", apis: ["searchActive"], parallel: false, note: "Search the dealer's active listings with make/body_type facets to infer franchise brand and top-selling body types" },
     ],
-    renders: "Fit score cards for each VIN, make/model/body type match indicators, price tier alignment, recommended vs skip badges",
+    renders: "Dealer profile card, sortable fit-score table, fit-score vs. profit-margin scatter plot, sorted fit-score bar chart, top-5 recommended acquisitions with margin breakdown, reject pile with rejection reasons",
   },
   {
     id: "dealer-conquest-analyzer",

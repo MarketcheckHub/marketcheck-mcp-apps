@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Deal Finder — MarketCheck Apps">
-  <meta property="og:description" content="Best-deal sourcing tool with composite scoring. Searches active inventory, validates each listing against predicted market price, analyzes DOM and price drops for negotiation leverage, and produces a ">
+  <meta property="og:description" content="Paste make/model/year/ZIP/radius/max-price filters and the app fans out a 3-stage MarketCheck pipeline: (1) active search sorted by price ascending with price/miles/DOM stats, (2) per-candidate franch">
   <meta property="og:url" content="https://apps.marketcheck.com/app/deal-finder/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/deal-finder.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Deal Finder">
-  <meta name="twitter:description" content="Best-deal sourcing tool with composite scoring. Searches active inventory, validates each listing against predicted market price, analyzes DOM and price drops for negotiation leverage, and produces a ">
+  <meta name="twitter:description" content="Paste make/model/year/ZIP/radius/max-price filters and the app fans out a 3-stage MarketCheck pipeline: (1) active search sorted by price ascending with price/miles/DOM stats, (2) per-candidate franch">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/deal-finder.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Deal Finder","description":"Best-deal sourcing tool with composite scoring. Searches active inventory, validates each listing against predicted market price, analyzes DOM and price drops for negotiation leverage, and produces a ranked deal list with Buy/Negotiate/Pass verdicts and negotiation talking points.","url":"https://apps.marketcheck.com/app/deal-finder/","image":"https://apps.marketcheck.com/assets/screenshots/deal-finder.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Deal Finder","description":"Paste make/model/year/ZIP/radius/max-price filters and the app fans out a 3-stage MarketCheck pipeline: (1) active search sorted by price ascending with price/miles/DOM stats, (2) per-candidate franchise-retail price prediction, (3) per-candidate listing history plus an Enterprise sold-summary market-timing pull (all in parallel). Each candidate gets a 0–100 composite deal score weighing asking-price delta vs predicted retail, days-on-lot bonus (30d/45d/60d/90d thresholds), and confirmed price-drop count from history — then a BUY / NEGOTIATE / PASS verdict. The dashboard renders a summary ribbon (candidate count, BUY/PASS tallies, avg price, avg DOM, median price-delta), a market-timing pill (Fast / Normal / Slow, Enterprise-API-aware with DOM-distribution fallback on free tiers), and a ranked deal card per candidate with a green→amber→red price-vs-market bar centered on the predicted price, delta callout with percentage, and 2–4 leverage bullets (e.g. 'listed $1,800 below predicted retail', '73 days on lot — dealer likely motivated', 'price dropped 3 times since listing', 'VIN appeared on 2 prior lots'). Built for used-car buyers, retail shoppers, and wholesale sourcing.","url":"https://apps.marketcheck.com/app/deal-finder/","image":"https://apps.marketcheck.com/assets/screenshots/deal-finder.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -309,12 +309,52 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Best-deal sourcing tool with composite scoring. Searches active inventory, validates each listing against predicted market price, analyzes DOM and price drops for negotiation leverage, and produces a ranked deal list with Buy/Negotiate/Pass verdicts and negotiation talking points.</p>
+    <p>Paste make/model/year/ZIP/radius/max-price filters and the app fans out a 3-stage MarketCheck pipeline: (1) active search sorted by price ascending with price/miles/DOM stats, (2) per-candidate franchise-retail price prediction, (3) per-candidate listing history plus an Enterprise sold-summary market-timing pull (all in parallel). Each candidate gets a 0–100 composite deal score weighing asking-price delta vs predicted retail, days-on-lot bonus (30d/45d/60d/90d thresholds), and confirmed price-drop count from history — then a BUY / NEGOTIATE / PASS verdict. The dashboard renders a summary ribbon (candidate count, BUY/PASS tallies, avg price, avg DOM, median price-delta), a market-timing pill (Fast / Normal / Slow, Enterprise-API-aware with DOM-distribution fallback on free tiers), and a ranked deal card per candidate with a green→amber→red price-vs-market bar centered on the predicted price, delta callout with percentage, and 2–4 leverage bullets (e.g. 'listed $1,800 below predicted retail', '73 days on lot — dealer likely motivated', 'price dropped 3 times since listing', 'VIN appeared on 2 prior lots'). Built for used-car buyers, retail shoppers, and wholesale sourcing.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Used Car Buyers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Filter by make/model/year/ZIP and surface the top 10 deals ranked by a composite score. The leverage bullets tell you exactly what to say in the negotiation — lot age, price drops, prior listings, and how far below predicted retail the asking price already sits.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Retail Shoppers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Set a max price and radius, see the BUY-rated cards, and focus on the ones with the biggest below-predicted delta. The price-vs-market bar makes it immediately obvious whether the dealer is already priced aggressively or leaving room to negotiate.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Wholesale Sourcers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Wider radius + higher max price + no make filter surfaces mispriced inventory across segments. The 60+ day DOM signal combined with a multi-drop price history is a strong wholesale acquisition trigger.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Dealer Acquisition Managers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Scan competing rooftops' aging inventory within your ZIP radius. Deep-lot-age cards with multiple price drops are candidates for a direct-to-dealer approach or auction lane bidding.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (or set via localStorage)</td></tr><tr><td><code>make</code></td><td>Vehicle make (e.g. Toyota) — pre-fills the form</td></tr><tr><td><code>model</code></td><td>Vehicle model (e.g. Camry) — pre-fills the form</td></tr><tr><td><code>year</code></td><td>Year or range (e.g. 2020-2023)</td></tr><tr><td><code>zip</code></td><td>Required search-center ZIP — pre-fills and triggers auto-submit when a deep-link param is present</td></tr><tr><td><code>radius</code></td><td>Search radius in miles (default 50; allowed 25 / 50 / 100 / 200)</td></tr><tr><td><code>maxPrice</code></td><td>Maximum asking price cap applied via price_range on the active search</td></tr><tr><td><code>state</code></td><td>2-letter state code — used for the Enterprise sold-summary demand ranking (optional; degrades gracefully on free tiers)</td></tr><tr><td><code>embed</code></td><td>Set to 'true' to hide the settings gear (for iframe embedding)</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/deal-finder/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/deal-finder/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/deal-finder/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/deal-finder/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -334,12 +374,12 @@ pre.code-block {
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/active</code>
             <div class="flow-api-name">Search Active Listings</div>
-          </div></div><div class="flow-note">Search active listings sorted by price ascending with stats (price, miles, DOM)</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Price Validation</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
+          </div></div><div class="flow-note">Search active listings sorted by price ascending with stats (price, miles, DOM). price_range applied when maxPrice is supplied</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Price Validation</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
           <div class="flow-api-card">
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/predict/car/us/marketcheck_price/comparables</code>
             <div class="flow-api-name">Price Prediction (Retail / Franchise)</div>
-          </div></div><div class="flow-note">Predict market price for top candidates to calculate deal score</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">3</div><div class="flow-step-label">History + Demand</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
+          </div></div><div class="flow-note">For each top candidate (up to 10), predict franchise-retail price with VIN + miles + ZIP — runs in parallel across all candidates</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">3</div><div class="flow-step-label">History + Demand</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
           <div class="flow-api-card">
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/history/car/{vin}</code>
@@ -349,7 +389,7 @@ pre.code-block {
             <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
             <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
             <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
-          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Fetch listing history for negotiation leverage and sold demand for timing analysis</div></div>
+          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Per-candidate VIN history fans out in parallel alongside one market-wide Enterprise sold-summary; summary 403s on free tiers are caught and the timing pill falls back to the candidate set's own DOM distribution</div></div>
     </div>
   </div>
 
@@ -446,7 +486,7 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Ranked deal list with composite scores</div><div class="render-item"><div class="render-dot"></div>Buy/Negotiate/Pass verdict badges</div><div class="render-item"><div class="render-dot"></div>price-vs-market bars</div><div class="render-item"><div class="render-dot"></div>DOM indicators</div><div class="render-item"><div class="render-dot"></div>negotiation leverage points</div><div class="render-item"><div class="render-dot"></div>supply-to-demand timing advice</div>
+      <div class="render-item"><div class="render-dot"></div>Summary ribbon (candidate count</div><div class="render-item"><div class="render-dot"></div>BUY/PASS tally</div><div class="render-item"><div class="render-dot"></div>avg price</div><div class="render-item"><div class="render-dot"></div>avg DOM</div><div class="render-item"><div class="render-dot"></div>median vs market)</div><div class="render-item"><div class="render-dot"></div>market-timing pill (Fast / Normal / Slow with fallback)</div><div class="render-item"><div class="render-dot"></div>10 ranked deal cards each with year/make/model/trim heading</div><div class="render-item"><div class="render-dot"></div>verdict badge + score</div><div class="render-item"><div class="render-dot"></div>price/miles/DOM/location/dealer line</div><div class="render-item"><div class="render-dot"></div>green→amber→red price-vs-market bar with predicted-price marker</div><div class="render-item"><div class="render-dot"></div>delta callout with percentage</div><div class="render-item"><div class="render-dot"></div>and 2–4 leverage bullets (below-market margin</div><div class="render-item"><div class="render-dot"></div>DOM window</div><div class="render-item"><div class="render-dot"></div>price-drop count</div><div class="render-item"><div class="render-dot"></div>prior-listings count)</div>
     </div>
   </div>
 

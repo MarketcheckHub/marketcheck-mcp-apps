@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Deal Evaluator — MarketCheck Apps">
-  <meta property="og:description" content="Evaluates whether a car deal is good by combining VIN decode, price prediction, comparable active listings, and listing history. Produces a Buy/Negotiate/Pass verdict with gauge visualization, price p">
+  <meta property="og:description" content="Paste a VIN to get a data-backed verdict on whether a specific car is a good buy. Combines VIN decode, ML-based fair-price prediction, live comparable listings within 75 miles, and the vehicle's own l">
   <meta property="og:url" content="https://apps.marketcheck.com/app/deal-evaluator/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/deal-evaluator.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Deal Evaluator">
-  <meta name="twitter:description" content="Evaluates whether a car deal is good by combining VIN decode, price prediction, comparable active listings, and listing history. Produces a Buy/Negotiate/Pass verdict with gauge visualization, price p">
+  <meta name="twitter:description" content="Paste a VIN to get a data-backed verdict on whether a specific car is a good buy. Combines VIN decode, ML-based fair-price prediction, live comparable listings within 75 miles, and the vehicle's own l">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/deal-evaluator.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Deal Evaluator","description":"Evaluates whether a car deal is good by combining VIN decode, price prediction, comparable active listings, and listing history. Produces a Buy/Negotiate/Pass verdict with gauge visualization, price percentile ranking, and negotiation leverage points.","url":"https://apps.marketcheck.com/app/deal-evaluator/","image":"https://apps.marketcheck.com/assets/screenshots/deal-evaluator.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Deal Evaluator","description":"Paste a VIN to get a data-backed verdict on whether a specific car is a good buy. Combines VIN decode, ML-based fair-price prediction, live comparable listings within 75 miles, and the vehicle's own listing history to produce a color-coded Buy/Negotiate/Pass gauge. Quantifies where the asking price sits in the local market distribution (percentile rank), surfaces the fair market value, generates a suggested opening offer (5% below FMV), and lists concrete negotiation leverage points derived from days-on-market, price drops, local inventory depth, and mileage position.","url":"https://apps.marketcheck.com/app/deal-evaluator/","image":"https://apps.marketcheck.com/assets/screenshots/deal-evaluator.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -306,12 +306,52 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Evaluates whether a car deal is good by combining VIN decode, price prediction, comparable active listings, and listing history. Produces a Buy/Negotiate/Pass verdict with gauge visualization, price percentile ranking, and negotiation leverage points.</p>
+    <p>Paste a VIN to get a data-backed verdict on whether a specific car is a good buy. Combines VIN decode, ML-based fair-price prediction, live comparable listings within 75 miles, and the vehicle's own listing history to produce a color-coded Buy/Negotiate/Pass gauge. Quantifies where the asking price sits in the local market distribution (percentile rank), surfaces the fair market value, generates a suggested opening offer (5% below FMV), and lists concrete negotiation leverage points derived from days-on-market, price drops, local inventory depth, and mileage position.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Car Shoppers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Paste a VIN before stepping onto the lot to know if the sticker is fair, overpriced, or a steal — and walk in with a suggested offer and specific talking points.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Auto Journalists</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Quickly validate pricing claims for vehicles in reviews or listicles against real local market data.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Fleet Buyers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Evaluate multiple candidate vehicles against local market conditions before committing to a purchase.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Dealers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Cross-check asking prices on trade-ins and acquisitions against the same market signals a well-informed buyer would see.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key — triggers live mode when present</td></tr><tr><td><code>vin</code></td><td>17-character VIN — pre-fills the form and auto-runs the evaluation</td></tr><tr><td><code>askingPrice</code></td><td>Dealer's asking price in USD (number) — used for percentile + gauge positioning</td></tr><tr><td><code>miles</code></td><td>Current mileage (number) — used to compare against market-average miles</td></tr><tr><td><code>zip</code></td><td>Buyer's ZIP code — narrows the comparable search to local inventory</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/deal-evaluator/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/deal-evaluator/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/deal-evaluator/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/deal-evaluator/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">

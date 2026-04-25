@@ -276,7 +276,20 @@ const APPS = [
     tagline: "Should I buy this car? Get a Buy/Negotiate/Pass verdict",
     segment: "Consumer",
     toolName: "evaluate-deal",
-    description: "Evaluates whether a car deal is good by combining VIN decode, price prediction, comparable active listings, and listing history. Produces a Buy/Negotiate/Pass verdict with gauge visualization, price percentile ranking, and negotiation leverage points.",
+    description: "Paste a VIN to get a data-backed verdict on whether a specific car is a good buy. Combines VIN decode, ML-based fair-price prediction, live comparable listings within 75 miles, and the vehicle's own listing history to produce a color-coded Buy/Negotiate/Pass gauge. Quantifies where the asking price sits in the local market distribution (percentile rank), surfaces the fair market value, generates a suggested opening offer (5% below FMV), and lists concrete negotiation leverage points derived from days-on-market, price drops, local inventory depth, and mileage position.",
+    useCases: [
+      { persona: "Car Shoppers", desc: "Paste a VIN before stepping onto the lot to know if the sticker is fair, overpriced, or a steal — and walk in with a suggested offer and specific talking points." },
+      { persona: "Auto Journalists", desc: "Quickly validate pricing claims for vehicles in reviews or listicles against real local market data." },
+      { persona: "Fleet Buyers", desc: "Evaluate multiple candidate vehicles against local market conditions before committing to a purchase." },
+      { persona: "Dealers", desc: "Cross-check asking prices on trade-ins and acquisitions against the same market signals a well-informed buyer would see." },
+    ],
+    urlParams: [
+      { name: "api_key", desc: "Your MarketCheck API key — triggers live mode when present" },
+      { name: "vin", desc: "17-character VIN — pre-fills the form and auto-runs the evaluation" },
+      { name: "askingPrice", desc: "Dealer's asking price in USD (number) — used for percentile + gauge positioning" },
+      { name: "miles", desc: "Current mileage (number) — used to compare against market-average miles" },
+      { name: "zip", desc: "Buyer's ZIP code — narrows the comparable search to local inventory" },
+    ],
     inputParams: [
       { name: "vin", type: "string", required: true, desc: "17-character VIN" },
       { name: "askingPrice", type: "number", required: false, desc: "Dealer asking price" },

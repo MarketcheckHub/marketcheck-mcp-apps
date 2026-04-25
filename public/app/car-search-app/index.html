@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Car Search — MarketCheck Apps">
-  <meta property="og:description" content="Full-featured car search with SERP-style results, vehicle detail pages, filter chips, and deal badges. Supports keyword/natural language search alongside structured filters.">
+  <meta property="og:description" content="A full-featured car search engine with SERP-style results, vehicle detail pages, photo carousels, filter chips, deal badges, and natural language search. Users can browse inventory using structured fi">
   <meta property="og:url" content="https://apps.marketcheck.com/app/car-search-app/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/car-search-app.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Car Search">
-  <meta name="twitter:description" content="Full-featured car search with SERP-style results, vehicle detail pages, filter chips, and deal badges. Supports keyword/natural language search alongside structured filters.">
+  <meta name="twitter:description" content="A full-featured car search engine with SERP-style results, vehicle detail pages, photo carousels, filter chips, deal badges, and natural language search. Users can browse inventory using structured fi">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/car-search-app.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Car Search","description":"Full-featured car search with SERP-style results, vehicle detail pages, filter chips, and deal badges. Supports keyword/natural language search alongside structured filters.","url":"https://apps.marketcheck.com/app/car-search-app/","image":"https://apps.marketcheck.com/assets/screenshots/car-search-app.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Car Search","description":"A full-featured car search engine with SERP-style results, vehicle detail pages, photo carousels, filter chips, deal badges, and natural language search. Users can browse inventory using structured filters (make, model, year, price, mileage, body type, drivetrain, color, ZIP radius) or type plain-English queries like 'red Toyota SUV under $35,000 near Denver'. Includes dark mode, mobile-responsive drawer filters, comparable vehicles on detail pages, price analysis with predicted value, and share/deep-link support.","url":"https://apps.marketcheck.com/app/car-search-app/","image":"https://apps.marketcheck.com/assets/screenshots/car-search-app.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -306,12 +306,52 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Full-featured car search with SERP-style results, vehicle detail pages, filter chips, and deal badges. Supports keyword/natural language search alongside structured filters.</p>
+    <p>A full-featured car search engine with SERP-style results, vehicle detail pages, photo carousels, filter chips, deal badges, and natural language search. Users can browse inventory using structured filters (make, model, year, price, mileage, body type, drivetrain, color, ZIP radius) or type plain-English queries like 'red Toyota SUV under $35,000 near Denver'. Includes dark mode, mobile-responsive drawer filters, comparable vehicles on detail pages, price analysis with predicted value, and share/deep-link support.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Car Shoppers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Search dealer inventory by make, model, price, and location — or describe what you want in plain English and let the NLP parser find matches.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Dealers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Embed as a search widget on your website to let customers browse your inventory with rich filtering, photo galleries, and deal badges.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Market Researchers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Explore active listings across the US to compare pricing, mileage, and days-on-market across makes and body types.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Auto Journalists</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Quickly find and compare vehicles for editorial content — filter by EV, truck, luxury, or any segment.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key — enables live data mode</td></tr><tr><td><code>make</code></td><td>Pre-select a make (e.g., Toyota) and auto-search</td></tr><tr><td><code>model</code></td><td>Pre-select a model (e.g., Camry)</td></tr><tr><td><code>zip</code></td><td>Center ZIP for radius search (e.g., 90210)</td></tr><tr><td><code>radius</code></td><td>Search radius in miles (e.g., 50)</td></tr><tr><td><code>body_type</code></td><td>Filter by body type (e.g., SUV, Truck)</td></tr><tr><td><code>fuel_type</code></td><td>Filter by fuel type (e.g., Electric, Hybrid)</td></tr><tr><td><code>price_range</code></td><td>Price range as min-max (e.g., 20000-40000)</td></tr><tr><td><code>miles_range</code></td><td>Max mileage as 0-max (e.g., 0-50000)</td></tr><tr><td><code>year</code></td><td>Year or range (e.g., 2022-2025)</td></tr><tr><td><code>sort_by</code></td><td>Sort option: price_asc, price_desc, miles_asc, dom_asc, deal</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/car-search-app/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/car-search-app/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/car-search-app/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/car-search-app/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">

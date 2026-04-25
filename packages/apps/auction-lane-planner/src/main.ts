@@ -821,12 +821,12 @@ async function main() {
     root.innerHTML = `
       <div style="max-width:1500px;margin:0 auto">
         <!-- Header -->
-        <div style="margin-bottom:24px;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div id="app-header" style="margin-bottom:24px;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px">
           <div>
             <h1 style="font-size:26px;font-weight:800;color:#e2e8f0;margin-bottom:4px">Auction Lane Planner</h1>
             <p style="font-size:13px;color:#64748b">Plan lanes, source consignment inventory, target buyers, and price run lists</p>
           </div>
-          <div style="display:flex;gap:16px;font-size:12px;color:#94a3b8">
+          <div style="display:flex;gap:16px;font-size:12px;color:#94a3b8;align-items:center">
             <span>Region: <strong style="color:#e2e8f0">${initialZip ? initialZip + ", " : ""}${initialState}</strong></span>
             <span>Sale Date: <strong style="color:#e2e8f0">Next Tuesday</strong></span>
           </div>
@@ -848,6 +848,9 @@ async function main() {
         <!-- Run List Pricer (bottom) -->
         ${renderRunListPricer(displayResults)}
       </div>`;
+
+    // Mount the LIVE/DEMO/MCP badge + API-key gear into the header
+    _addSettingsBar(document.getElementById("app-header") as HTMLElement);
 
     // Wire up Prospect buttons
     document.querySelectorAll(".prospect-btn").forEach((btn) => {

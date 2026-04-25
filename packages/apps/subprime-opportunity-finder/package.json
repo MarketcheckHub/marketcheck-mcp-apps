@@ -1,0 +1,13 @@
+{
+  "name": "@mcp-apps/subprime-opportunity-finder",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0",
+    "vite-plugin-singlefile": "^2.3.0",
+    "typescript": "^5.7.0"
+  }
+}

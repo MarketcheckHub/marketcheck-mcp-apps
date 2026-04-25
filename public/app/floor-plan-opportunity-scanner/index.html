@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Floor Plan Opportunity Scanner — MarketCheck Apps">
-  <meta property="og:description" content="Scans a territory for dealers with high days-on-market inventory — a signal they may need floor plan financing. Calculates estimated floor plan burn per dealer ($35/day/unit), ranks dealers by opportu">
+  <meta property="og:description" content="The Floor Plan Opportunity Scanner helps lender sales reps identify dealers in their territory who are most likely to need floor plan financing. It searches for active inventory with high days-on-mark">
   <meta property="og:url" content="https://apps.marketcheck.com/app/floor-plan-opportunity-scanner/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/floor-plan-opportunity-scanner.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Floor Plan Opportunity Scanner">
-  <meta name="twitter:description" content="Scans a territory for dealers with high days-on-market inventory — a signal they may need floor plan financing. Calculates estimated floor plan burn per dealer ($35/day/unit), ranks dealers by opportu">
+  <meta name="twitter:description" content="The Floor Plan Opportunity Scanner helps lender sales reps identify dealers in their territory who are most likely to need floor plan financing. It searches for active inventory with high days-on-mark">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/floor-plan-opportunity-scanner.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Floor Plan Opportunity Scanner","description":"Scans a territory for dealers with high days-on-market inventory — a signal they may need floor plan financing. Calculates estimated floor plan burn per dealer ($35/day/unit), ranks dealers by opportunity size, and flags those with 90+ DOM inventory exceeding 30% of their lot.","url":"https://apps.marketcheck.com/app/floor-plan-opportunity-scanner/","image":"https://apps.marketcheck.com/assets/screenshots/floor-plan-opportunity-scanner.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Floor Plan Opportunity Scanner","description":"The Floor Plan Opportunity Scanner helps lender sales reps identify dealers in their territory who are most likely to need floor plan financing. It searches for active inventory with high days-on-market, aggregates aged unit counts per dealer, and calculates an estimated monthly floor plan burn at $35/day per unit. Dealers are ranked by burn size and flagged as Hot Prospects when 90+ DOM inventory exceeds 30% of their lot. A sold demand cross-reference (Enterprise API) highlights which aged units have active buyer demand — helping reps open conversations with specific data rather than a cold pitch.","url":"https://apps.marketcheck.com/app/floor-plan-opportunity-scanner/","image":"https://apps.marketcheck.com/assets/screenshots/floor-plan-opportunity-scanner.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -309,12 +309,52 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Scans a territory for dealers with high days-on-market inventory — a signal they may need floor plan financing. Calculates estimated floor plan burn per dealer ($35/day/unit), ranks dealers by opportunity size, and flags those with 90+ DOM inventory exceeding 30% of their lot.</p>
+    <p>The Floor Plan Opportunity Scanner helps lender sales reps identify dealers in their territory who are most likely to need floor plan financing. It searches for active inventory with high days-on-market, aggregates aged unit counts per dealer, and calculates an estimated monthly floor plan burn at $35/day per unit. Dealers are ranked by burn size and flagged as Hot Prospects when 90+ DOM inventory exceeds 30% of their lot. A sold demand cross-reference (Enterprise API) highlights which aged units have active buyer demand — helping reps open conversations with specific data rather than a cold pitch.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Lender Sales Reps</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Scan a ZIP + radius before a territory blitz — get a ranked list of dealers by floor plan burn so you walk in with numbers, not guesses.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Floor Plan Lenders</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Identify which dealers in a region carry the highest aged inventory exposure and prioritize outreach accordingly.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Regional Managers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Compare floor plan burn across territories to allocate sales resources where the opportunity is largest.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Account Managers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Monitor existing dealer accounts for rising DOM — an early signal that a floor plan line increase or intervention conversation is needed.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (or set via localStorage)</td></tr><tr><td><code>zip</code></td><td>Territory center ZIP — auto-fills the form</td></tr><tr><td><code>radius</code></td><td>Search radius in miles (25, 50, or 100 — default: 50)</td></tr><tr><td><code>min_dom</code></td><td>Minimum DOM threshold to classify a unit as aged (default: 60)</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/floor-plan-opportunity-scanner/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/floor-plan-opportunity-scanner/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/floor-plan-opportunity-scanner/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/floor-plan-opportunity-scanner/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -351,7 +391,7 @@ pre.code-block {
     <table class="param-table">
       <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>zip</code></td><td>string</td><td><span class="required">Yes</span></td><td>Territory center ZIP</td></tr><tr><td><code>radius</code></td><td>number</td><td>No</td><td>Search radius in miles (default: 50)</td></tr><tr><td><code>minDom</code></td><td>number</td><td>No</td><td>Minimum DOM threshold (default: 60)</td></tr>
+        <tr><td><code>zip</code></td><td>string</td><td><span class="required">Yes</span></td><td>Territory center ZIP</td></tr><tr><td><code>radius</code></td><td>number</td><td>No</td><td>Search radius in miles (default: 50)</td></tr><tr><td><code>min_dom</code></td><td>number</td><td>No</td><td>Minimum DOM threshold (default: 60)</td></tr>
       </tbody>
     </table>
   </div>

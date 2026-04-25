@@ -136,6 +136,7 @@ const READY_APPS = new Set([
   "vin-market-report", "trade-in-estimator", "used-car-market-index",
   "car-search-app",
   "dealer-inventory-fit-scorer", "dealer-conquest-analyzer", "deal-finder",
+  "floor-plan-opportunity-scanner", "dealer-intelligence-brief", "subprime-opportunity-finder",
   "chat-vercel-ai", "chat-copilotkit", "chat-assistant-ui", "chat-sdk-bot",
   "chat-chainlit", "chat-streamlit", "chat-langchain",
 ]);

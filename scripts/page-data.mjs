@@ -515,6 +515,39 @@ export const APPS = [
       { name: "zip", type: "string", required: false, desc: "Territory center ZIP" },
     ],
   },
+  {
+    id: "floor-plan-opportunity-scanner", name: "Floor Plan Opportunity Scanner", tagline: "Find dealers with aging inventory who need floor plan financing",
+    segment: "Lender Sales", tool: "scan-floor-plan-opportunities",
+    description: "Scans a territory for dealers with high days-on-market inventory — a signal they may need floor plan financing. Calculates estimated floor plan burn per dealer ($35/day/unit), ranks dealers by opportunity size, and flags those with 90+ DOM inventory exceeding 30% of their lot.",
+    apiEndpoints: ["searchActive", "soldSummary"],
+    inputParams: [
+      { name: "zip", type: "string", required: true, desc: "Territory center ZIP" },
+      { name: "radius", type: "number", required: false, desc: "Search radius in miles (default: 50)" },
+      { name: "min_dom", type: "number", required: false, desc: "Minimum DOM threshold for aged inventory (default: 60)" },
+    ],
+  },
+  {
+    id: "dealer-intelligence-brief", name: "Dealer Intelligence Brief", tagline: "Dealer profile data for pitch prep",
+    segment: "Lender Sales", tool: "dealer-intelligence-brief",
+    description: "One-page dealer intelligence brief for sales call prep. Pulls a dealer's active inventory to analyze size, brand mix, body type mix, pricing patterns, aging health, and estimated floor plan exposure. Everything a lender sales rep needs before walking in the door.",
+    apiEndpoints: ["searchActive", "soldSummary"],
+    inputParams: [
+      { name: "dealer_id", type: "string", required: true, desc: "Target dealer's MarketCheck ID" },
+      { name: "zip", type: "string", required: false, desc: "Dealer ZIP for market context (competitor pricing)" },
+      { name: "state", type: "string", required: false, desc: "2-letter state code for demand comparison" },
+    ],
+  },
+  {
+    id: "subprime-opportunity-finder", name: "Subprime Opportunity Finder", tagline: "Identify subprime-heavy dealers for lending products",
+    segment: "Lender Sales", tool: "subprime-opportunity-finder",
+    description: "Identifies dealers likely serving subprime buyers by analyzing inventory patterns: high percentage of older vehicles (5+ years), lower price points, independent dealer type, and high DOM. These signals indicate dealers who may need subprime lending products or BHPH financing partnerships.",
+    apiEndpoints: ["searchActive", "soldSummary"],
+    inputParams: [
+      { name: "zip", type: "string", required: true, desc: "Target market ZIP code" },
+      { name: "radius", type: "number", required: false, desc: "Search radius in miles (default: 50)" },
+      { name: "state", type: "string", required: false, desc: "2-letter state code for sold demand context" },
+    ],
+  },
   // ── Chat Demos ──
   {
     id: "chat-vercel-ai", name: "AI Car Advisor (Vercel AI SDK)", tagline: "Conversational car shopping with Claude streaming",

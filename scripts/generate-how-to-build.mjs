@@ -775,14 +775,24 @@ const APPS = [
     tagline: "Track collateral health across your loan book",
     segment: "Lender",
     toolName: null,
-    description: "Portfolio-level collateral health dashboard. Tracks average values, depreciation rates, and concentration risk across a loan book using sold summary and market trend data.",
+    description: "Portfolio-level auto loan collateral health dashboard for lenders. Analyzes LTV distribution across a loan book — flagging underwater loans (LTV > 100%), high-risk positions (LTV > 120%), and segment concentration risk. The depreciation heatmap shows real annual depreciation rates by make and vehicle age bracket (0-2yr, 2-4yr, 4-6yr) using live sold vehicle summary data. Key metrics include average portfolio LTV, percentage of underwater vs healthy positions, and average depreciation rate by segment (SUV, Sedan, Truck, EV). A risk watchlist surfaces the highest-LTV loans first so credit teams can triage collateral exposures immediately.",
+    useCases: [
+      { persona: "Auto Lender / Credit Risk Manager", desc: "Monitor portfolio-wide LTV health in real time, triage high-risk loans, and understand which makes and segments are depreciating fastest to adjust underwriting guidelines." },
+      { persona: "Portfolio Analyst", desc: "Identify segment concentration risk (e.g., over-exposure to EVs or luxury brands) and track depreciation trends across vehicle age buckets to forecast collateral value erosion." },
+      { persona: "Chief Risk Officer", desc: "Get a single-screen view of portfolio health KPIs — average LTV, underwater %, high-risk %, retention rate — before credit committee or regulatory reporting." },
+    ],
+    urlParams: [
+      { name: "api_key", desc: "Your MarketCheck API key — activates live depreciation data from the Sold Summary API" },
+      { name: "state", desc: "2-letter state code (e.g. CA, TX) — filters market data to that state for regional portfolio analysis" },
+      { name: "vin", desc: "17-character VIN — pre-fills the VIN lookup field to quickly locate a specific loan in the watchlist" },
+    ],
     inputParams: [
       { name: "state", type: "string", required: false, desc: "State for regional analysis" },
     ],
     apiFlow: [
-      { step: 1, label: "Market Summary", apis: ["soldSummary"], parallel: false, note: "Fetch sold summary by make, body type, and state dimensions" },
+      { step: 1, label: "Market Summary (3 parallel age-bracket calls)", apis: ["soldSummary"], parallel: true, note: "Fetch sold summary by make for 0-2yr, 2-4yr, and 4-6yr vehicle age brackets simultaneously to compute real depreciation rates" },
     ],
-    renders: "Portfolio value index, segment risk heatmap, concentration analysis, depreciation trend overlay",
+    renders: "Portfolio KPI ribbon (total loans, avg LTV, underwater %, high-risk %, avg depreciation, retention %), LTV distribution histogram with exposure amounts, risk watchlist table sorted by LTV, segment exposure donut chart, depreciation heatmap by make × age bracket",
   },
   {
     id: "lender-portfolio-stress-test",

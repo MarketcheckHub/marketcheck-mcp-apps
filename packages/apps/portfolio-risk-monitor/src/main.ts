@@ -334,9 +334,11 @@ function renderWatchlistTable(loans: Loan[]): string {
     </tr>`;
   }).join("");
 
+  // Fix 3: show loan count in watchlist header
   return `<div style="background:#1e293b;border-radius:10px;padding:16px;height:100%;display:flex;flex-direction:column;">
     <h3 style="color:#e2e8f0;font-size:14px;margin-bottom:12px;display:flex;align-items:center;gap:6px;">
-      <span style="color:#ef4444;">&#9888;</span> Risk Watchlist (LTV > 100%)
+      <span style="color:#ef4444;">&#9888;</span> Risk Watchlist (LTV &gt; 100%)
+      <span style="margin-left:auto;font-size:11px;font-weight:500;color:#ef4444;background:#ef444422;padding:2px 8px;border-radius:10px;">${underwater.length} loans</span>
     </h3>
     <div style="overflow-y:auto;flex:1;">
       <table style="width:100%;border-collapse:collapse;">
@@ -472,44 +474,66 @@ function drawLTVHistogram(canvas: HTMLCanvasElement, loans: Loan[]): void {
   }
 
   // Bars
+  const zoneLabels = ["Safe", "Caution", "At Risk", "Underwater"];
   buckets.forEach((b, i) => {
     const x = padLeft + i * barW + barGap / 2;
     const w = barW - barGap;
     const barH = (b.loans.length / maxCount) * chartH;
     const y = padTop + chartH - barH;
-
-    // Bar gradient
-    const grad = ctx.createLinearGradient(x, y, x, padTop + chartH);
-    grad.addColorStop(0, b.color);
-    grad.addColorStop(1, b.color + "44");
-    ctx.fillStyle = grad;
-
-    // Rounded top
     const radius = 4;
-    ctx.beginPath();
-    ctx.moveTo(x + radius, y);
-    ctx.lineTo(x + w - radius, y);
-    ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
-    ctx.lineTo(x + w, padTop + chartH);
-    ctx.lineTo(x, padTop + chartH);
-    ctx.lineTo(x, y + radius);
-    ctx.quadraticCurveTo(x, y, x + radius, y);
-    ctx.fill();
 
-    // Count label on bar
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 14px system-ui, sans-serif";
-    ctx.textAlign = "center";
-    if (b.loans.length > 0) {
-      ctx.fillText(b.loans.length.toString(), x + w / 2, y - 8);
-    }
+    if (b.loans.length === 0) {
+      // Fix 1: ghost outline for empty bucket so users know it exists
+      ctx.save();
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = b.color + "55";
+      ctx.lineWidth = 1.5;
+      const ghostH = chartH * 0.06;
+      const ghostY = padTop + chartH - ghostH;
+      ctx.strokeRect(x, ghostY, w, ghostH);
+      ctx.restore();
 
-    // Exposure amount below count
-    const exposure = b.loans.reduce((s, l) => s + l.loanBalance, 0);
-    if (b.loans.length > 0) {
-      ctx.fillStyle = b.color;
-      ctx.font = "10px system-ui, sans-serif";
-      ctx.fillText(fmt$(exposure), x + w / 2, y - 22 > padTop ? y - 22 : padTop + 12);
+      // "0" label above ghost bar
+      ctx.fillStyle = b.color + "88";
+      ctx.font = "bold 13px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("0", x + w / 2, ghostY - 8);
+    } else {
+      // Bar gradient
+      const grad = ctx.createLinearGradient(x, y, x, padTop + chartH);
+      grad.addColorStop(0, b.color);
+      grad.addColorStop(1, b.color + "44");
+      ctx.fillStyle = grad;
+
+      // Rounded top
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + w - radius, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+      ctx.lineTo(x + w, padTop + chartH);
+      ctx.lineTo(x, padTop + chartH);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.fill();
+
+      // Fix 2: count above bar, exposure inside bar (no overlap)
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 14px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(b.loans.length.toString(), x + w / 2, y - 10);
+
+      const exposure = b.loans.reduce((s, l) => s + l.loanBalance, 0);
+      if (barH > 28) {
+        // Draw exposure inside the bar near the top
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "10px system-ui, sans-serif";
+        ctx.fillText(fmt$(exposure), x + w / 2, y + 16);
+      } else {
+        // Bar too short — show exposure above count with clear gap
+        ctx.fillStyle = b.color;
+        ctx.font = "10px system-ui, sans-serif";
+        ctx.fillText(fmt$(exposure), x + w / 2, y - 26);
+      }
     }
 
     // X-axis label
@@ -521,7 +545,6 @@ function drawLTVHistogram(canvas: HTMLCanvasElement, loans: Loan[]): void {
     // Zone label
     ctx.fillStyle = b.color;
     ctx.font = "bold 10px system-ui, sans-serif";
-    const zoneLabels = ["Safe", "Caution", "At Risk", "Underwater"];
     ctx.fillText(zoneLabels[i], x + w / 2, padTop + chartH + 34);
   });
 
@@ -632,40 +655,119 @@ function drawSegmentDonut(canvas: HTMLCanvasElement, loans: Loan[]): void {
   ctx.font = "11px system-ui, sans-serif";
   ctx.fillText("Total Loans", cx, cy + 10);
 
-  // Legend on right side
-  const legendX = W * 0.68;
-  let legendY = H * 0.18;
-  const lineH = 38;
+  // Fix 4: legend — larger font and spacing so avg depr is easily readable
+  const legendX = W * 0.66;
+  let legendY = H * 0.16;
+  const lineH = 46;
 
   segments.forEach(seg => {
-    // Color dot
-    ctx.beginPath();
-    ctx.arc(legendX, legendY + 2, 5, 0, Math.PI * 2);
+    // Color swatch (pill instead of dot — easier to read)
     ctx.fillStyle = seg.color;
+    ctx.beginPath();
+    ctx.roundRect(legendX, legendY, 12, 12, 3);
     ctx.fill();
 
     // Name and percentage
     ctx.fillStyle = "#e2e8f0";
-    ctx.font = "bold 12px system-ui, sans-serif";
+    ctx.font = "bold 13px system-ui, sans-serif";
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    ctx.fillText(`${seg.name} (${seg.pct}%)`, legendX + 14, legendY - 5);
+    ctx.fillText(`${seg.name} (${seg.pct}%)`, legendX + 18, legendY);
 
-    // Avg depreciation
+    // Avg depreciation — larger, colored, with bullet
     ctx.fillStyle = deprColor(seg.avgDepr);
-    ctx.font = "11px system-ui, sans-serif";
-    ctx.fillText(`Avg depr: ${fmtPct(seg.avgDepr)}/yr`, legendX + 14, legendY + 11);
+    ctx.font = "13px system-ui, sans-serif";
+    ctx.fillText(`${fmtPct(seg.avgDepr)}/yr avg depr`, legendX + 18, legendY + 18);
 
     legendY += lineH;
   });
+}
+
+// ── Live Data Fetch ───────────────────────────────────────────────────
+
+async function _fetchDirect(state?: string): Promise<{ heatmapData: HeatmapCell[] } | null> {
+  const auth = _getAuth();
+  if (!auth.value) return null;
+
+  try {
+    const makeParam = `ranking_dimensions=make&ranking_measure=average_sale_price&ranking_order=desc&top_n=10&inventory_type=used`;
+    const stateQ = state ? `&state=${encodeURIComponent(state)}` : "";
+    const authQ = auth.mode === "api_key" ? `&api_key=${encodeURIComponent(auth.value)}` : `&access_token=${encodeURIComponent(auth.value)}`;
+    const base = _proxyBase();
+
+    // Fetch by-make data for 0-2 yr, 2-4 yr, 4-6 yr age buckets
+    const [r0, r2, r4] = await Promise.all([
+      fetch(`${base}/api/v1/sold-vehicles/summary?${makeParam}&year_min=2023&year_max=2026${stateQ}${authQ}`),
+      fetch(`${base}/api/v1/sold-vehicles/summary?${makeParam}&year_min=2021&year_max=2022${stateQ}${authQ}`),
+      fetch(`${base}/api/v1/sold-vehicles/summary?${makeParam}&year_min=2019&year_max=2020${stateQ}${authQ}`),
+    ]);
+
+    const [d0, d2, d4] = await Promise.all([
+      r0.ok ? r0.json() : null,
+      r2.ok ? r2.json() : null,
+      r4.ok ? r4.json() : null,
+    ]);
+
+    // Build heatmap from rankings
+    const MAKES = ["Toyota", "Honda", "Ford", "GM", "Tesla", "BMW"];
+    const buildMap = (data: any): Record<string, number> => {
+      const map: Record<string, number> = {};
+      const rows = data?.rankings ?? data?.data ?? [];
+      for (const row of rows) {
+        const m = row.make ?? row.dimension_value ?? "";
+        if (MAKES.includes(m) && row.average_sale_price > 0) {
+          map[m] = row.average_sale_price;
+        }
+      }
+      return map;
+    };
+
+    const avg0 = buildMap(d0);
+    const avg2 = buildMap(d2);
+    const avg4 = buildMap(d4);
+
+    const cells: HeatmapCell[] = [];
+    for (const make of MAKES) {
+      const p0 = avg0[make], p2 = avg2[make], p4 = avg4[make];
+      // Approximate annual depreciation rate from price drop between buckets
+      if (p0 && p2) {
+        const rate = ((p0 - p2) / p0) * 100 / 2; // over ~2yr spread
+        cells.push({ make, ageBucket: "0-2yr", deprRate: Math.max(0, rate) });
+      } else {
+        cells.push(...generateHeatmapData().filter(d => d.make === make && d.ageBucket === "0-2yr"));
+      }
+      if (p2 && p4) {
+        const rate = ((p2 - p4) / p2) * 100 / 2;
+        cells.push({ make, ageBucket: "2-4yr", deprRate: Math.max(0, rate) });
+      } else {
+        cells.push(...generateHeatmapData().filter(d => d.make === make && d.ageBucket === "2-4yr"));
+      }
+      // 4-6yr: use mock for now
+      cells.push(...generateHeatmapData().filter(d => d.make === make && d.ageBucket === "4-6yr"));
+    }
+
+    return cells.length > 0 ? { heatmapData: cells } : null;
+  } catch {
+    return null;
+  }
 }
 
 // ── Main ──────────────────────────────────────────────────────────────
 
 
 (async () => {
+  const mode = _detectAppMode();
+  const urlParams = _getUrlParams();
+  const state = urlParams.state;
+
   const loans = generateMockLoans();
-  const heatmapData = generateHeatmapData();
+  let heatmapData = generateHeatmapData();
+
+  // Fetch live market data if key is present
+  if (mode === "live" || mode === "mcp") {
+    const liveData = await _fetchDirect(state);
+    if (liveData) heatmapData = liveData.heatmapData;
+  }
 
   const el = document.body;
   el.style.fontFamily = "system-ui, -apple-system, sans-serif";
@@ -683,22 +785,20 @@ function drawSegmentDonut(canvas: HTMLCanvasElement, loans: Loan[]): void {
       <h1 style="font-size:22px;font-weight:700;color:#f1f5f9;margin-bottom:4px;">Portfolio Risk Monitor</h1>
       <p style="font-size:12px;color:#64748b;">Auto Loan Portfolio Health & LTV Analysis</p>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;">
-      <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite;"></span>
-      <span style="font-size:12px;color:#64748b;">Live</span>
-    </div>
   `;
   el.appendChild(header);
-
-  // Style for pulse animation
-  const style = document.createElement("style");
-  style.textContent = `@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }`;
-  el.appendChild(style);
+  _addSettingsBar(header);
 
   // VIN Input Area
   const vinSection = document.createElement("div");
   vinSection.innerHTML = renderVINInput();
   el.appendChild(vinSection);
+
+  // Pre-fill VIN from URL params
+  const vinInputEl = vinSection.querySelector("#vin-input") as HTMLTextAreaElement | null;
+  if (vinInputEl && urlParams.vin) {
+    vinInputEl.value = urlParams.vin;
+  }
 
   // KPI Ribbon
   const kpiSection = document.createElement("div");

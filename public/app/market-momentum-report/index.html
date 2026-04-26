@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Market Momentum Report — MarketCheck Apps">
-  <meta property="og:description" content="Monthly strategic briefing for OEM leadership. Shows month-over-month volume changes by brand and segment, pricing power trends, days-supply health, and which competitors are gaining or losing ground.">
+  <meta property="og:description" content="The one-page monthly strategic briefing for OEM leadership. Answers four questions in a single screen: (1) how is my brand's share moving month-over-month, (2) which body-type segments are shifting to">
   <meta property="og:url" content="https://apps.marketcheck.com/app/market-momentum-report/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/market-momentum-report.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Market Momentum Report">
-  <meta name="twitter:description" content="Monthly strategic briefing for OEM leadership. Shows month-over-month volume changes by brand and segment, pricing power trends, days-supply health, and which competitors are gaining or losing ground.">
+  <meta name="twitter:description" content="The one-page monthly strategic briefing for OEM leadership. Answers four questions in a single screen: (1) how is my brand's share moving month-over-month, (2) which body-type segments are shifting to">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/market-momentum-report.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Market Momentum Report","description":"Monthly strategic briefing for OEM leadership. Shows month-over-month volume changes by brand and segment, pricing power trends, days-supply health, and which competitors are gaining or losing ground. Designed to be the 'one report' an OEM exec reads at the start of each month.","url":"https://apps.marketcheck.com/app/market-momentum-report/","image":"https://apps.marketcheck.com/assets/screenshots/market-momentum-report.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Market Momentum Report","description":"The one-page monthly strategic briefing for OEM leadership. Answers four questions in a single screen: (1) how is my brand's share moving month-over-month, (2) which body-type segments are shifting toward or away from me, (3) is pricing power (transaction price vs MSRP) intact, and (4) am I healthy on days-of-supply. Also surfaces my currently-running incentive programs and auto-generates a 'Market Signals' callout with conquest threats and the strongest growing/declining segments. Built primarily on MarketCheck's Enterprise Sold Vehicle Summary API (six month-over-month rankings); also uses /v2/search/car/active for the days-supply numerator and /v2/search/car/incentive/oem for the active-incentive cards.","url":"https://apps.marketcheck.com/app/market-momentum-report/","image":"https://apps.marketcheck.com/assets/screenshots/market-momentum-report.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -309,12 +309,49 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Monthly strategic briefing for OEM leadership. Shows month-over-month volume changes by brand and segment, pricing power trends, days-supply health, and which competitors are gaining or losing ground. Designed to be the 'one report' an OEM exec reads at the start of each month.</p>
+    <p>The one-page monthly strategic briefing for OEM leadership. Answers four questions in a single screen: (1) how is my brand's share moving month-over-month, (2) which body-type segments are shifting toward or away from me, (3) is pricing power (transaction price vs MSRP) intact, and (4) am I healthy on days-of-supply. Also surfaces my currently-running incentive programs and auto-generates a 'Market Signals' callout with conquest threats and the strongest growing/declining segments. Built primarily on MarketCheck's Enterprise Sold Vehicle Summary API (six month-over-month rankings); also uses /v2/search/car/active for the days-supply numerator and /v2/search/car/incentive/oem for the active-incentive cards.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">OEM Strategy</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Month-over-month share and segment-mix shifts by make and body type — know who gained or lost basis points and where, with drill-down into specific states.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Product Planning</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Track pricing power against MSRP alongside days-of-supply to calibrate production plans and decide when to add or pull back incentive support.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Regional Sales Ops</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Filter by state to see where your brand is momentum-positive or losing ground to a specific conquest threat — surface the one competitor gaining fastest in your market.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck Enterprise API key (sold-summary requires Enterprise tier). Also persistable via localStorage.</td></tr><tr><td><code>myBrand</code></td><td>OEM brand name — one of the 30 US OEMs that run incentive programs (Acura, Audi, BMW, Buick, Cadillac, Chevrolet, Chrysler, Dodge, Fiat, Ford, Genesis, GMC, Honda, Hyundai, Infiniti, Jaguar, Jeep, Kia, Land Rover, Lexus, Lincoln, Mazda, Mini, Mitsubishi, Nissan, Porsche, RAM, Subaru, Toyota, Volvo). Auto-fills the selector and triggers the report.</td></tr><tr><td><code>state</code></td><td>Optional 2-letter US state code for regional focus</td></tr><tr><td><code>embed</code></td><td>Set to 'true' for embedded iframe mode (hides the settings gear and demo banner)</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/market-momentum-report/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/market-momentum-report/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/market-momentum-report/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/market-momentum-report/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -329,7 +366,7 @@ pre.code-block {
     <h2>API Call Flow</h2>
     <p>Here's the exact sequence of MarketCheck API calls this app makes, and which ones run in parallel:</p>
     <div class="flow-diagram">
-      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">Current vs Prior Month + Segments</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
+      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">Current + Prior Month Rankings (Make + Body Type)</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
           <div class="flow-api-card enterprise">
             <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
             <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
@@ -344,7 +381,12 @@ pre.code-block {
             <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
             <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
             <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
-          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Fetch current month make rankings, prior month make rankings, and body-type segment data — all in parallel</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Pricing Power + Days Supply + Incentives</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
+          </div>
+          <div class="flow-api-card enterprise">
+            <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
+            <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
+            <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
+          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Fetch current + prior month make rankings AND current + prior body-type segment data — all in parallel. Two month windows × two ranking dimensions = four calls powering the MoM bps-delta computations. Each soldSummary call requires date_from + date_to (YYYY-MM-DD) covering the target month, plus ranking_dimensions and ranking_measure.</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Pricing Power + Active Inventory + Incentives</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
           <div class="flow-api-card enterprise">
             <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
             <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
@@ -359,14 +401,29 @@ pre.code-block {
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/incentive/oem</code>
             <div class="flow-api-name">OEM Incentives</div>
-          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Fetch pricing power (price_over_msrp), current inventory with DOM stats, and your active incentive programs — all in parallel</div></div>
+          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Pricing power ranking by price_over_msrp_percentage, active-inventory count (the searchActive call's num_found is the numerator of days-supply; the monthly sold count from Step 1 is the denominator), and OEM incentive programs — all parallel.</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2b</div><div class="flow-step-label">Conditional myBrand fallbacks</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
+          <div class="flow-api-card enterprise">
+            <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
+            <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
+            <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
+          </div>
+          <div class="flow-api-card enterprise">
+            <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
+            <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
+            <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
+          </div>
+          <div class="flow-api-card enterprise">
+            <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
+            <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
+            <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
+          </div></div><div class="flow-note">Fires only when myBrand falls outside top-25 in currentMakes / priorMakes / pricingPower. Adds 0–3 scoped soldSummary calls (filtered by make=myBrand) so small/niche brands still appear in the KPI strip and scatter. myBrandCurrent and myBrandPrior are folded into Step 2's Promise.all (null slots when not needed); myBrandPricing is sequential because it depends on Step 2's pricingPower result. Worst-case total: 10 calls. Happy path: 7 calls.</div></div>
     </div>
   </div>
 
   <!-- Input Parameters -->
   <div class="section">
     <h2>Input Parameters</h2>
-    <p>Pass these parameters to build this app:</p>
+    <p>Pass these parameters to build this app (or call the <code>market-momentum-report</code> composite endpoint):</p>
     
     <table class="param-table">
       <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
@@ -439,11 +496,33 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Executive summary KPI strip (market volume / share change / pricing power)</div><div class="render-item"><div class="render-dot"></div>brand momentum table sorted by bps change</div><div class="render-item"><div class="render-dot"></div>segment mix shift chart</div><div class="render-item"><div class="render-dot"></div>pricing power scatter plot</div><div class="render-item"><div class="render-dot"></div>days-supply gauge</div><div class="render-item"><div class="render-dot"></div>active incentive summary cards</div><div class="render-item"><div class="render-dot"></div>Market Signals callout box</div>
+      <div class="render-item"><div class="render-dot"></div>Executive summary KPI strip (market volume / share Δ / pricing power / days of supply)</div><div class="render-item"><div class="render-dot"></div>brand momentum table sorted by |Δ bps| with your brand highlighted</div><div class="render-item"><div class="render-dot"></div>segment mix shift chart (current vs prior)</div><div class="render-item"><div class="render-dot"></div>pricing power scatter plot (% of MSRP vs volume</div><div class="render-item"><div class="render-dot"></div>bubble size = volume)</div><div class="render-item"><div class="render-dot"></div>days-supply arc gauge with healthy/watch/glut zones</div><div class="render-item"><div class="render-dot"></div>active incentive summary cards grouped by offer type</div><div class="render-item"><div class="render-dot"></div>and an auto-generated Market Signals callout box with conquest threats and segment trend alerts</div>
     </div>
   </div>
 
   
+  <!-- Composite Endpoint -->
+  <div class="section">
+    <h2>Shortcut: Composite API Endpoint</h2>
+    <p>Instead of calling each API individually, use our composite endpoint that orchestrates all the calls for you:</p>
+    <div class="api-detail-card">
+      <div class="api-detail-header">
+        <span class="api-method-badge" style="background:#dbeafe;color:#1e40af;">POST</span>
+        <code>https://apps.marketcheck.com/api/proxy/market-momentum-report</code>
+      </div>
+      <p>This single endpoint runs all 10 API calls in the optimal sequence and returns the combined result.</p>
+      <p><a href="/docs/derivative-apis/#market-momentum-report">View full composite endpoint documentation &#8599;</a></p>
+    </div>
+    
+    <h3>Try It — cURL Example</h3>
+    <pre class="code-block">curl -X POST https://apps.marketcheck.com/api/proxy/market-momentum-report \
+  -H "Content-Type: application/json" \
+  -d '{
+  "_auth_mode": "api_key",
+  "_auth_value": "YOUR_API_KEY",
+  "state": "CA"
+}'</pre>
+  </div>
 
   <!-- How to Build -->
   <div class="section">

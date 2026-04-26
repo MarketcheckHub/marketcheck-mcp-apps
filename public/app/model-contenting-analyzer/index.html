@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Model Contenting Analyzer — MarketCheck Apps">
-  <meta property="og:description" content="Analyzes trim-level and body-type demand for a specific model, comparing active inventory distribution against sold patterns to identify which configurations are over- or under-supplied. Helps OEM pro">
+  <meta property="og:description" content="OEM product planning dashboard that quantifies which trims and content packages are actually moving for a specific model. Pulls active inventory facet counts (trim, body_type, fuel_type) from the live">
   <meta property="og:url" content="https://apps.marketcheck.com/app/model-contenting-analyzer/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/model-contenting-analyzer.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Model Contenting Analyzer">
-  <meta name="twitter:description" content="Analyzes trim-level and body-type demand for a specific model, comparing active inventory distribution against sold patterns to identify which configurations are over- or under-supplied. Helps OEM pro">
+  <meta name="twitter:description" content="OEM product planning dashboard that quantifies which trims and content packages are actually moving for a specific model. Pulls active inventory facet counts (trim, body_type, fuel_type) from the live">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/model-contenting-analyzer.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Model Contenting Analyzer","description":"Analyzes trim-level and body-type demand for a specific model, comparing active inventory distribution against sold patterns to identify which configurations are over- or under-supplied. Helps OEM product planners understand which trims to produce more of and which to de-emphasize.","url":"https://apps.marketcheck.com/app/model-contenting-analyzer/","image":"https://apps.marketcheck.com/assets/screenshots/model-contenting-analyzer.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Model Contenting Analyzer","description":"OEM product planning dashboard that quantifies which trims and content packages are actually moving for a specific model. Pulls active inventory facet counts (trim, body_type, fuel_type) from the live MarketCheck dataset, compares them to recent sold mix and Enterprise Sold Vehicle Summary rankings, and surfaces every trim's supply-vs-demand imbalance in basis points. Then samples the slowest- and fastest-moving listings, decodes their VINs, and lays out a side-by-side feature comparison so you can see whether AWD, sunroof, leather, or wheel size is the content actually driving turn rate. Outputs a 0–100 Contenting Score, oversupplied/undersupplied badges per trim, a price-by-DOM scatter, a body-type demand table, and plain-English insights ranking the largest trim mismatches and content drivers.","url":"https://apps.marketcheck.com/app/model-contenting-analyzer/","image":"https://apps.marketcheck.com/assets/screenshots/model-contenting-analyzer.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -309,12 +309,55 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Analyzes trim-level and body-type demand for a specific model, comparing active inventory distribution against sold patterns to identify which configurations are over- or under-supplied. Helps OEM product planners understand which trims to produce more of and which to de-emphasize.</p>
+    <p>OEM product planning dashboard that quantifies which trims and content packages are actually moving for a specific model. Pulls active inventory facet counts (trim, body_type, fuel_type) from the live MarketCheck dataset, compares them to recent sold mix and Enterprise Sold Vehicle Summary rankings, and surfaces every trim's supply-vs-demand imbalance in basis points. Then samples the slowest- and fastest-moving listings, decodes their VINs, and lays out a side-by-side feature comparison so you can see whether AWD, sunroof, leather, or wheel size is the content actually driving turn rate. Outputs a 0–100 Contenting Score, oversupplied/undersupplied badges per trim, a price-by-DOM scatter, a body-type demand table, and plain-English insights ranking the largest trim mismatches and content drivers.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">OEM Product Planners</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Decide which trims to over-build next quarter. The supply vs demand mismatch table flags trims where inventory share is materially out of step with sold share — that's exactly where allocation should shift.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">OEM Pricing & Incentives</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Find oversupplied trims that are sitting on lots (high DOM, oversupplied badge) and target them with incentives or MSRP adjustments instead of brand-wide spend.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Regional Sales Managers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Pass a state code to see whether a regional market wants different content than the national mix — useful for redirecting inventory between zones.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Dealer Group Buyers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Use the price-by-DOM scatter and feature comparison grid to source inventory in the trim-and-content combinations that turn fastest in your market.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Auto Analysts / Press</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Quote concrete numbers — 'X trim is undersupplied at Y bps' — backed by real listing-level data instead of OEM-reported wholesale figures.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (or set via localStorage). Trim-level analysis works with any key; body-type demand requires Enterprise.</td></tr><tr><td><code>make</code></td><td>OEM brand to analyze (e.g., Honda) — auto-fills the form and triggers the analysis</td></tr><tr><td><code>model</code></td><td>Model name to analyze (e.g., CR-V) — auto-fills the form and triggers the analysis</td></tr><tr><td><code>year</code></td><td>Model year or range (e.g., 2024 or 2022-2024) — narrows the analysis to a specific generation</td></tr><tr><td><code>state</code></td><td>Two-letter US state code (e.g., CA) — restricts both inventory and sold-summary calls to that market</td></tr><tr><td><code>embed</code></td><td>Set to 'true' to hide the settings gear for iframe embeds</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/model-contenting-analyzer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/model-contenting-analyzer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/model-contenting-analyzer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/model-contenting-analyzer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">

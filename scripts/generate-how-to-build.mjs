@@ -898,7 +898,22 @@ const APPS = [
     tagline: "Which trims and configs are the market buying?",
     segment: "Manufacturer",
     toolName: null,
-    description: "Analyzes trim-level and body-type demand for a specific model, comparing active inventory distribution against sold patterns to identify which configurations are over- or under-supplied. Helps OEM product planners understand which trims to produce more of and which to de-emphasize.",
+    description: "OEM product planning dashboard that quantifies which trims and content packages are actually moving for a specific model. Pulls active inventory facet counts (trim, body_type, fuel_type) from the live MarketCheck dataset, compares them to recent sold mix and Enterprise Sold Vehicle Summary rankings, and surfaces every trim's supply-vs-demand imbalance in basis points. Then samples the slowest- and fastest-moving listings, decodes their VINs, and lays out a side-by-side feature comparison so you can see whether AWD, sunroof, leather, or wheel size is the content actually driving turn rate. Outputs a 0–100 Contenting Score, oversupplied/undersupplied badges per trim, a price-by-DOM scatter, a body-type demand table, and plain-English insights ranking the largest trim mismatches and content drivers.",
+    useCases: [
+      { persona: "OEM Product Planners", desc: "Decide which trims to over-build next quarter. The supply vs demand mismatch table flags trims where inventory share is materially out of step with sold share — that's exactly where allocation should shift." },
+      { persona: "OEM Pricing & Incentives", desc: "Find oversupplied trims that are sitting on lots (high DOM, oversupplied badge) and target them with incentives or MSRP adjustments instead of brand-wide spend." },
+      { persona: "Regional Sales Managers", desc: "Pass a state code to see whether a regional market wants different content than the national mix — useful for redirecting inventory between zones." },
+      { persona: "Dealer Group Buyers", desc: "Use the price-by-DOM scatter and feature comparison grid to source inventory in the trim-and-content combinations that turn fastest in your market." },
+      { persona: "Auto Analysts / Press", desc: "Quote concrete numbers — 'X trim is undersupplied at Y bps' — backed by real listing-level data instead of OEM-reported wholesale figures." },
+    ],
+    urlParams: [
+      { name: "api_key", desc: "Your MarketCheck API key (or set via localStorage). Trim-level analysis works with any key; body-type demand requires Enterprise." },
+      { name: "make", desc: "OEM brand to analyze (e.g., Honda) — auto-fills the form and triggers the analysis" },
+      { name: "model", desc: "Model name to analyze (e.g., CR-V) — auto-fills the form and triggers the analysis" },
+      { name: "year", desc: "Model year or range (e.g., 2024 or 2022-2024) — narrows the analysis to a specific generation" },
+      { name: "state", desc: "Two-letter US state code (e.g., CA) — restricts both inventory and sold-summary calls to that market" },
+      { name: "embed", desc: "Set to 'true' to hide the settings gear for iframe embeds" },
+    ],
     inputParams: [
       { name: "make", type: "string", required: true, desc: "Your brand (e.g., Honda)" },
       { name: "model", type: "string", required: true, desc: "Model to analyze (e.g., CR-V)" },

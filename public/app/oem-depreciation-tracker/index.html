@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: OEM Depreciation Tracker — MarketCheck Apps">
-  <meta property="og:description" content="Tracks residual value retention across your brand's models, compares depreciation curves against competitors in the same segments, and highlights models with accelerating or decelerating value loss. H">
+  <meta property="og:description" content="Brand-level residual value dashboard for OEM product, pricing, and remarketing teams. The app pulls used vs new average sale prices from MarketCheck's Sold Vehicle Summary API for your brand and a cho">
   <meta property="og:url" content="https://apps.marketcheck.com/app/oem-depreciation-tracker/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/oem-depreciation-tracker.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: OEM Depreciation Tracker">
-  <meta name="twitter:description" content="Tracks residual value retention across your brand's models, compares depreciation curves against competitors in the same segments, and highlights models with accelerating or decelerating value loss. H">
+  <meta name="twitter:description" content="Brand-level residual value dashboard for OEM product, pricing, and remarketing teams. The app pulls used vs new average sale prices from MarketCheck's Sold Vehicle Summary API for your brand and a cho">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/oem-depreciation-tracker.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: OEM Depreciation Tracker","description":"Tracks residual value retention across your brand's models, compares depreciation curves against competitors in the same segments, and highlights models with accelerating or decelerating value loss. Helps product planners and pricing teams see which nameplates hold value and which need intervention.","url":"https://apps.marketcheck.com/app/oem-depreciation-tracker/","image":"https://apps.marketcheck.com/assets/screenshots/oem-depreciation-tracker.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: OEM Depreciation Tracker","description":"Brand-level residual value dashboard for OEM product, pricing, and remarketing teams. The app pulls used vs new average sale prices from MarketCheck's Sold Vehicle Summary API for your brand and a chosen competitor set, computes a residual % (used / new) per model, and projects each model's 36-month depreciation curve. It surfaces a KPI strip (your portfolio's weighted residual vs the segment average, best/worst performers, model count), interactive depreciation curves with hover tooltips, a sortable model ranking table with residual badges, body-type segment benchmarks with your brand's positions highlighted, a state-level geographic retention heatmap, and Value Alert cards flagging models that are depreciating unusually fast (≤60%) or holding unusually well (≥75%). Filters let you slice by body type and state for regional or segment-specific deep-dives.","url":"https://apps.marketcheck.com/app/oem-depreciation-tracker/","image":"https://apps.marketcheck.com/assets/screenshots/oem-depreciation-tracker.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -309,12 +309,55 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Tracks residual value retention across your brand's models, compares depreciation curves against competitors in the same segments, and highlights models with accelerating or decelerating value loss. Helps product planners and pricing teams see which nameplates hold value and which need intervention.</p>
+    <p>Brand-level residual value dashboard for OEM product, pricing, and remarketing teams. The app pulls used vs new average sale prices from MarketCheck's Sold Vehicle Summary API for your brand and a chosen competitor set, computes a residual % (used / new) per model, and projects each model's 36-month depreciation curve. It surfaces a KPI strip (your portfolio's weighted residual vs the segment average, best/worst performers, model count), interactive depreciation curves with hover tooltips, a sortable model ranking table with residual badges, body-type segment benchmarks with your brand's positions highlighted, a state-level geographic retention heatmap, and Value Alert cards flagging models that are depreciating unusually fast (≤60%) or holding unusually well (≥75%). Filters let you slice by body type and state for regional or segment-specific deep-dives.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">OEM Product Planners</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">See which nameplates hold value and which are leaking residual fast — input for next-generation product decisions and feature investment priorities.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Pricing & Incentive Teams</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Identify models that need pricing/incentive intervention before residuals erode further. Compare your portfolio's residual position vs the segment-weighted market.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Remarketing & Captive Finance</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Set residual value forecasts for lease programs grounded in actual market behavior, not just guidebook estimates. Spot regional outliers to tune state-level lease offers.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Competitive Strategy</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Benchmark your depreciation curves against direct competitors in the same body-type segment. Flag where competitors are pulling ahead on value retention.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">OEM Field & Region Managers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Use the geographic heatmap to spot states with weak retention for your brand and target dealer training, marketing, or incentive support to shore up resale strength.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (Enterprise tier required for Sold Vehicle Summary access)</td></tr><tr><td><code>myBrand</code></td><td>Your OEM brand — e.g., Toyota, Ford, Honda. Auto-fills the brand selector. Also accepts make.</td></tr><tr><td><code>competitors</code></td><td>Comma-separated competitor brands — e.g., 'Honda,Ford,Hyundai'. Pre-selects the chips.</td></tr><tr><td><code>bodyType</code></td><td>Filter to a single body type — SUV, Sedan, Truck, Coupe, Hatchback, or Van. Also accepts body_type.</td></tr><tr><td><code>state</code></td><td>2-letter state code to scope analysis to one geography (e.g., CA, TX). Default is national.</td></tr><tr><td><code>embed</code></td><td>Set to 'true' for embedded iframe mode (hides demo banner)</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/oem-depreciation-tracker/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/oem-depreciation-tracker/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/oem-depreciation-tracker/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/oem-depreciation-tracker/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -339,7 +382,7 @@ pre.code-block {
             <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
             <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
             <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
-          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Fetch sold summary for your brand and competitors by make+model with average_sale_price and sold_count — in parallel</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Segment Benchmark + Regional</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
+          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Fetch make+model sold summary for Used and New inventory in parallel — used to compute residual % per model (used / new)</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Segment Benchmark + Regional</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
           <div class="flow-api-card enterprise">
             <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
             <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
@@ -349,7 +392,7 @@ pre.code-block {
             <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
             <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
             <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
-          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Fetch body-type segment benchmarks and state-level geographic retention data — in parallel</div></div>
+          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Fetch body-type segment benchmarks and state-level geographic retention for your brand — in parallel</div></div>
     </div>
   </div>
 
@@ -361,7 +404,7 @@ pre.code-block {
     <table class="param-table">
       <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>myBrand</code></td><td>string</td><td><span class="required">Yes</span></td><td>Your OEM brand (e.g., Toyota)</td></tr><tr><td><code>competitors</code></td><td>string</td><td>No</td><td>Comma-separated competitor brands</td></tr><tr><td><code>bodyType</code></td><td>string</td><td>No</td><td>Filter by body type (sedan, suv, truck)</td></tr>
+        <tr><td><code>myBrand</code></td><td>string</td><td><span class="required">Yes</span></td><td>Your OEM brand (e.g., Toyota)</td></tr><tr><td><code>competitors</code></td><td>string</td><td>No</td><td>Comma-separated competitor brands</td></tr><tr><td><code>bodyType</code></td><td>string</td><td>No</td><td>Filter by body type (sedan, suv, truck)</td></tr><tr><td><code>state</code></td><td>string</td><td>No</td><td>2-letter state code for regional scope</td></tr>
       </tbody>
     </table>
   </div>
@@ -395,7 +438,7 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Depreciation curves (your models vs competitors over time)</div><div class="render-item"><div class="render-dot"></div>model-by-model residual ranking table</div><div class="render-item"><div class="render-dot"></div>body-type segment benchmark comparison</div><div class="render-item"><div class="render-dot"></div>geographic heatmap of price retention by state</div><div class="render-item"><div class="render-dot"></div>Value Alert badges for fast-depreciating models</div>
+      <div class="render-item"><div class="render-dot"></div>Depreciation curves (your models vs competitors over a 36-month projection with hover tooltips)</div><div class="render-item"><div class="render-dot"></div>model-by-model residual ranking table with your brand highlighted</div><div class="render-item"><div class="render-dot"></div>body-type segment benchmark bar chart</div><div class="render-item"><div class="render-dot"></div>geographic heatmap of price retention by state (index vs national avg)</div><div class="render-item"><div class="render-dot"></div>Value Alert cards for fast-depreciating and strong-retention models</div><div class="render-item"><div class="render-dot"></div>KPI strip with weighted brand residual vs market</div>
     </div>
   </div>
 

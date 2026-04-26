@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Incentive Effectiveness Dashboard — MarketCheck Apps">
-  <meta property="og:description" content="Correlates OEM incentive programs with actual sales velocity (DOM) and volume changes. Shows which incentive programs are associated with faster turns and higher volumes, and which models might need m">
+  <meta property="og:description" content="An OEM-focused ROI lens on incentive spend. For a chosen brand (and optionally a state), pulls every active OEM offer (cash back / low APR / lease specials) alongside Enterprise Sold Vehicle Summary r">
   <meta property="og:url" content="https://apps.marketcheck.com/app/incentive-effectiveness-dashboard/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/incentive-effectiveness-dashboard.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Incentive Effectiveness Dashboard">
-  <meta name="twitter:description" content="Correlates OEM incentive programs with actual sales velocity (DOM) and volume changes. Shows which incentive programs are associated with faster turns and higher volumes, and which models might need m">
+  <meta name="twitter:description" content="An OEM-focused ROI lens on incentive spend. For a chosen brand (and optionally a state), pulls every active OEM offer (cash back / low APR / lease specials) alongside Enterprise Sold Vehicle Summary r">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/incentive-effectiveness-dashboard.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Incentive Effectiveness Dashboard","description":"Correlates OEM incentive programs with actual sales velocity (DOM) and volume changes. Shows which incentive programs are associated with faster turns and higher volumes, and which models might need more (or different) incentive support. Critical for incentive budget optimization.","url":"https://apps.marketcheck.com/app/incentive-effectiveness-dashboard/","image":"https://apps.marketcheck.com/assets/screenshots/incentive-effectiveness-dashboard.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Incentive Effectiveness Dashboard","description":"An OEM-focused ROI lens on incentive spend. For a chosen brand (and optionally a state), pulls every active OEM offer (cash back / low APR / lease specials) alongside Enterprise Sold Vehicle Summary rankings and active-inventory facets, then joins them by model to compute one number that matters: average days-on-market WITH incentive support vs WITHOUT. Surfaces a Model × Incentive-Type matrix, per-model velocity arrows vs the brand baseline, an inventory-coverage donut showing which slices of your live lot are protected by an active program, and rule-based ROI signal badges (Increase support / Reduce spend / On track) to drive next-month budget reallocation. Built on /v2/search/car/incentive/oem, /api/v1/sold-vehicles/summary (Enterprise) for both make+model and body_type rankings, and /v2/search/car/active with model+body_type facets — all four calls fire in parallel.","url":"https://apps.marketcheck.com/app/incentive-effectiveness-dashboard/","image":"https://apps.marketcheck.com/assets/screenshots/incentive-effectiveness-dashboard.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -309,12 +309,49 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Correlates OEM incentive programs with actual sales velocity (DOM) and volume changes. Shows which incentive programs are associated with faster turns and higher volumes, and which models might need more (or different) incentive support. Critical for incentive budget optimization.</p>
+    <p>An OEM-focused ROI lens on incentive spend. For a chosen brand (and optionally a state), pulls every active OEM offer (cash back / low APR / lease specials) alongside Enterprise Sold Vehicle Summary rankings and active-inventory facets, then joins them by model to compute one number that matters: average days-on-market WITH incentive support vs WITHOUT. Surfaces a Model × Incentive-Type matrix, per-model velocity arrows vs the brand baseline, an inventory-coverage donut showing which slices of your live lot are protected by an active program, and rule-based ROI signal badges (Increase support / Reduce spend / On track) to drive next-month budget reallocation. Built on /v2/search/car/incentive/oem, /api/v1/sold-vehicles/summary (Enterprise) for both make+model and body_type rankings, and /v2/search/car/active with model+body_type facets — all four calls fire in parallel.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">OEM Incentive Strategy</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">See which models are turning faster than baseline because of a stacked offer mix and which slow movers carry no support — reallocate spend from over-incentivized winners to under-supported laggards.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Product Marketing</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Audit program breadth across the lineup at a glance: which body types and price tiers are over-covered vs uncovered, with side-by-side amounts for cash back, APR, and lease so you can spot inconsistent offer ladders.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Regional Sales Ops</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Filter by state to see whether national incentives are landing in your region — pair the velocity bars with inventory-coverage donut to identify rooftops sitting on aged stock that lacks active OEM support.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck Enterprise API key (sold-summary requires Enterprise tier; incentives + active search work on free keys). Persistable via localStorage.</td></tr><tr><td><code>make</code></td><td>OEM brand name — pick from the 30 US OEMs that run incentive programs (Acura, Audi, BMW, Buick, Cadillac, Chevrolet, Chrysler, Dodge, Fiat, Ford, Genesis, GMC, Honda, Hyundai, Infiniti, Jaguar, Jeep, Kia, Land Rover, Lexus, Lincoln, Mazda, Mini, Mitsubishi, Nissan, Porsche, RAM, Subaru, Toyota, Volvo) or pass any other brand via the Other… input. Auto-fills the selector and triggers the report. Aliased as `brand`.</td></tr><tr><td><code>state</code></td><td>Optional 2-letter US state code for regional focus. Omit or set to National for nationwide rollup.</td></tr><tr><td><code>embed</code></td><td>Set to 'true' for embedded iframe mode (hides the settings gear and demo banner).</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/incentive-effectiveness-dashboard/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/incentive-effectiveness-dashboard/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/incentive-effectiveness-dashboard/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/incentive-effectiveness-dashboard/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -329,7 +366,7 @@ pre.code-block {
     <h2>API Call Flow</h2>
     <p>Here's the exact sequence of MarketCheck API calls this app makes, and which ones run in parallel:</p>
     <div class="flow-diagram">
-      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">Incentives + Sales + Inventory</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
+      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">Incentives + Sold-by-Model + Sold-by-Body-Type + Active Inventory</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
           <div class="flow-api-card">
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/incentive/oem</code>
@@ -340,18 +377,23 @@ pre.code-block {
             <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
             <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
           </div>
+          <div class="flow-api-card enterprise">
+            <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
+            <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
+            <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
+          </div>
           <div class="flow-api-card">
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/active</code>
             <div class="flow-api-name">Search Active Listings</div>
-          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Fetch all current incentives for your brand, model-level sold performance (volume + DOM), and active inventory with model facets — all in parallel</div></div>
+          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Four calls fire concurrently with Promise.all — happy-path latency is the slowest single call. (1) /v2/search/car/incentive/oem returns every live program for the brand (cash back, APR, lease, loyalty, conquest). (2) sold-summary with ranking_dimensions=make,model and ranking_measure=sold_count returns model-level monthly volume — and because ranking_measure is singular per MC API, average_sale_price and average_days_on_market come back on every row regardless, so this single call also powers the velocity arrows. (3) sold-summary with ranking_dimensions=body_type seeds the segment-mix breakdown for the inventory-coverage overlay. (4) /v2/search/car/active with stats=price,miles,dom and facets=model,body_type provides the brand-level DOM baseline (stats.dom.avg ?? stats.dom.mean) and per-model active inventory counts. Each call is wrapped with .catch(()=>null) so a 401/403 on the Enterprise sold-summary endpoint still lets the page render with whatever data did come back — the live-mode banner reflects 'partial' state when this happens.</div></div>
     </div>
   </div>
 
   <!-- Input Parameters -->
   <div class="section">
     <h2>Input Parameters</h2>
-    <p>Pass these parameters to build this app:</p>
+    <p>Pass these parameters to build this app (or call the <code>incentive-effectiveness-dashboard</code> composite endpoint):</p>
     
     <table class="param-table">
       <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
@@ -424,11 +466,34 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Model-by-model incentive matrix (rows = models / columns = incentive types with amounts)</div><div class="render-item"><div class="render-dot"></div>velocity change indicator per model (DOM trend arrow)</div><div class="render-item"><div class="render-dot"></div>volume impact chart</div><div class="render-item"><div class="render-dot"></div>Incentive ROI signal badges (Increase support / Reduce spend / On track)</div><div class="render-item"><div class="render-dot"></div>active inventory pie with incentive coverage overlay</div>
+      <div class="render-item"><div class="render-dot"></div>Four-card KPI strip (Active Programs</div><div class="render-item"><div class="render-dot"></div>Models Covered with coverage %</div><div class="render-item"><div class="render-dot"></div>Avg DOM with incentive</div><div class="render-item"><div class="render-dot"></div>Avg DOM without incentive — green delta when incentives accelerate turn)</div><div class="render-item"><div class="render-dot"></div>Model × Incentive-Type matrix table with cash-back / low-APR / lease columns and a left border-color tied to the row's ROI signal</div><div class="render-item"><div class="render-dot"></div>horizontal Canvas bar chart of velocity by model (bar length = monthly sold volume</div><div class="render-item"><div class="render-dot"></div>bar color = green if turning faster than brand baseline DOM / red if slower) with the brand-avg DOM line overlaid</div><div class="render-item"><div class="render-dot"></div>Canvas donut of active-inventory share by model with solid slices for incentive-covered models and faded slices for uncovered ones</div><div class="render-item"><div class="render-dot"></div>an auto-sorted card grid of active programs with offer-type badge and days-until-expiration urgency tint</div><div class="render-item"><div class="render-dot"></div>a Recommendations table of every model not on track with an Increase-Support / Reduce-Spend badge and a one-liner reason</div><div class="render-item"><div class="render-dot"></div>and a Market Signals callout with rule-based bullets (coverage %</div><div class="render-item"><div class="render-dot"></div>biggest red flag</div><div class="render-item"><div class="render-dot"></div>reallocation candidate</div><div class="render-item"><div class="render-dot"></div>program mix breakdown</div><div class="render-item"><div class="render-dot"></div>expiration alerts).</div>
     </div>
   </div>
 
   
+  <!-- Composite Endpoint -->
+  <div class="section">
+    <h2>Shortcut: Composite API Endpoint</h2>
+    <p>Instead of calling each API individually, use our composite endpoint that orchestrates all the calls for you:</p>
+    <div class="api-detail-card">
+      <div class="api-detail-header">
+        <span class="api-method-badge" style="background:#dbeafe;color:#1e40af;">POST</span>
+        <code>https://apps.marketcheck.com/api/proxy/incentive-effectiveness-dashboard</code>
+      </div>
+      <p>This single endpoint runs all 4 API calls in the optimal sequence and returns the combined result.</p>
+      <p><a href="/docs/derivative-apis/#incentive-effectiveness-dashboard">View full composite endpoint documentation &#8599;</a></p>
+    </div>
+    
+    <h3>Try It — cURL Example</h3>
+    <pre class="code-block">curl -X POST https://apps.marketcheck.com/api/proxy/incentive-effectiveness-dashboard \
+  -H "Content-Type: application/json" \
+  -d '{
+  "_auth_mode": "api_key",
+  "_auth_value": "YOUR_API_KEY",
+  "make": "Toyota",
+  "state": "CA"
+}'</pre>
+  </div>
 
   <!-- How to Build -->
   <div class="section">

@@ -934,16 +934,27 @@ const APPS = [
     name: "Incentive Effectiveness Dashboard",
     tagline: "Are your incentives moving metal?",
     segment: "Manufacturer",
-    toolName: null,
-    description: "Correlates OEM incentive programs with actual sales velocity (DOM) and volume changes. Shows which incentive programs are associated with faster turns and higher volumes, and which models might need more (or different) incentive support. Critical for incentive budget optimization.",
+    toolName: "incentive-effectiveness-dashboard",
+    description: "An OEM-focused ROI lens on incentive spend. For a chosen brand (and optionally a state), pulls every active OEM offer (cash back / low APR / lease specials) alongside Enterprise Sold Vehicle Summary rankings and active-inventory facets, then joins them by model to compute one number that matters: average days-on-market WITH incentive support vs WITHOUT. Surfaces a Model × Incentive-Type matrix, per-model velocity arrows vs the brand baseline, an inventory-coverage donut showing which slices of your live lot are protected by an active program, and rule-based ROI signal badges (Increase support / Reduce spend / On track) to drive next-month budget reallocation. Built on /v2/search/car/incentive/oem, /api/v1/sold-vehicles/summary (Enterprise) for both make+model and body_type rankings, and /v2/search/car/active with model+body_type facets — all four calls fire in parallel.",
+    useCases: [
+      { persona: "OEM Incentive Strategy", desc: "See which models are turning faster than baseline because of a stacked offer mix and which slow movers carry no support — reallocate spend from over-incentivized winners to under-supported laggards." },
+      { persona: "Product Marketing", desc: "Audit program breadth across the lineup at a glance: which body types and price tiers are over-covered vs uncovered, with side-by-side amounts for cash back, APR, and lease so you can spot inconsistent offer ladders." },
+      { persona: "Regional Sales Ops", desc: "Filter by state to see whether national incentives are landing in your region — pair the velocity bars with inventory-coverage donut to identify rooftops sitting on aged stock that lacks active OEM support." },
+    ],
+    urlParams: [
+      { name: "api_key", desc: "Your MarketCheck Enterprise API key (sold-summary requires Enterprise tier; incentives + active search work on free keys). Persistable via localStorage." },
+      { name: "make", desc: "OEM brand name — pick from the 30 US OEMs that run incentive programs (Acura, Audi, BMW, Buick, Cadillac, Chevrolet, Chrysler, Dodge, Fiat, Ford, Genesis, GMC, Honda, Hyundai, Infiniti, Jaguar, Jeep, Kia, Land Rover, Lexus, Lincoln, Mazda, Mini, Mitsubishi, Nissan, Porsche, RAM, Subaru, Toyota, Volvo) or pass any other brand via the Other… input. Auto-fills the selector and triggers the report. Aliased as `brand`." },
+      { name: "state", desc: "Optional 2-letter US state code for regional focus. Omit or set to National for nationwide rollup." },
+      { name: "embed", desc: "Set to 'true' for embedded iframe mode (hides the settings gear and demo banner)." },
+    ],
     inputParams: [
       { name: "make", type: "string", required: true, desc: "Your OEM brand" },
       { name: "state", type: "string", required: false, desc: "State for regional analysis" },
     ],
     apiFlow: [
-      { step: 1, label: "Incentives + Sales + Inventory", apis: ["incentives", "soldSummary", "searchActive"], parallel: true, note: "Fetch all current incentives for your brand, model-level sold performance (volume + DOM), and active inventory with model facets — all in parallel" },
+      { step: 1, label: "Incentives + Sold-by-Model + Sold-by-Body-Type + Active Inventory", apis: ["incentives", "soldSummary", "soldSummary", "searchActive"], parallel: true, note: "Four calls fire concurrently with Promise.all — happy-path latency is the slowest single call. (1) /v2/search/car/incentive/oem returns every live program for the brand (cash back, APR, lease, loyalty, conquest). (2) sold-summary with ranking_dimensions=make,model and ranking_measure=sold_count returns model-level monthly volume — and because ranking_measure is singular per MC API, average_sale_price and average_days_on_market come back on every row regardless, so this single call also powers the velocity arrows. (3) sold-summary with ranking_dimensions=body_type seeds the segment-mix breakdown for the inventory-coverage overlay. (4) /v2/search/car/active with stats=price,miles,dom and facets=model,body_type provides the brand-level DOM baseline (stats.dom.avg ?? stats.dom.mean) and per-model active inventory counts. Each call is wrapped with .catch(()=>null) so a 401/403 on the Enterprise sold-summary endpoint still lets the page render with whatever data did come back — the live-mode banner reflects 'partial' state when this happens." },
     ],
-    renders: "Model-by-model incentive matrix (rows = models / columns = incentive types with amounts), velocity change indicator per model (DOM trend arrow), volume impact chart, Incentive ROI signal badges (Increase support / Reduce spend / On track), active inventory pie with incentive coverage overlay",
+    renders: "Four-card KPI strip (Active Programs, Models Covered with coverage %, Avg DOM with incentive, Avg DOM without incentive — green delta when incentives accelerate turn), Model × Incentive-Type matrix table with cash-back / low-APR / lease columns and a left border-color tied to the row's ROI signal, horizontal Canvas bar chart of velocity by model (bar length = monthly sold volume, bar color = green if turning faster than brand baseline DOM / red if slower) with the brand-avg DOM line overlaid, Canvas donut of active-inventory share by model with solid slices for incentive-covered models and faded slices for uncovered ones, an auto-sorted card grid of active programs with offer-type badge and days-until-expiration urgency tint, a Recommendations table of every model not on track with an Increase-Support / Reduce-Spend badge and a one-liner reason, and a Market Signals callout with rule-based bullets (coverage %, biggest red flag, reallocation candidate, program mix breakdown, expiration alerts).",
   },
   {
     id: "auction-lane-planner",

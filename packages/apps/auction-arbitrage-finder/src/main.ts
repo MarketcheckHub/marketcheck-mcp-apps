@@ -11,9 +11,9 @@ function _getAuth(): { mode: "api_key" | "oauth_token" | null; value: string | n
   if (key) return { mode: "api_key", value: key };
   return { mode: null, value: null };
 }
-function _detectAppMode(): "mcp" | "live" | "demo" { if (_getAuth().value) return "live"; if (_safeApp) return "mcp"; return "demo"; }
+function _detectAppMode(): "mcp" | "live" | "demo" { if (_getAuth().value) return "live"; if (_safeApp && window.parent !== window) return "mcp"; return "demo"; }
 function _isEmbedMode(): boolean { return new URLSearchParams(location.search).has("embed"); }
-function _getUrlParams(): Record<string, string> { const params = new URLSearchParams(location.search); const result: Record<string, string> = {}; for (const key of ["vin","zip","make","model","miles","state","dealer_id","ticker","price","postal_code"]) { const v = params.get(key); if (v) result[key] = v; } return result; }
+function _getUrlParams(): Record<string, string> { const params = new URLSearchParams(location.search); const result: Record<string, string> = {}; for (const key of ["vin","vins","zip","make","model","miles","state","dealer_id","ticker","price","postal_code"]) { const v = params.get(key); if (v) result[key] = v; } return result; }
 function _proxyBase(): string { return location.protocol.startsWith("http") ? "" : "http://localhost:3001"; }
 
 // ── Direct MarketCheck API Client (browser → api.marketcheck.com) ──────
@@ -44,12 +44,58 @@ function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
 function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
 
 async function _fetchDirect(args) {
-  const vins = (args.vins??"").split(",").map(v=>v.trim()).filter(Boolean);
+  const vins = (args.vins??"").split(/[\s,]+/).map((v:string)=>v.trim()).filter(Boolean);
   const results = await Promise.all(vins.map(async (vin) => {
-    const [decode,retail,wholesale] = await Promise.all([_mcDecode(vin),_mcPredict({vin,dealer_type:"franchise",zip:args.zip}),_mcPredict({vin,dealer_type:"independent",zip:args.zip})]);
-    return {vin,decode,retail,wholesale};
+    const decode = await _mcDecode(vin).catch(() => null);
+    const history = await _mcHistory(vin).catch(() => null);
+    const lastMiles = Array.isArray(history) ? (history.find((h:any) => h?.miles)?.miles) : undefined;
+    const miles = args.miles ?? lastMiles ?? 50000;
+    const [retail, wholesale] = await Promise.all([
+      _mcPredict({ vin, miles, dealer_type: "franchise", zip: args.zip }).catch(() => null),
+      _mcPredict({ vin, miles, dealer_type: "independent", zip: args.zip }).catch(() => null),
+    ]);
+    return { vin, decode, retail, wholesale };
   }));
-  return {results};
+  return { results };
+}
+
+function _transformResults(parsed: any): AppData {
+  const rows = parsed?.vehicles ?? parsed?.results ?? [];
+  const vehicles: ArbitrageVehicle[] = rows.map((r: any) => {
+    if (r?.wholesalePrice !== undefined) return r as ArbitrageVehicle;
+    const specs = r?.decode?.generic?.[0]?.USA?.[0] ?? {};
+    const retailPrice = Number(r?.retail?.marketcheck_price) || 0;
+    const wholesalePrice = Number(r?.wholesale?.marketcheck_price) || 0;
+    const reconEstimate = 1500;
+    const grossProfit = retailPrice - wholesalePrice - reconEstimate;
+    const profitMargin = retailPrice > 0 ? (grossProfit / retailPrice) * 100 : 0;
+    const comps = r?.retail?.comparables?.listings ?? [];
+    const doms = comps.map((l: any) => l?.dom ?? l?.days_on_market ?? 0).filter((d: number) => d > 0);
+    const avgDom = doms.length ? doms.reduce((s: number, d: number) => s + d, 0) / doms.length : 0;
+    const milesArr = comps.map((l: any) => l?.miles).filter((m: number) => m > 0).sort((a: number, b: number) => a - b);
+    const medianMiles = milesArr.length ? milesArr[Math.floor(milesArr.length / 2)] : 0;
+    return {
+      vin: r?.vin ?? "",
+      year: parseInt(specs.year) || 0,
+      make: specs.make ?? "Unknown",
+      model: specs.model ?? "",
+      trim: specs.trim ?? "",
+      bodyType: specs.body_type ?? "",
+      engine: specs.engine ?? "",
+      drivetrain: specs.drivetrain ?? "",
+      miles: medianMiles,
+      wholesalePrice,
+      retailPrice,
+      reconEstimate,
+      grossProfit,
+      profitMargin,
+      activeCount: Number(r?.retail?.comparables?.num_found) || 0,
+      avgDom,
+      compCount: comps.length,
+    };
+  }).filter((v: ArbitrageVehicle) => v.retailPrice > 0 && v.wholesalePrice > 0);
+  vehicles.sort((a, b) => b.profitMargin - a.profitMargin);
+  return { vehicles };
 }
 async function _callTool(toolName, args) {
   const auth = _getAuth();
@@ -194,6 +240,16 @@ async function main() {
     "margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#e2e8f0;overflow-x:hidden;";
 
   renderInputForm();
+
+  const params = _getUrlParams();
+  const autoVins = params.vins ?? (_getAuth().value ? "KNDCB3LC9L5359658,1HGCV1F34LA000001,5YJSA1E26MF000001,1FTFW1E85MFA00001" : "");
+  if (autoVins) {
+    const ta = document.getElementById("vin-input") as HTMLTextAreaElement;
+    const zi = document.getElementById("zip-input") as HTMLInputElement;
+    if (ta) ta.value = autoVins.split(",").map(v => v.trim()).join("\n");
+    if (zi && params.zip) zi.value = params.zip;
+    handleAnalyze();
+  }
 }
 
 // ── Input Form ─────────────────────────────────────────────────────────
@@ -268,7 +324,9 @@ function renderInputForm() {
   const textarea = document.createElement("textarea");
   textarea.id = "vin-input";
   textarea.rows = 8;
-  textarea.placeholder = "2T3P1RFV5MW123456\n1FTFW1E85LFA78901\n19XFC2F69NE234567\n5UXTY5C09L9B45678\nKM8K62AG7PU567890";
+  textarea.placeholder = "KNDCB3LC9L5359658\n1HGCV1F34LA000001\n5YJSA1E26MF000001\n1FTFW1E85MFA00001";
+  const urlVins = _getUrlParams().vins;
+  if (urlVins) textarea.value = urlVins.split(",").map(v => v.trim()).join("\n");
   textarea.style.cssText = "width:100%;padding:12px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:13px;font-family:monospace;resize:vertical;box-sizing:border-box;line-height:1.6;";
   formPanel.appendChild(textarea);
 
@@ -319,11 +377,10 @@ function renderInputForm() {
   samplePanel.innerHTML = `
     <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Sample VINs for testing</div>
     <div style="font-size:12px;color:#94a3b8;font-family:monospace;line-height:1.8;">
-      2T3P1RFV5MW123456 — 2021 Toyota RAV4<br>
-      1FTFW1E85LFA78901 — 2020 Ford F-150<br>
-      19XFC2F69NE234567 — 2022 Honda Civic<br>
-      5UXTY5C09L9B45678 — 2019 BMW X3<br>
-      KM8K62AG7PU567890 — 2023 Hyundai Tucson
+      KNDCB3LC9L5359658 — 2020 Kia Niro<br>
+      1HGCV1F34LA000001 — Honda Civic<br>
+      5YJSA1E26MF000001 — Tesla Model S<br>
+      1FTFW1E85MFA00001 — Ford F-150
     </div>
   `;
   content.appendChild(samplePanel);
@@ -334,7 +391,7 @@ async function handleAnalyze() {
   const textarea = document.getElementById("vin-input") as HTMLTextAreaElement;
   const zipInput = document.getElementById("zip-input") as HTMLInputElement;
   const vins = textarea?.value?.trim() ?? "";
-  const zip = zipInput?.value?.trim() ?? "80202";
+  const zip = (zipInput?.value?.trim() || "80202");
 
   if (!vins) {
     currentData = generateMockData();
@@ -353,12 +410,8 @@ async function handleAnalyze() {
     const result = await _callTool("find-auction-arbitrage", { vins, zip });
     const text = result?.content?.find((c: any) => c.type === "text")?.text;
     if (text) {
-      const parsed = JSON.parse(text);
-      if (parsed.vehicles && parsed.vehicles.length > 0) {
-        currentData = parsed as AppData;
-      } else {
-        currentData = generateMockData();
-      }
+      const transformed = _transformResults(JSON.parse(text));
+      currentData = transformed.vehicles.length > 0 ? transformed : generateMockData();
     } else {
       currentData = generateMockData();
     }

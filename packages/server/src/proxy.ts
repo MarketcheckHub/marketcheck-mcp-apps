@@ -417,13 +417,16 @@ const compositeHandlers: Record<string, (auth: { mode: string; value: string }, 
   },
 
   "find-auction-arbitrage": async (auth, args) => {
-    const vins = (args.vins ?? "").split(",").map((v: string) => v.trim()).filter(Boolean);
+    const vins = (args.vins ?? "").split(/[\s,]+/).map((v: string) => v.trim()).filter(Boolean);
     const results = await Promise.all(
       vins.map(async (vin: string) => {
-        const [decode, retail, wholesale] = await Promise.all([
-          handleDecodeVin(auth, { vin }),
-          handlePredictPrice(auth, { vin, dealer_type: "franchise", zip: args.zip }),
-          handlePredictPrice(auth, { vin, dealer_type: "independent", zip: args.zip }),
+        const decode = await handleDecodeVin(auth, { vin }).catch(() => null);
+        const history = await handleCarHistory(auth, { vin }).catch(() => null);
+        const lastMiles = Array.isArray(history) ? (history.find((h: any) => h?.miles)?.miles) : undefined;
+        const miles = args.miles ?? lastMiles ?? 50000;
+        const [retail, wholesale] = await Promise.all([
+          handlePredictPrice(auth, { vin, miles, dealer_type: "franchise", zip: args.zip }).catch(() => null),
+          handlePredictPrice(auth, { vin, miles, dealer_type: "independent", zip: args.zip }).catch(() => null),
         ]);
         return { vin, decode, retail, wholesale };
       })

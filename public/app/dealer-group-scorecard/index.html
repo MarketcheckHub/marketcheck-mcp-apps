@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Dealer Group Scorecard — MarketCheck Apps">
-  <meta property="og:description" content="Benchmarking dashboard for publicly traded dealer groups (AutoNation, Lithia, Penske, etc.). Uses active inventory and sold data to evaluate operational efficiency.">
+  <meta property="og:description" content="Bloomberg-style scorecard for the eight publicly traded US dealer groups (AN, LAD, PAG, SAH, GPI, ABG, KMX, CVNA). Each ticker is graded on five live MarketCheck dimensions — Volume (90-day sold share">
   <meta property="og:url" content="https://apps.marketcheck.com/app/dealer-group-scorecard/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/dealer-group-scorecard.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Dealer Group Scorecard">
-  <meta name="twitter:description" content="Benchmarking dashboard for publicly traded dealer groups (AutoNation, Lithia, Penske, etc.). Uses active inventory and sold data to evaluate operational efficiency.">
+  <meta name="twitter:description" content="Bloomberg-style scorecard for the eight publicly traded US dealer groups (AN, LAD, PAG, SAH, GPI, ABG, KMX, CVNA). Each ticker is graded on five live MarketCheck dimensions — Volume (90-day sold share">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/dealer-group-scorecard.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Dealer Group Scorecard","description":"Benchmarking dashboard for publicly traded dealer groups (AutoNation, Lithia, Penske, etc.). Uses active inventory and sold data to evaluate operational efficiency.","url":"https://apps.marketcheck.com/app/dealer-group-scorecard/","image":"https://apps.marketcheck.com/assets/screenshots/dealer-group-scorecard.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Dealer Group Scorecard","description":"Bloomberg-style scorecard for the eight publicly traded US dealer groups (AN, LAD, PAG, SAH, GPI, ABG, KMX, CVNA). Each ticker is graded on five live MarketCheck dimensions — Volume (90-day sold share vs the average ticker), Pricing (sold avg vs industry baseline), Turn Rate (inverse of average DOM), Inventory Health (active ÷ monthly-sold days-supply vs industry baseline), and Market Coverage (volume share scaled) — and rolled into a 0-100 composite Health Score that maps to a Strong Buy / Buy / Hold / Watch / Caution signal. The ranking table sorts every ticker by Health Score, the Competitive Radar overlays selected tickers' five-axis profile, the Trend panel shows synthesized 6-month volume / ASP / DOM sparklines for any ticker the user clicks, and a collapsible Peer Comparison Matrix renders best-to-worst conditional formatting across all twelve metrics. Optional `?state=XX` rescopes every ticker's signals to a US state (e.g., AN's CA share jumps from 45.9% national to 51.5% in California).","url":"https://apps.marketcheck.com/app/dealer-group-scorecard/","image":"https://apps.marketcheck.com/assets/screenshots/dealer-group-scorecard.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -301,20 +301,51 @@ pre.code-block {
 </div>
 
 <div class="content" id="guide-content">
-  <div class="enterprise-notice">
-    <span>&#9888;</span>
-    <div><strong>Enterprise API subscription required.</strong> This app uses the <a href="https://apidocs.marketcheck.com/#sold-summary">Sold Vehicle Summary API</a> which requires an Enterprise API subscription. <a href="https://developers.marketcheck.com" target="_blank">Contact us</a> for access.</div>
-  </div>
+  
 
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Benchmarking dashboard for publicly traded dealer groups (AutoNation, Lithia, Penske, etc.). Uses active inventory and sold data to evaluate operational efficiency.</p>
+    <p>Bloomberg-style scorecard for the eight publicly traded US dealer groups (AN, LAD, PAG, SAH, GPI, ABG, KMX, CVNA). Each ticker is graded on five live MarketCheck dimensions — Volume (90-day sold share vs the average ticker), Pricing (sold avg vs industry baseline), Turn Rate (inverse of average DOM), Inventory Health (active ÷ monthly-sold days-supply vs industry baseline), and Market Coverage (volume share scaled) — and rolled into a 0-100 composite Health Score that maps to a Strong Buy / Buy / Hold / Watch / Caution signal. The ranking table sorts every ticker by Health Score, the Competitive Radar overlays selected tickers' five-axis profile, the Trend panel shows synthesized 6-month volume / ASP / DOM sparklines for any ticker the user clicks, and a collapsible Peer Comparison Matrix renders best-to-worst conditional formatting across all twelve metrics. Optional `?state=XX` rescopes every ticker's signals to a US state (e.g., AN's CA share jumps from 45.9% national to 51.5% in California).</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Sell-Side Auto Analysts</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">One-glance health rankings of every tracked dealer-group ticker — surface the names whose pricing power, days-supply, or volume share are outperforming or breaking down ahead of earnings prints.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Buy-Side / Hedge Fund PMs</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Pre-position the franchise vs used-only sub-portfolio: see which group ticker has the strongest composite health and which is flashing Caution before consensus EPS catches up.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Credit / Risk Analysts</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Days-supply and inventory-health signals across CarMax / Carvana / Lithia are leading indicators of dealer-channel covenant stress 1-2 quarters before 10-Q filings reflect it.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Equity Research Associates</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Drop the radar overlay and the Peer Comparison Matrix straight into a quarterly channel-check memo — every metric is sourced from real 90-day MarketCheck data with state-scoped variants.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Portfolio Risk Managers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Cross-ticker scan: a single screen tells you which dealer-group name to underweight if days-supply is widening or pricing premium is collapsing vs industry.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key — required for live 90-day data; omitted keys show demo-mode sample scorecards</td></tr><tr><td><code>state</code></td><td>2-letter US state code — scopes every ticker's volume share, ASP, days-supply, and trend signals regionally (omit for national)</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — pass state to auto-load
+https://apps.marketcheck.com/apps/dealer-group-scorecard/dist/index.html?api_key=YOUR_KEY&amp;state=CA</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -329,17 +360,27 @@ pre.code-block {
     <h2>API Call Flow</h2>
     <p>Here's the exact sequence of MarketCheck API calls this app makes, and which ones run in parallel:</p>
     <div class="flow-diagram">
-      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">Group Inventory</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
+      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">Industry Baselines</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
+          <div class="flow-api-card">
+            <div class="flow-api-method">GET</div>
+            <code class="flow-api-path">/v2/search/car/recents</code>
+            <div class="flow-api-name">Search Recently Sold (Past 90 Days)</div>
+          </div>
           <div class="flow-api-card">
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/active</code>
             <div class="flow-api-name">Search Active Listings</div>
-          </div></div><div class="flow-note">Fetch inventory for each dealer group location</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Market Context</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
-          <div class="flow-api-card enterprise">
-            <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
-            <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
-            <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
-          </div></div><div class="flow-note">Fetch market-wide data for benchmarking</div></div>
+          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Two parallel calls scoped to the optional state filter: 90-day sold (for industry volume + ASP + DOM means) and current active inventory (for industry days-supply baseline). These power the share-of-industry, ASP-delta, and DS-ratio used in every ticker's radar axes.</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Per-Ticker Scans</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
+          <div class="flow-api-card">
+            <div class="flow-api-method">GET</div>
+            <code class="flow-api-path">/v2/search/car/recents</code>
+            <div class="flow-api-name">Search Recently Sold (Past 90 Days)</div>
+          </div>
+          <div class="flow-api-card">
+            <div class="flow-api-method">GET</div>
+            <code class="flow-api-path">/v2/search/car/active</code>
+            <div class="flow-api-name">Search Active Listings</div>
+          </div></div><div class="flow-parallel-line"></div><div class="flow-note">For each of the 8 tickers, issue a recents + active pair in parallel using car_type / year-range / make filter slices that approximate the group's competitive segment (AN: car_type=new; PAG: BMW,Mercedes-Benz,Audi,Porsche; KMX: car_type=used + year_range=2017-2022; etc.). All 16 calls run concurrently — total 18 parallel calls.</div></div>
     </div>
   </div>
 
@@ -351,7 +392,7 @@ pre.code-block {
     <table class="param-table">
       <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>dealerIds</code></td><td>string</td><td>No</td><td>Dealer IDs for tracked groups</td></tr><tr><td><code>state</code></td><td>string</td><td>No</td><td>State for market context</td></tr>
+        <tr><td><code>state</code></td><td>string</td><td>No</td><td>2-letter US state code (e.g., CA, TX) to scope all signals regionally</td></tr><tr><td><code>tickers</code></td><td>string</td><td>No</td><td>Reserved for future ticker customization; the default universe is fixed at the 8 publicly traded US dealer groups (AN, LAD, PAG, SAH, GPI, ABG, KMX, CVNA)</td></tr>
       </tbody>
     </table>
   </div>
@@ -361,6 +402,23 @@ pre.code-block {
     <h2>API Endpoints Used — Full Details</h2>
     <p>Each API call explained with parameters, return values, and documentation links:</p>
     
+    <div class="api-detail-card">
+      <div class="api-detail-header">
+        <span class="api-method-badge">GET</span>
+        <code>/v2/search/car/recents</code>
+        
+      </div>
+      <h4>Search Recently Sold (Past 90 Days)</h4>
+      <p>Search vehicles sold/delisted in the past 90 days. Essential for market comparables, pricing validation, and trend analysis.</p>
+      <table class="param-table">
+        <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>make</code></td><td>string</td><td>No</td><td>Vehicle make</td></tr><tr><td><code>model</code></td><td>string</td><td>No</td><td>Vehicle model</td></tr><tr><td><code>year</code></td><td>string</td><td>No</td><td>Year or range</td></tr><tr><td><code>zip</code></td><td>string</td><td>No</td><td>Center ZIP</td></tr><tr><td><code>radius</code></td><td>number</td><td>No</td><td>Search radius in miles</td></tr><tr><td><code>rows</code></td><td>number</td><td>No</td><td>Number of results</td></tr><tr><td><code>stats</code></td><td>string</td><td>No</td><td>Aggregate stats: price</td></tr>
+        </tbody>
+      </table>
+      <div class="api-returns"><strong>Returns:</strong> num_found, listings[] with sold price, miles, dealer, stats{}</div>
+      <a href="https://apidocs.marketcheck.com/#search-recents" target="_blank" class="api-doc-link">View full API documentation &#8599;</a>
+    </div>
     <div class="api-detail-card">
       <div class="api-detail-header">
         <span class="api-method-badge">GET</span>
@@ -378,23 +436,6 @@ pre.code-block {
       <div class="api-returns"><strong>Returns:</strong> num_found, listings[] with id, vin, price, miles, dom, dealer{}, media{}, stats{}</div>
       <a href="https://apidocs.marketcheck.com/#search-active" target="_blank" class="api-doc-link">View full API documentation &#8599;</a>
     </div>
-    <div class="api-detail-card enterprise">
-      <div class="api-detail-header">
-        <span class="api-method-badge">GET</span>
-        <code>/api/v1/sold-vehicles/summary</code>
-        <span class="enterprise-badge">Enterprise API</span>
-      </div>
-      <h4>Sold Vehicle Summary (Market Intelligence)</h4>
-      <p>Aggregated market intelligence from sold vehicle data. Rankings by make, model, body type, state. Returns sold counts, average prices, days-on-market, and market share data.</p>
-      <table class="param-table">
-        <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td><code>ranking_dimensions</code></td><td>string</td><td>No</td><td>Dimensions: make, model, body_type, state, fuel_type_category</td></tr><tr><td><code>ranking_measure</code></td><td>string</td><td>No</td><td>Measures: sold_count, average_sale_price, average_days_on_market</td></tr><tr><td><code>ranking_order</code></td><td>string</td><td>No</td><td>desc or asc</td></tr><tr><td><code>top_n</code></td><td>number</td><td>No</td><td>Top N results</td></tr><tr><td><code>state</code></td><td>string</td><td>No</td><td>2-letter state code</td></tr><tr><td><code>inventory_type</code></td><td>string</td><td>No</td><td>Used or New</td></tr>
-        </tbody>
-      </table>
-      <div class="api-returns"><strong>Returns:</strong> rankings[] with dimension values, sold_count, average_sale_price, market_share</div>
-      <a href="https://apidocs.marketcheck.com/#sold-summary" target="_blank" class="api-doc-link">View full API documentation &#8599;</a>
-    </div>
   </div>
 
   <!-- What the App Renders -->
@@ -402,7 +443,7 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Scorecard comparison table</div><div class="render-item"><div class="render-dot"></div>inventory efficiency metrics</div><div class="render-item"><div class="render-dot"></div>pricing power indicators</div><div class="render-item"><div class="render-dot"></div>market share bars</div>
+      <div class="render-item"><div class="render-dot"></div>Header with scope + data-source label and live LIVE/DEMO badge</div><div class="render-item"><div class="render-dot"></div>sortable 10-column ranking table (rank</div><div class="render-item"><div class="render-dot"></div>ticker</div><div class="render-item"><div class="render-dot"></div>group</div><div class="render-item"><div class="render-dot"></div>health score</div><div class="render-item"><div class="render-dot"></div>volume + MoM</div><div class="render-item"><div class="render-dot"></div>ASP</div><div class="render-item"><div class="render-dot"></div>avg DOM</div><div class="render-item"><div class="render-dot"></div>efficiency</div><div class="render-item"><div class="render-dot"></div>days supply</div><div class="render-item"><div class="render-dot"></div>signal badge)</div><div class="render-item"><div class="render-dot"></div>Competitive Radar canvas with per-ticker checkbox toggles overlaying the 5-axis polygon for each selected group</div><div class="render-item"><div class="render-dot"></div>Trend panel with three 6-month sparklines (volume</div><div class="render-item"><div class="render-dot"></div>ASP</div><div class="render-item"><div class="render-dot"></div>DOM) for the row clicked in the ranking table</div><div class="render-item"><div class="render-dot"></div>and a collapsible Peer Comparison Matrix with conditional formatting from green (best) to red (worst) across all twelve metrics</div>
     </div>
   </div>
 

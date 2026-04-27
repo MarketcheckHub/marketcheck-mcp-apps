@@ -295,7 +295,9 @@ function _normalizeRecent(r: any): RecentSale {
     trim: String(r.trim ?? b.trim ?? ""),
     price: Number(r.price ?? r.last_seen_price ?? 0),
     miles: Number(r.miles ?? 0),
-    sold_date: String(r.sold_date ?? r.last_seen_date ?? r.removed_date ?? ""),
+    // UK Recents returns close-out date as `last_seen_at_date` (ISO string).
+    // Slice to YYYY-MM-DD so the Recently Sold table stays compact.
+    sold_date: String(r.sold_date ?? r.last_seen_at_date ?? r.last_seen_date ?? r.removed_date ?? "").slice(0, 10),
     city: String(r.city ?? d.city ?? ""),
   };
 }

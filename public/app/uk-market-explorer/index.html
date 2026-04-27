@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: UK Market Explorer — MarketCheck Apps">
-  <meta property="og:description" content="UK car search with GBP pricing. Search active UK listings by make, model, postal code, and price range. Also fetches recent sold data for market context.">
+  <meta property="og:description" content="UK-wide used car search in GBP. Filter active UK listings by make, model, postcode + radius, year range, and price range. Returns a card grid with a GOOD DEAL badge for listings priced below the set a">
   <meta property="og:url" content="https://apps.marketcheck.com/app/uk-market-explorer/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/uk-market-explorer.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: UK Market Explorer">
-  <meta name="twitter:description" content="UK car search with GBP pricing. Search active UK listings by make, model, postal code, and price range. Also fetches recent sold data for market context.">
+  <meta name="twitter:description" content="UK-wide used car search in GBP. Filter active UK listings by make, model, postcode + radius, year range, and price range. Returns a card grid with a GOOD DEAL badge for listings priced below the set a">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/uk-market-explorer.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: UK Market Explorer","description":"UK car search with GBP pricing. Search active UK listings by make, model, postal code, and price range. Also fetches recent sold data for market context.","url":"https://apps.marketcheck.com/app/uk-market-explorer/","image":"https://apps.marketcheck.com/assets/screenshots/uk-market-explorer.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: UK Market Explorer","description":"UK-wide used car search in GBP. Filter active UK listings by make, model, postcode + radius, year range, and price range. Returns a card grid with a GOOD DEAL badge for listings priced below the set average, a price-vs-mileage scatter plot with median crosshairs, a make-distribution bar chart with per-make average price, a side-by-side compare drawer (up to 3 vehicles), a recently-sold table for market context, and a summary strip (median, range, counts of below-average and low-mileage vehicles).","url":"https://apps.marketcheck.com/app/uk-market-explorer/","image":"https://apps.marketcheck.com/assets/screenshots/uk-market-explorer.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -306,12 +306,52 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>UK car search with GBP pricing. Search active UK listings by make, model, postal code, and price range. Also fetches recent sold data for market context.</p>
+    <p>UK-wide used car search in GBP. Filter active UK listings by make, model, postcode + radius, year range, and price range. Returns a card grid with a GOOD DEAL badge for listings priced below the set average, a price-vs-mileage scatter plot with median crosshairs, a make-distribution bar chart with per-make average price, a side-by-side compare drawer (up to 3 vehicles), a recently-sold table for market context, and a summary strip (median, range, counts of below-average and low-mileage vehicles).</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">UK Car Shoppers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Narrow the search by postcode + make/model and spot mispriced stock — the GOOD DEAL badge and median crosshairs show which listings are priced below the local average.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">UK Independent Dealers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Benchmark your asking price against live retail supply in your postcode radius before relisting. The make distribution reveals where competition is densest.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Auto Journalists / Analysts</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Pull a snapshot of the UK retail market for any make/model to quote average price, median mileage, and dealer concentration by city.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Expats and Relocators</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Deep-link a shareable search (postcode + radius + filters) to compare stock around London, Manchester, Edinburgh, etc. in one view.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (or set via localStorage)</td></tr><tr><td><code>postal_code</code></td><td>UK postcode (e.g. SW1A 1AA, M1 1AE) — pre-fills and auto-runs the search</td></tr><tr><td><code>radius</code></td><td>Search radius in miles (10/25/50/100/200) — defaults to 50</td></tr><tr><td><code>make</code></td><td>Vehicle make (e.g. Ford, BMW, Volkswagen) — auto-runs if provided</td></tr><tr><td><code>model</code></td><td>Vehicle model (e.g. Fiesta, 3 Series) — auto-runs if provided</td></tr><tr><td><code>year_min</code></td><td>Earliest model year</td></tr><tr><td><code>year_max</code></td><td>Latest model year</td></tr><tr><td><code>price_min</code></td><td>Minimum price in GBP</td></tr><tr><td><code>price_max</code></td><td>Maximum price in GBP</td></tr><tr><td><code>embed</code></td><td>Set to 'true' to hide the settings gear (embedded mode)</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/uk-market-explorer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/uk-market-explorer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/uk-market-explorer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/uk-market-explorer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -331,12 +371,12 @@ pre.code-block {
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/uk/active</code>
             <div class="flow-api-name">Search UK Active Listings</div>
-          </div></div><div class="flow-note">Search UK active listings with filters and stats</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">UK Sold Context</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
+          </div></div><div class="flow-note">Search UK active listings with filters; request price/miles stats for averages and medians</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">UK Sold Context</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
           <div class="flow-api-card">
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/uk/recents</code>
             <div class="flow-api-name">Search UK Recently Sold</div>
-          </div></div><div class="flow-note">Fetch recently sold for market comparison</div></div>
+          </div></div><div class="flow-note">Fetch recently sold UK listings for the market-context table</div></div>
     </div>
   </div>
 
@@ -348,7 +388,7 @@ pre.code-block {
     <table class="param-table">
       <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>make</code></td><td>string</td><td>No</td><td>Vehicle make</td></tr><tr><td><code>model</code></td><td>string</td><td>No</td><td>Vehicle model</td></tr><tr><td><code>year</code></td><td>string</td><td>No</td><td>Year</td></tr><tr><td><code>postal_code</code></td><td>string</td><td>No</td><td>UK postal code</td></tr><tr><td><code>radius</code></td><td>number</td><td>No</td><td>Search radius in miles</td></tr><tr><td><code>price_range</code></td><td>string</td><td>No</td><td>Price range: min-max</td></tr>
+        <tr><td><code>make</code></td><td>string</td><td>No</td><td>Vehicle make</td></tr><tr><td><code>model</code></td><td>string</td><td>No</td><td>Vehicle model</td></tr><tr><td><code>year</code></td><td>string</td><td>No</td><td>Year or range (e.g. 2018-2023)</td></tr><tr><td><code>postal_code</code></td><td>string</td><td>No</td><td>UK postcode</td></tr><tr><td><code>radius</code></td><td>number</td><td>No</td><td>Search radius in miles</td></tr><tr><td><code>price_range</code></td><td>string</td><td>No</td><td>Price range in GBP: min-max</td></tr><tr><td><code>miles_range</code></td><td>string</td><td>No</td><td>Mileage range: min-max</td></tr>
       </tbody>
     </table>
   </div>
@@ -399,7 +439,7 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Search results grid</div><div class="render-item"><div class="render-dot"></div>filter sidebar</div><div class="render-item"><div class="render-dot"></div>price comparison</div><div class="render-item"><div class="render-dot"></div>sold context overlay</div><div class="render-item"><div class="render-dot"></div>GBP pricing throughout</div>
+      <div class="render-item"><div class="render-dot"></div>KPI ribbon (total found</div><div class="render-item"><div class="render-dot"></div>avg price</div><div class="render-item"><div class="render-dot"></div>avg mileage</div><div class="render-item"><div class="render-dot"></div>results shown)</div><div class="render-item"><div class="render-dot"></div>vehicle card grid with GOOD DEAL badges</div><div class="render-item"><div class="render-dot"></div>price-vs-mileage scatter with median crosshairs</div><div class="render-item"><div class="render-dot"></div>make distribution bar chart</div><div class="render-item"><div class="render-dot"></div>side-by-side compare drawer (up to 3)</div><div class="render-item"><div class="render-dot"></div>recently sold table</div><div class="render-item"><div class="render-dot"></div>search summary footer — all in GBP.</div>
     </div>
   </div>
 

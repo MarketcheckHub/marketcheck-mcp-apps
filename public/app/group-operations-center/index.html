@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Group Operations Center — MarketCheck Apps">
-  <meta property="og:description" content="Multi-store dashboard showing inventory, pricing, and performance across all locations. Combines active inventory search per location with demand data for benchmarking.">
+  <meta property="og:description" content="A multi-rooftop command center for dealership groups. Enter the MarketCheck dealer_id for each store and the app fetches active inventory stats per location in parallel, then rolls them up into per-st">
   <meta property="og:url" content="https://apps.marketcheck.com/app/group-operations-center/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/group-operations-center.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Group Operations Center">
-  <meta name="twitter:description" content="Multi-store dashboard showing inventory, pricing, and performance across all locations. Combines active inventory search per location with demand data for benchmarking.">
+  <meta name="twitter:description" content="A multi-rooftop command center for dealership groups. Enter the MarketCheck dealer_id for each store and the app fetches active inventory stats per location in parallel, then rolls them up into per-st">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/group-operations-center.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Group Operations Center","description":"Multi-store dashboard showing inventory, pricing, and performance across all locations. Combines active inventory search per location with demand data for benchmarking.","url":"https://apps.marketcheck.com/app/group-operations-center/","image":"https://apps.marketcheck.com/assets/screenshots/group-operations-center.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Group Operations Center","description":"A multi-rooftop command center for dealership groups. Enter the MarketCheck dealer_id for each store and the app fetches active inventory stats per location in parallel, then rolls them up into per-store health cards (units, avg DOM, aged share, 90+ DOM share, health score), group-wide KPIs (total inventory, total aged units, daily floor plan burn estimate), an alert feed driven by real DOM and aging signals, and rebalancing transfer recommendations that pair high-aged stores with the healthiest store in the group. Click any rooftop card to drill into per-store body-type mix, top makes, and price benchmarks.","url":"https://apps.marketcheck.com/app/group-operations-center/","image":"https://apps.marketcheck.com/assets/screenshots/group-operations-center.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -309,12 +309,52 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Multi-store dashboard showing inventory, pricing, and performance across all locations. Combines active inventory search per location with demand data for benchmarking.</p>
+    <p>A multi-rooftop command center for dealership groups. Enter the MarketCheck dealer_id for each store and the app fetches active inventory stats per location in parallel, then rolls them up into per-store health cards (units, avg DOM, aged share, 90+ DOM share, health score), group-wide KPIs (total inventory, total aged units, daily floor plan burn estimate), an alert feed driven by real DOM and aging signals, and rebalancing transfer recommendations that pair high-aged stores with the healthiest store in the group. Click any rooftop card to drill into per-store body-type mix, top makes, and price benchmarks.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Group GM / Operations Director</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Spot underperforming rooftops at a glance via the health-score ring, drill into a single store, and prioritize aged-inventory remediation across the group.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Used Vehicle Director</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">See which stores are sitting on 90+ DOM stock, evaluate transfer recommendations that move aged units to the healthiest rooftop, and gauge the floor-plan-burn savings.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">CFO / Controller</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Estimate daily and monthly floor plan carry across the group, surface alert hotspots, and quantify rebalancing ROI before authorizing transports.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">M&A / Strategy Analyst</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Benchmark a target group's rooftop-by-rooftop turn velocity, aged share, and price positioning using only public dealer IDs — no portal access needed.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (required for live data; without it the app shows demo data)</td></tr><tr><td><code>dealer_ids</code></td><td>Comma-separated dealer IDs, optionally with display names. Example: <code>?dealer_ids=1071074:Specialty,1037658,1015446:Metro</code> — auto-fills the form and triggers the dashboard build.</td></tr><tr><td><code>dealer_id</code></td><td>Alias for <code>dealer_ids</code> when you only have one rooftop.</td></tr><tr><td><code>embed</code></td><td>Hide chrome/settings for clean iframe embeds. Example: <code>?embed=true</code></td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/group-operations-center/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/group-operations-center/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/group-operations-center/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/group-operations-center/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -334,12 +374,12 @@ pre.code-block {
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/active</code>
             <div class="flow-api-name">Search Active Listings</div>
-          </div></div><div class="flow-note">For each dealer ID, fetch active inventory with stats and facets in parallel</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Market Demand</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
+          </div></div><div class="flow-note">For each dealer ID, fetch active inventory with stats=price,miles,dom and facets=make,body_type in parallel</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Market Demand</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
           <div class="flow-api-card enterprise">
             <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
             <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
             <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
-          </div></div><div class="flow-note">Fetch state-level demand rankings for benchmarking</div></div>
+          </div></div><div class="flow-note">Optional: state-level demand rankings (Enterprise tier only — gracefully skipped on lower tiers)</div></div>
     </div>
   </div>
 
@@ -351,7 +391,7 @@ pre.code-block {
     <table class="param-table">
       <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>dealerIds</code></td><td>string</td><td><span class="required">Yes</span></td><td>Comma-separated dealer IDs for each location</td></tr><tr><td><code>state</code></td><td>string</td><td>No</td><td>State for demand data</td></tr>
+        <tr><td><code>dealerIds</code></td><td>string</td><td><span class="required">Yes</span></td><td>Comma-separated dealer IDs for each location, optionally with display names: '1071074:Specialty Cars,1037658,1015446:Metro'</td></tr><tr><td><code>state</code></td><td>string</td><td>No</td><td>Optional state for sold-summary demand overlay (Enterprise tier)</td></tr>
       </tbody>
     </table>
   </div>
@@ -402,7 +442,7 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Store-by-store cards with inventory count</div><div class="render-item"><div class="render-dot"></div>avg price</div><div class="render-item"><div class="render-dot"></div>avg DOM</div><div class="render-item"><div class="render-dot"></div>body type mix</div><div class="render-item"><div class="render-dot"></div>combined group metrics</div><div class="render-item"><div class="render-dot"></div>demand overlay</div>
+      <div class="render-item"><div class="render-dot"></div>Per-rooftop health cards (units</div><div class="render-item"><div class="render-dot"></div>avg DOM</div><div class="render-item"><div class="render-dot"></div>aged %</div><div class="render-item"><div class="render-dot"></div>health score)</div><div class="render-item"><div class="render-dot"></div>group KPI ribbon</div><div class="render-item"><div class="render-dot"></div>real-data alert feed</div><div class="render-item"><div class="render-dot"></div>transfer recommendations</div><div class="render-item"><div class="render-dot"></div>drill-down detail view with body-type mix and top makes</div>
     </div>
   </div>
 

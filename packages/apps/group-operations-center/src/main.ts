@@ -28,7 +28,7 @@ function _isEmbedMode(): boolean {
 function _getUrlParams(): Record<string, string> {
   const params = new URLSearchParams(location.search);
   const result: Record<string, string> = {};
-  for (const key of ["vin", "zip", "make", "model", "miles", "state", "dealer_id", "ticker"]) {
+  for (const key of ["vin", "zip", "make", "model", "miles", "state", "dealer_id", "dealer_ids", "ticker"]) {
     const v = params.get(key);
     if (v) result[key] = v;
   }
@@ -66,12 +66,41 @@ function _mcIncentives(p) { const q={...p}; if(q.oem&&!q.make){q.make=q.oem;dele
 function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
 function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
 
-async function _fetchDirect(_args) { return null; /* passthrough — uses MCP mode */ }
+// Parse "1071074:Specialty Cars,1037658,1015446:Metro" → [{id,name?}]
+function _parseDealerSpec(raw: string): { id: string; name?: string }[] {
+  return raw.split(",").map(s => s.trim()).filter(Boolean).map(piece => {
+    const colon = piece.indexOf(":");
+    if (colon > 0) return { id: piece.slice(0, colon).trim(), name: piece.slice(colon + 1).trim() };
+    return { id: piece };
+  });
+}
+
+async function _fetchDirect(args) {
+  const spec: { id: string; name?: string }[] = args?.dealerSpec
+    ?? (args?.dealerIds ? _parseDealerSpec(args.dealerIds) : []);
+  if (spec.length === 0) return null;
+  const results = await Promise.all(spec.map(async (s) => {
+    try {
+      const data = await _mcActive({
+        dealer_id: s.id,
+        rows: 25,
+        stats: "price,miles,dom",
+        facets: "make,body_type",
+      });
+      return { spec: s, data, error: null as any };
+    } catch (e: any) {
+      return { spec: s, data: null, error: String(e?.message ?? e) };
+    }
+  }));
+  return { results };
+}
 
 async function _callTool(toolName, args) {
-  // 1. MCP mode (Claude, VS Code, etc.)
-  if (_safeApp) {
-    try { const r = _safeApp.callServerTool({ name: toolName, arguments: args }); return r; } catch {}
+  // 1. MCP mode — only attempt when iframed into an MCP host. Calling
+  //    callServerTool in a standalone browser tab returns a rejected promise
+  //    which would bypass the direct-API path below.
+  if (_safeApp && window.parent !== window) {
+    try { const r = await _safeApp.callServerTool({ name: toolName, arguments: args }); if (r) return r; } catch {}
   }
   // 2. Direct API mode (browser → api.marketcheck.com)
   const auth = _getAuth();
@@ -196,6 +225,14 @@ interface LocationData {
   floorPlanBurnPerDay: number;
   healthScore: number;
   inventory: Vehicle[];
+  _meta?: {
+    priceMean?: number;
+    priceMedian?: number;
+    ninetyPlusPct?: number;
+    bodyTypeMix?: Array<{ item: string; count: number }>;
+    topMakes?: Array<{ item: string; count: number }>;
+    error?: string | null;
+  };
 }
 
 interface Alert {
@@ -353,10 +390,178 @@ function fmtNum(v: number): string {
   return Math.round(v).toLocaleString();
 }
 
-// ── App Init ───────────────────────────────────────────────────────────
+// ── Live → GroupData Parser ────────────────────────────────────────────
+// Converts the raw _fetchDirect output into the GroupData shape the UI consumes.
+// Per-vehicle listings may be unavailable on lower API tiers (only stats come
+// back); when that happens we still populate cards/KPIs/alerts from stats and
+// leave the inventory table empty.
+function parseLiveGroupData(raw: any): GroupData {
+  const rows = (raw?.results ?? []) as Array<{ spec: { id: string; name?: string }; data: any; error?: string }>;
 
+  const locations: LocationData[] = rows.map((r) => {
+    const data = r.data ?? {};
+    const stats = data.stats ?? {};
+    const priceStats = stats.price ?? {};
+    const domStats = stats.dom ?? {};
+    const totalUnits = Number(data.num_found ?? 0);
 
-  // When live data arrives we would parse it; for now mock data is used
+    // Derive aged share from the DOM percentile distribution.
+    const pct = domStats.percentiles ?? {};
+    const agedPct = estimateAgedPctFromPercentiles(pct, 60);
+    const ninetyPlusPct = estimateAgedPctFromPercentiles(pct, 90);
+    const avgDom = Math.round((domStats.mean ?? domStats.median ?? 0) as number);
+
+    // Floor plan burn proxy: aged units × avg daily carry cost ($35).
+    const agedCount = Math.round((agedPct / 100) * totalUnits);
+    const floorPlanBurnPerDay = agedCount * 35;
+
+    // Health score: lower is worse. Penalty caps keep the score useful even
+    // for severely aged groups so different dealers still differentiate
+    // (raw real-world inventories often saturate the more aggressive mock
+    // formula, leaving every dealer at 0).
+    const domPenalty = Math.min(35, avgDom * 0.4);
+    const agingPenalty = Math.min(30, agedPct * 1.0);
+    const ninetyPenalty = Math.min(20, ninetyPlusPct * 1.2);
+    const healthScore = Math.max(0, Math.min(100, Math.round(100 - domPenalty - agingPenalty - ninetyPenalty)));
+
+    // If listings came back, surface them in the detail table; otherwise empty.
+    const inventory: Vehicle[] = (data.listings ?? []).map((l: any) => ({
+      vin: String(l.vin ?? ""),
+      year: Number(l?.build?.year ?? l?.year ?? 0),
+      make: String(l?.build?.make ?? l?.make ?? ""),
+      model: String(l?.build?.model ?? l?.model ?? ""),
+      trim: String(l?.build?.trim ?? l?.trim ?? ""),
+      listedPrice: Number(l.price ?? 0),
+      marketPrice: Number(l.ref_price ?? l.price ?? 0),
+      gapPct: l.ref_price && l.price ? ((l.price - l.ref_price) / l.ref_price) * 100 : 0,
+      miles: Number(l.miles ?? 0),
+      dom: Number(l.dom ?? l.days_on_market ?? 0),
+    }));
+
+    const displayName = r.spec.name ?? (data.listings?.[0]?.dealer?.name) ?? `Dealer #${r.spec.id}`;
+
+    return {
+      id: r.spec.id,
+      name: displayName,
+      totalUnits,
+      agedPct: Math.round(agedPct),
+      avgDom,
+      floorPlanBurnPerDay,
+      healthScore,
+      inventory,
+      // attach extra live-only context via a side map below
+      _meta: {
+        priceMean: Math.round((priceStats.mean ?? 0) as number),
+        priceMedian: Math.round((priceStats.median ?? 0) as number),
+        ninetyPlusPct: Math.round(ninetyPlusPct),
+        bodyTypeMix: (data.facets?.body_type ?? []).slice(0, 6),
+        topMakes: (data.facets?.make ?? []).slice(0, 6),
+        error: r.error ?? null,
+      },
+    } as LocationData & { _meta: any };
+  });
+
+  // Generate alerts from real stats. We surface DOM and aging signals as
+  // red/yellow/green so the alert feed stays useful in live mode.
+  const now = new Date();
+  const stamp = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const alerts: Alert[] = [];
+  for (const loc of locations) {
+    const meta = (loc as any)._meta ?? {};
+    if (meta.error) {
+      alerts.push({ severity: "red", message: `API error: ${meta.error}`, location: loc.name, timestamp: stamp });
+      continue;
+    }
+    if (loc.totalUnits === 0) {
+      alerts.push({ severity: "yellow", message: "No active inventory found for this dealer ID", location: loc.name, timestamp: stamp });
+      continue;
+    }
+    if (meta.ninetyPlusPct >= 15) {
+      alerts.push({ severity: "red", message: `${meta.ninetyPlusPct}% of inventory has 90+ DOM`, location: loc.name, timestamp: stamp });
+    }
+    if (loc.avgDom > 90) {
+      alerts.push({ severity: "red", message: `Average DOM is ${loc.avgDom} days — well above healthy benchmark`, location: loc.name, timestamp: stamp });
+    } else if (loc.avgDom > 60) {
+      alerts.push({ severity: "yellow", message: `Average DOM is ${loc.avgDom} days — approaching stale threshold`, location: loc.name, timestamp: stamp });
+    }
+    if (loc.agedPct >= 35) {
+      alerts.push({ severity: "red", message: `${loc.agedPct}% of inventory aged (>60 DOM)`, location: loc.name, timestamp: stamp });
+    } else if (loc.agedPct >= 20) {
+      alerts.push({ severity: "yellow", message: `${loc.agedPct}% of inventory aged — monitor pricing`, location: loc.name, timestamp: stamp });
+    }
+    if (loc.avgDom <= 30 && loc.agedPct < 10) {
+      alerts.push({ severity: "green", message: `Healthy turn — avg DOM ${loc.avgDom}d, only ${loc.agedPct}% aged`, location: loc.name, timestamp: stamp });
+    }
+  }
+
+  // Build pragmatic transfer recommendations: pair each high-aged location
+  // with the lowest-aged location in the group. Net benefit is a coarse
+  // estimate of avoided floor plan carry over the DOM improvement window.
+  const transfers: TransferRecommendation[] = [];
+  if (locations.length >= 2) {
+    const sortedByAged = [...locations].sort((a, b) => b.agedPct - a.agedPct);
+    const healthiest = sortedByAged[sortedByAged.length - 1];
+    for (const src of sortedByAged) {
+      if (src.id === healthiest.id) continue;
+      if (src.agedPct < 15) continue;
+      const movableUnits = Math.max(1, Math.round(src.totalUnits * (src.agedPct - healthiest.agedPct) / 200));
+      if (movableUnits < 1) continue;
+      const domImprovement = Math.max(10, Math.round(src.avgDom - healthiest.avgDom));
+      const transportCost = 250 + movableUnits * 50;
+      const netBenefit = Math.max(100, movableUnits * domImprovement * 35 - transportCost);
+      transfers.push({
+        vinLast6: `${movableUnits}-unit lot`,
+        yearMakeModel: `Aged stock (${movableUnits} units, avg ${src.avgDom}d DOM)`,
+        currentStore: src.name,
+        currentDom: src.avgDom,
+        recommendedStore: healthiest.name,
+        expectedDomImprovement: domImprovement,
+        transportCostEst: transportCost,
+        netBenefit,
+      });
+    }
+  }
+
+  // Group rollups
+  const totalInventory = locations.reduce((s, l) => s + l.totalUnits, 0);
+  const totalAgedUnits = locations.reduce((s, l) => s + Math.round(l.totalUnits * l.agedPct / 100), 0);
+  const totalDailyFloorPlanBurn = locations.reduce((s, l) => s + l.floorPlanBurnPerDay, 0);
+  const locationsWithAlerts = new Set(alerts.filter(a => a.severity === "red").map(a => a.location)).size;
+
+  return {
+    locations,
+    alerts,
+    transfers,
+    groupKpis: { totalInventory, totalAgedUnits, totalDailyFloorPlanBurn, locationsWithAlerts },
+  };
+}
+
+// Linear interpolation against the API's percentile object to estimate the
+// share of inventory above a DOM threshold (returns 0–100).
+function estimateAgedPctFromPercentiles(percentiles: Record<string, number>, threshold: number): number {
+  const points: Array<[number, number]> = [];
+  for (const [k, v] of Object.entries(percentiles ?? {})) {
+    const p = Number(k);
+    const dom = Number(v);
+    if (Number.isFinite(p) && Number.isFinite(dom)) points.push([p, dom]);
+  }
+  if (points.length === 0) return 0;
+  points.sort((a, b) => a[0] - b[0]);
+  // If threshold is below the 5th percentile, ~100% are above it.
+  if (threshold <= points[0][1]) return Math.max(0, 100 - points[0][0]);
+  // If threshold is above the 99th percentile, ~0% are above it.
+  if (threshold >= points[points.length - 1][1]) return Math.max(0, 100 - points[points.length - 1][0]);
+  for (let i = 0; i < points.length - 1; i++) {
+    const [p1, d1] = points[i];
+    const [p2, d2] = points[i + 1];
+    if (threshold >= d1 && threshold <= d2) {
+      const frac = d2 === d1 ? 0 : (threshold - d1) / (d2 - d1);
+      const pAt = p1 + frac * (p2 - p1);
+      return Math.max(0, Math.min(100, 100 - pAt));
+    }
+  }
+  return 0;
+}
 
 // ── State ──────────────────────────────────────────────────────────────
 let currentView: "group" | "location" = "group";
@@ -369,28 +574,105 @@ async function main() {
   document.body.style.cssText =
     "margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#e2e8f0;overflow-x:hidden;";
 
+  const mode = _detectAppMode();
+  const urlParams = _getUrlParams();
+  const dealerSpecRaw = urlParams.dealer_ids ?? urlParams.dealer_id ?? "";
+
+  if (mode === "live" && !dealerSpecRaw) {
+    renderInputForm();
+    return;
+  }
+
+  if (mode === "live" && dealerSpecRaw) {
+    await loadAndRender(dealerSpecRaw);
+    return;
+  }
+
+  // Demo + MCP modes load mock data immediately so the UI is never blank.
+  renderApp(generateMockData());
+}
+
+async function loadAndRender(dealerSpecRaw: string) {
   document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#94a3b8;">
     <div style="width:20px;height:20px;border:2px solid #334155;border-top-color:#3b82f6;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:12px;"></div>
     <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
-    Loading group operations data...
+    Fetching inventory for ${dealerSpecRaw.split(",").length} location(s)...
   </div>`;
 
   let data: GroupData;
   try {
-    const result = await _callTool("group-operations-center", {
-        locations: ["Main Street Motors", "Highway Auto", "Downtown Dealer", "Suburban Cars", "Metro Motors"],
-      });
+    const dealerSpec = _parseDealerSpec(dealerSpecRaw);
+    const result = await _callTool("group-operations-center", { dealerIds: dealerSpecRaw, dealerSpec });
     const text = result?.content?.find((c: any) => c.type === "text")?.text;
     if (text) {
-      data = JSON.parse(text) as GroupData;
+      const raw = JSON.parse(text);
+      // If MCP/proxy already returned a GroupData, use it; otherwise parse our raw shape.
+      data = raw?.locations && raw?.alerts ? (raw as GroupData) : parseLiveGroupData(raw);
     } else {
       data = generateMockData();
     }
-  } catch {
+  } catch (e) {
+    console.warn("Live fetch failed, falling back to demo data:", e);
     data = generateMockData();
   }
 
+  if (data.locations.length === 0) {
+    renderInputForm("No locations resolved from the dealer IDs you provided. Check the IDs and try again.");
+    return;
+  }
   renderApp(data);
+}
+
+function renderInputForm(errorMsg?: string) {
+  document.body.innerHTML = "";
+  injectGlobalStyles();
+
+  const header = el("div", {
+    style: "background:#1e293b;padding:12px 20px;border-bottom:1px solid #334155;display:flex;align-items:center;gap:12px;",
+  });
+  header.innerHTML = `
+    <div style="width:8px;height:8px;border-radius:50%;background:#10b981;flex-shrink:0;"></div>
+    <h1 style="margin:0;font-size:16px;font-weight:600;color:#f8fafc;">Group Operations Center</h1>
+    <span style="font-size:12px;color:#64748b;margin-left:auto;">Multi-store dashboard</span>
+  `;
+  _addSettingsBar(header);
+  document.body.appendChild(header);
+
+  const wrap = el("div", { style: "max-width:720px;margin:48px auto;padding:0 20px;" });
+  wrap.innerHTML = `
+    <h2 style="font-size:20px;font-weight:700;color:#f8fafc;margin:0 0 8px 0;">Connect your locations</h2>
+    <p style="font-size:13px;color:#94a3b8;margin:0 0 20px 0;line-height:1.6;">
+      Enter the MarketCheck <code style="font-family:monospace;background:#1e293b;padding:2px 6px;border-radius:4px;color:#e2e8f0;">dealer_id</code> for each rooftop in your group, separated by commas. Optionally add a display name after a colon.
+    </p>
+    ${errorMsg ? `<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:10px 14px;margin-bottom:16px;color:#fca5a5;font-size:13px;">${errorMsg}</div>` : ""}
+    <div style="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:20px;">
+      <label style="display:block;font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Dealer IDs</label>
+      <input id="_dealer_ids_input" type="text" placeholder="e.g. 1071074:Specialty Cars, 1037658, 1015446:Metro"
+        style="width:100%;padding:10px 12px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:14px;font-family:inherit;box-sizing:border-box;outline:none;" />
+      <div style="font-size:11px;color:#64748b;margin-top:6px;">Find a dealer's ID in the MarketCheck API response or by searching <a href="https://apidocs.marketcheck.com" target="_blank" style="color:#60a5fa;">api docs</a>.</div>
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+        <button id="_dealer_ids_submit" style="padding:10px 20px;border-radius:6px;border:none;background:#3b82f6;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Analyze Group</button>
+        <button id="_dealer_ids_demo" style="padding:10px 20px;border-radius:6px;border:1px solid #334155;background:transparent;color:#94a3b8;font-size:13px;font-weight:500;cursor:pointer;">View Demo Data Instead</button>
+      </div>
+    </div>
+    <div style="margin-top:20px;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px;font-size:12px;color:#94a3b8;line-height:1.6;">
+      <div style="font-weight:600;color:#e2e8f0;margin-bottom:6px;">What you'll see</div>
+      Per-rooftop health cards (units, avg DOM, aged %, health score), group-wide rollups, alert feed driven by real DOM/aging stats, and transfer suggestions to rebalance the group. Inputs and view state are URL-shareable: append <code style="font-family:monospace;color:#cbd5e1;">?dealer_ids=...</code> to deep-link.
+    </div>
+  `;
+  document.body.appendChild(wrap);
+
+  const submit = () => {
+    const v = (document.getElementById("_dealer_ids_input") as HTMLInputElement).value.trim();
+    if (!v) return;
+    const url = new URL(location.href);
+    url.searchParams.set("dealer_ids", v);
+    history.replaceState(null, "", url.toString());
+    loadAndRender(v);
+  };
+  document.getElementById("_dealer_ids_submit")?.addEventListener("click", submit);
+  document.getElementById("_dealer_ids_input")?.addEventListener("keydown", (e: any) => { if (e.key === "Enter") submit(); });
+  document.getElementById("_dealer_ids_demo")?.addEventListener("click", () => renderApp(generateMockData()));
 }
 
 // ── Render Router ──────────────────────────────────────────────────────
@@ -416,6 +698,7 @@ function renderGroupDashboard(data: GroupData) {
     <h1 style="margin:0;font-size:16px;font-weight:600;color:#f8fafc;">Group Operations Center</h1>
     <span style="font-size:12px;color:#64748b;margin-left:auto;">${data.locations.length} locations | ${fmtNum(data.groupKpis.totalInventory)} total units | Updated just now</span>
   `;
+  _addSettingsBar(header);
   document.body.appendChild(header);
 
   // ── Demo mode banner ──
@@ -686,6 +969,7 @@ function renderLocationDetail(data: GroupData) {
   `;
   // Re-append back button since innerHTML clobbered it
   header.prepend(backBtn);
+  _addSettingsBar(header);
   document.body.appendChild(header);
 
   const content = el("div", { style: "padding:16px 20px;" });
@@ -723,9 +1007,37 @@ function renderLocationDetail(data: GroupData) {
   }
   content.appendChild(kpiRow);
 
+  // Aggregate panel — only meaningful when live API stats came back.
+  if (loc._meta) {
+    const m = loc._meta;
+    const agg = el("div", {
+      style: "background:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px;margin-bottom:16px;",
+    });
+    const bodyMix = (m.bodyTypeMix ?? []).map((b) => `<span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;background:#0f172a;color:#cbd5e1;border:1px solid #334155;margin-right:6px;margin-bottom:6px;">${b.item} <span style="color:#64748b;">${b.count}</span></span>`).join("");
+    const topMakes = (m.topMakes ?? []).map((b) => `<span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;background:#0f172a;color:#cbd5e1;border:1px solid #334155;margin-right:6px;margin-bottom:6px;">${b.item} <span style="color:#64748b;">${b.count}</span></span>`).join("");
+    agg.innerHTML = `
+      <h3 style="font-size:13px;font-weight:600;color:#f8fafc;margin:0 0 10px 0;">Inventory Aggregate (live)</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:14px;">
+        <div><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Avg Price</div><div style="font-size:18px;font-weight:700;color:#f8fafc;">${m.priceMean ? fmtCurrency(m.priceMean) : "—"}</div></div>
+        <div><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Median Price</div><div style="font-size:18px;font-weight:700;color:#f8fafc;">${m.priceMedian ? fmtCurrency(m.priceMedian) : "—"}</div></div>
+        <div><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">90+ DOM Share</div><div style="font-size:18px;font-weight:700;color:${(m.ninetyPlusPct ?? 0) > 15 ? "#ef4444" : "#f59e0b"};">${m.ninetyPlusPct ?? 0}%</div></div>
+      </div>
+      ${bodyMix ? `<div style="margin-bottom:10px;"><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Body Type Mix</div>${bodyMix}</div>` : ""}
+      ${topMakes ? `<div><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Top Makes</div>${topMakes}</div>` : ""}
+    `;
+    content.appendChild(agg);
+  }
+
   // Inventory table
+  if (loc.inventory.length === 0 && loc._meta) {
+    const empty = el("div", {
+      style: "background:#1e293b;border:1px dashed #334155;border-radius:8px;padding:18px;text-align:center;color:#94a3b8;font-size:13px;",
+    });
+    empty.innerHTML = `Per-vehicle listings aren't available with this API tier — aggregate stats above reflect all <strong style="color:#e2e8f0;">${fmtNum(loc.totalUnits)}</strong> units.`;
+    content.appendChild(empty);
+  }
   const tableWrapper = el("div", {
-    style: "overflow-x:auto;border:1px solid #334155;border-radius:8px;max-height:520px;overflow-y:auto;",
+    style: "overflow-x:auto;border:1px solid #334155;border-radius:8px;max-height:520px;overflow-y:auto;" + (loc.inventory.length === 0 ? "display:none;" : ""),
   });
 
   const table = el("table", {

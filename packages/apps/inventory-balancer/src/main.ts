@@ -28,7 +28,7 @@ function _isEmbedMode(): boolean {
 function _getUrlParams(): Record<string, string> {
   const params = new URLSearchParams(location.search);
   const result: Record<string, string> = {};
-  for (const key of ["vin", "zip", "make", "model", "miles", "state", "dealer_id", "ticker"]) {
+  for (const key of ["vin", "zip", "make", "model", "miles", "state", "dealer_id", "dealer_ids", "ticker"]) {
     const v = params.get(key);
     if (v) result[key] = v;
   }
@@ -65,8 +65,27 @@ function _mcSold(p) { return _mcApi("/api/v1/sold-vehicles/summary", p); }
 function _mcIncentives(p) { const q={...p}; if(q.oem&&!q.make){q.make=q.oem;delete q.oem;} return _mcApi("/search/car/incentive/oem", q); }
 function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
 function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
+function _mcDealer(id) { return _mcApi("/dealer/car/" + id); }
+function _mcDealerInv(p) { return _mcApi("/car/dealer/inventory/active", p); }
 
-async function _fetchDirect(_args) { return null; /* passthrough — uses MCP mode */ }
+async function _fetchDirect(args) {
+  const ids: string[] = (args?.dealerIds ?? []).filter(Boolean);
+  if (!ids.length) return null;
+  const state: string | undefined = args?.state || undefined;
+  // Per-dealer: rooftop info + inventory mix (facets/stats) with the top-DOM listings inline
+  const dealerCalls = ids.map(async (id) => {
+    const [info, inv] = await Promise.all([
+      _mcDealer(id).catch(() => null),
+      _mcDealerInv({ dealer_id: id, rows: 30, sort_by: "dom", sort_order: "desc", stats: "price,miles,dom", facets: "body_type" }).catch(() => null),
+    ]);
+    return { id, info, inv };
+  });
+  const [dealers, demand] = await Promise.all([
+    Promise.all(dealerCalls),
+    state ? _mcRecent({ state, rows: 0, facets: "body_type", stats: "dom" }).catch(() => null) : Promise.resolve(null),
+  ]);
+  return { dealers, demand, state };
+}
 
 async function _callTool(toolName, args) {
   // 1. MCP mode (Claude, VS Code, etc.)
@@ -182,13 +201,7 @@ interface StoreLocation {
   state: string;
 }
 
-type Segment =
-  | "Compact SUV"
-  | "Midsize SUV"
-  | "Full-size Truck"
-  | "Midsize Sedan"
-  | "Compact Car"
-  | "Luxury";
+type Segment = string;
 
 interface SegmentData {
   inventory: number;
@@ -216,13 +229,15 @@ interface TransferRecommendation {
 }
 
 interface BalancerData {
+  segments: Segment[];
   stores: StoreProfile[];
   recommendations: TransferRecommendation[];
+  source?: "live" | "mock";
 }
 
 // ── Constants ──────────────────────────────────────────────────────────
 
-const SEGMENTS: Segment[] = [
+const MOCK_SEGMENTS: Segment[] = [
   "Compact SUV",
   "Midsize SUV",
   "Full-size Truck",
@@ -245,7 +260,7 @@ const STORES: StoreLocation[] = [
 
 function generateMockData(): BalancerData {
   // Realistic segment inventory and demand with intentional mismatches
-  const storeSegments: Record<string, Record<Segment, SegmentData>> = {
+  const storeSegments: Record<string, Record<string, SegmentData>> = {
     "store-1": {
       "Compact SUV": { inventory: 18, demand: 85 },
       "Midsize SUV": { inventory: 12, demand: 70 },
@@ -294,13 +309,13 @@ function generateMockData(): BalancerData {
   }));
 
   // Generate transfer recommendations from mismatches
-  const recommendations = generateRecommendations(stores);
+  const recommendations = generateRecommendations(stores, MOCK_SEGMENTS);
 
-  return { stores, recommendations };
+  return { segments: MOCK_SEGMENTS, stores, recommendations, source: "mock" };
 }
 
-function generateRecommendations(stores: StoreProfile[]): TransferRecommendation[] {
-  const makes: Record<Segment, Array<{ make: string; model: string }>> = {
+function generateRecommendations(stores: StoreProfile[], segments: Segment[]): TransferRecommendation[] {
+  const makes: Record<string, Array<{ make: string; model: string }>> = {
     "Compact SUV": [
       { make: "Toyota", model: "RAV4" },
       { make: "Honda", model: "CR-V" },
@@ -337,13 +352,80 @@ function generateRecommendations(stores: StoreProfile[]): TransferRecommendation
       { make: "Lexus", model: "RX" },
       { make: "Audi", model: "Q5" },
     ],
+    // Live-mode body_type buckets (used when API returns body_type facets directly)
+    "SUV": [
+      { make: "Toyota", model: "RAV4" },
+      { make: "Honda", model: "CR-V" },
+      { make: "Ford", model: "Explorer" },
+      { make: "Chevrolet", model: "Equinox" },
+    ],
+    "Pickup": [
+      { make: "Ford", model: "F-150" },
+      { make: "Chevrolet", model: "Silverado" },
+      { make: "Ram", model: "1500" },
+      { make: "Toyota", model: "Tacoma" },
+    ],
+    "Sedan": [
+      { make: "Toyota", model: "Camry" },
+      { make: "Honda", model: "Accord" },
+      { make: "Nissan", model: "Altima" },
+      { make: "Hyundai", model: "Sonata" },
+    ],
+    "Coupe": [
+      { make: "Ford", model: "Mustang" },
+      { make: "Chevrolet", model: "Camaro" },
+      { make: "Dodge", model: "Challenger" },
+      { make: "BMW", model: "4 Series" },
+    ],
+    "Hatchback": [
+      { make: "Honda", model: "Civic" },
+      { make: "Volkswagen", model: "Golf" },
+      { make: "Toyota", model: "Corolla" },
+      { make: "Mazda", model: "3" },
+    ],
+    "Minivan": [
+      { make: "Honda", model: "Odyssey" },
+      { make: "Toyota", model: "Sienna" },
+      { make: "Chrysler", model: "Pacifica" },
+      { make: "Kia", model: "Carnival" },
+    ],
+    "Convertible": [
+      { make: "Ford", model: "Mustang" },
+      { make: "Chevrolet", model: "Corvette" },
+      { make: "BMW", model: "Z4" },
+      { make: "Mazda", model: "MX-5" },
+    ],
+    "Wagon": [
+      { make: "Subaru", model: "Outback" },
+      { make: "Volvo", model: "V60" },
+      { make: "Audi", model: "A4 Allroad" },
+      { make: "Mercedes", model: "E-Class" },
+    ],
+    "Cargo Van": [
+      { make: "Ford", model: "Transit" },
+      { make: "Mercedes", model: "Sprinter" },
+      { make: "Ram", model: "ProMaster" },
+      { make: "Chevrolet", model: "Express" },
+    ],
+    "Passenger Van": [
+      { make: "Ford", model: "Transit" },
+      { make: "Mercedes", model: "Sprinter" },
+      { make: "Nissan", model: "NV" },
+      { make: "Chevrolet", model: "Express" },
+    ],
+    "Chassis Cab": [
+      { make: "Ford", model: "F-450" },
+      { make: "Ram", model: "5500" },
+      { make: "Chevrolet", model: "Silverado HD" },
+      { make: "GMC", model: "Sierra HD" },
+    ],
   };
 
   const recs: TransferRecommendation[] = [];
   let vinCounter = 100000;
 
   // Find overstocked->understocked pairs per segment
-  for (const seg of SEGMENTS) {
+  for (const seg of segments) {
     // Compute supply/demand ratio for each store in this segment
     const storeRatios = stores.map((s) => {
       const data = s.segments[seg];
@@ -368,7 +450,7 @@ function generateRecommendations(stores: StoreProfile[]): TransferRecommendation
 
         for (let t = 0; t < transferCount; t++) {
           vinCounter++;
-          const vehiclePool = makes[seg];
+          const vehiclePool = makes[seg] ?? [{ make: "Mixed", model: seg }];
           const vehicle = vehiclePool[vinCounter % vehiclePool.length];
           const year = 2021 + (vinCounter % 4);
           const currentDom = 30 + Math.floor(Math.random() * 70);
@@ -470,44 +552,266 @@ function statusLabel(status: "balanced" | "understocked" | "overstocked"): strin
   }
 }
 
+// ── Live → BalancerData mapping ────────────────────────────────────────
+
+function _liveToBalancerData(payload: any): BalancerData | null {
+  if (!payload?.dealers?.length) return null;
+  const dealers: any[] = payload.dealers;
+
+  // Demand baseline: state-wide sold counts by body_type from /search/car/recents
+  const demandFacets: Array<{ item: string; count: number }> = payload?.demand?.facets?.body_type ?? [];
+  const maxDemandCount = demandFacets.reduce((m, d) => Math.max(m, d.count || 0), 0) || 1;
+  const demandByBody: Record<string, number> = {};
+  for (const d of demandFacets) {
+    // Scale to 0-100 demand score (relative to top body_type in this state)
+    demandByBody[d.item] = Math.round((d.count / maxDemandCount) * 100);
+  }
+
+  // Collect all body_types across dealers (union)
+  const segSet = new Set<string>();
+  for (const d of dealers) {
+    const facets: Array<{ item: string; count: number }> = d?.inv?.facets?.body_type ?? [];
+    for (const f of facets) if (f.count > 0) segSet.add(f.item);
+  }
+  // Keep at most 8 segments by total inventory across dealers (avoid noisy long tail)
+  const totals: Record<string, number> = {};
+  for (const seg of segSet) {
+    let t = 0;
+    for (const d of dealers) {
+      const facets: Array<{ item: string; count: number }> = d?.inv?.facets?.body_type ?? [];
+      const f = facets.find((x) => x.item === seg);
+      t += f?.count ?? 0;
+    }
+    totals[seg] = t;
+  }
+  const segments = Array.from(segSet).sort((a, b) => totals[b] - totals[a]).slice(0, 8);
+  if (!segments.length) return null;
+
+  // Build store profiles + index real listings by store+segment for the recs table
+  const realListingsByStoreSeg: Record<string, Record<string, any[]>> = {};
+  const stores: StoreProfile[] = dealers.map((d, idx) => {
+    const info = d?.info ?? {};
+    const id: string = String(d.id);
+    const name: string = info.seller_name || info.name || `Dealer ${id}`;
+    const city: string = info.city || "";
+    const state: string = info.state || payload.state || "";
+    const facets: Array<{ item: string; count: number }> = d?.inv?.facets?.body_type ?? [];
+    const segMap: Record<string, SegmentData> = {};
+    for (const seg of segments) {
+      const f = facets.find((x) => x.item === seg);
+      const inventory = f?.count ?? 0;
+      const demand = demandByBody[seg] ?? 50;
+      segMap[seg] = { inventory, demand };
+    }
+    // Bucket the high-DOM listings we pulled (sort_by=dom desc) by body_type for this store
+    const listings: any[] = d?.inv?.listings ?? [];
+    const bucket: Record<string, any[]> = {};
+    for (const l of listings) {
+      const bt = l?.build?.body_type;
+      if (!bt) continue;
+      (bucket[bt] = bucket[bt] || []).push(l);
+    }
+    realListingsByStoreSeg[name] = bucket;
+    return {
+      location: { id: id || `store-${idx + 1}`, name, city, state },
+      segments: segMap,
+    };
+  });
+
+  const recommendations = generateLiveRecommendations(stores, segments, realListingsByStoreSeg);
+  return { segments, stores, recommendations, source: "live" };
+}
+
+// Live recommendation generator — uses real high-DOM VINs from the source store.
+// Mirrors generateRecommendations() but pulls vinLast6/year/make/model/currentDom from listings.
+function generateLiveRecommendations(
+  stores: StoreProfile[],
+  segments: Segment[],
+  byStoreSeg: Record<string, Record<string, any[]>>,
+): TransferRecommendation[] {
+  const recs: TransferRecommendation[] = [];
+  const consumed: Record<string, Set<string>> = {}; // storeName → set of vins already used
+
+  for (const seg of segments) {
+    const storeRatios = stores.map((s) => {
+      const data = s.segments[seg] ?? { inventory: 0, demand: 0 };
+      const idealInventory = data.demand * 0.25;
+      const ratio = idealInventory > 0 ? data.inventory / idealInventory : 1;
+      return { store: s, ratio, data };
+    });
+    const overstocked = storeRatios.filter((r) => r.ratio > 1.2).sort((a, b) => b.ratio - a.ratio);
+    const understocked = storeRatios.filter((r) => r.ratio < 0.8).sort((a, b) => a.ratio - b.ratio);
+
+    for (const over of overstocked) {
+      const sourceStoreName = over.store.location.name;
+      const candidates: any[] = byStoreSeg[sourceStoreName]?.[seg] ?? [];
+      const used = (consumed[sourceStoreName] = consumed[sourceStoreName] || new Set());
+      let candIdx = 0;
+
+      for (const under of understocked) {
+        const surplus = Math.floor(over.data.inventory - over.data.demand * 0.25);
+        const deficit = Math.ceil(under.data.demand * 0.25 - under.data.inventory);
+        const transferCount = Math.min(surplus, deficit, 3);
+        if (transferCount <= 0) continue;
+
+        for (let t = 0; t < transferCount; t++) {
+          // Find the next unconsumed real listing for this store+segment
+          let listing: any = null;
+          while (candIdx < candidates.length) {
+            const c = candidates[candIdx++];
+            if (c?.vin && !used.has(c.vin)) { listing = c; used.add(c.vin); break; }
+          }
+
+          let vinLast6 = String(100000 + recs.length);
+          let year = 2022;
+          let make = "Mixed";
+          let model = seg;
+          let currentDom = 60;
+
+          if (listing) {
+            const v: string = listing.vin || "";
+            vinLast6 = v.slice(-6) || vinLast6;
+            year = listing.build?.year ?? year;
+            make = listing.build?.make ?? make;
+            model = listing.build?.model ?? model;
+            currentDom = listing.dom ?? listing.days_on_market ?? currentDom;
+          }
+
+          const demandFactor = under.data.demand / 100;
+          const estDomReduction = Math.max(1, Math.round(currentDom * demandFactor * 0.6));
+          const floorPlanSavings = estDomReduction * 35;
+          const demandPremium = Math.round((under.data.demand - over.data.demand) * 8);
+          const netBenefit = floorPlanSavings + demandPremium - TRANSPORT_COST;
+
+          recs.push({
+            vinLast6,
+            year,
+            make,
+            model,
+            segment: seg,
+            currentStore: sourceStoreName,
+            currentDom,
+            destStore: under.store.location.name,
+            localDemandScore: under.data.demand,
+            estDomReduction,
+            transportCost: TRANSPORT_COST,
+            netBenefit,
+          });
+        }
+      }
+    }
+  }
+
+  recs.sort((a, b) => b.netBenefit - a.netBenefit);
+  return recs.slice(0, 15);
+}
+
 // ── Main App ───────────────────────────────────────────────────────────
 
+function _showInputForm(prefill: { dealerIds?: string; state?: string }, onSubmit: (vals: { dealerIds: string[]; state: string }) => void) {
+  document.body.innerHTML = "";
+  document.body.style.cssText =
+    "margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#e2e8f0;overflow-x:hidden;min-height:100vh;";
 
+  const wrap = el("div", { style: "max-width:640px;margin:60px auto;padding:24px;background:#1e293b;border:1px solid #334155;border-radius:12px;" });
+  wrap.innerHTML = `
+    <h1 style="margin:0 0 6px 0;font-size:20px;font-weight:600;color:#f8fafc;">Inventory Balancer</h1>
+    <p style="margin:0 0 20px 0;font-size:13px;color:#94a3b8;">Enter MarketCheck dealer IDs for your rooftops to see real-time inventory mix vs. local demand and transfer opportunities.</p>
+    <label style="display:block;font-size:11px;color:#94a3b8;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Dealer IDs (comma-separated)</label>
+    <input id="_ib_ids" type="text" placeholder="e.g. 1002814, 1003012, 1004510" value="${prefill.dealerIds ?? ""}"
+      style="width:100%;padding:10px 12px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:14px;margin-bottom:14px;box-sizing:border-box;outline:none;" />
+    <label style="display:block;font-size:11px;color:#94a3b8;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">State (2-letter, optional)</label>
+    <input id="_ib_state" type="text" placeholder="e.g. TX" value="${prefill.state ?? ""}" maxlength="2"
+      style="width:120px;padding:10px 12px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:14px;margin-bottom:18px;box-sizing:border-box;text-transform:uppercase;outline:none;" />
+    <div style="display:flex;gap:10px;align-items:center;">
+      <button id="_ib_run" style="padding:10px 20px;border-radius:6px;border:none;background:#3b82f6;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Analyze Inventory</button>
+      <button id="_ib_demo" style="padding:10px 16px;border-radius:6px;border:1px solid #334155;background:transparent;color:#94a3b8;font-size:13px;cursor:pointer;">Use sample data</button>
+    </div>
+    <div style="margin-top:14px;font-size:11px;color:#64748b;">Tip: append <code style="color:#94a3b8;">?dealer_ids=1002814,1003012&state=TX</code> to the URL for deep-linking.</div>
+  `;
+  document.body.appendChild(wrap);
 
-  // When live data arrives we would parse it; for now mock data is used
+  const idsInp = document.getElementById("_ib_ids") as HTMLInputElement;
+  const stateInp = document.getElementById("_ib_state") as HTMLInputElement;
+  const submit = () => {
+    const ids = idsInp.value.split(",").map((s) => s.trim()).filter(Boolean);
+    const state = stateInp.value.trim().toUpperCase();
+    if (!ids.length) { idsInp.focus(); return; }
+    onSubmit({ dealerIds: ids, state });
+  };
+  document.getElementById("_ib_run")?.addEventListener("click", submit);
+  document.getElementById("_ib_demo")?.addEventListener("click", () => render(generateMockData()));
+  idsInp.addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
+  stateInp.addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
+}
+
+function _showLoading(label: string) {
+  document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#94a3b8;font-size:13px;">
+    <div style="width:20px;height:20px;border:2px solid #334155;border-top-color:#3b82f6;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:12px;"></div>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+    ${label}
+  </div>`;
+}
+
+async function _runLive(dealerIds: string[], state: string) {
+  _showLoading(`Fetching inventory for ${dealerIds.length} dealer${dealerIds.length === 1 ? "" : "s"}...`);
+  try {
+    const payload = await _fetchDirect({ dealerIds, state });
+    const data = _liveToBalancerData(payload);
+    if (data && data.stores.length) {
+      render(data);
+      return;
+    }
+  } catch (e) {
+    console.warn("Live fetch failed:", e);
+  }
+  // Fall back to mock if live yields nothing
+  const mock = generateMockData();
+  render(mock);
+}
 
 async function main() {
   document.body.style.cssText =
     "margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#e2e8f0;overflow-x:hidden;";
 
-  // Show loading
-  document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#94a3b8;">
-    <div style="width:20px;height:20px;border:2px solid #334155;border-top-color:#3b82f6;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:12px;"></div>
-    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
-    Loading inventory balancer data...
-  </div>`;
+  const mode = _detectAppMode();
+  const url = _getUrlParams();
+  const urlIds = url.dealer_ids || url.dealer_id || "";
+  const urlState = url.state || "";
 
-  let data: BalancerData;
-  try {
-    const result = await _callTool("inventory-balancer", {
-        locations: STORES.map((s) => ({
-          id: s.id,
-          name: s.name,
-          city: s.city,
-          state: s.state,
-        })),
-      });
-    const text = result?.content?.find((c: any) => c.type === "text")?.text;
-    if (text) {
-      data = JSON.parse(text) as BalancerData;
-    } else {
-      data = generateMockData();
-    }
-  } catch {
-    data = generateMockData();
+  // Live mode with dealer IDs in URL → auto-run
+  if (mode === "live" && urlIds) {
+    const ids = urlIds.split(",").map((s) => s.trim()).filter(Boolean);
+    await _runLive(ids, urlState);
+    return;
   }
 
-  render(data);
+  // Live mode without dealer IDs → show input form
+  if (mode === "live") {
+    _showInputForm({ state: urlState }, ({ dealerIds, state }) => _runLive(dealerIds, state));
+    return;
+  }
+
+  // MCP mode → call host tool
+  if (mode === "mcp") {
+    _showLoading("Loading inventory balancer data...");
+    try {
+      const result = await _callTool("inventory-balancer", { locations: STORES.map((s) => ({ id: s.id, name: s.name, city: s.city, state: s.state })) });
+      const text = result?.content?.find((c: any) => c.type === "text")?.text;
+      if (text) {
+        const parsed = JSON.parse(text);
+        // Accept either the new shape (with segments) or the legacy mock shape
+        const data: BalancerData = parsed.segments ? parsed : { ...parsed, segments: MOCK_SEGMENTS, source: "live" };
+        render(data);
+        return;
+      }
+    } catch {}
+    render(generateMockData());
+    return;
+  }
+
+  // Demo mode → mock data + banner (banner is rendered inside render())
+  render(generateMockData());
 }
 
 // ── Render ─────────────────────────────────────────────────────────────
@@ -515,13 +819,15 @@ async function main() {
 function render(data: BalancerData) {
   document.body.innerHTML = "";
 
+  const segments = data.segments;
+
   // ── Header ────────────────────────────────────────────────────────
   const header = el("div", {
     style:
       "background:#1e293b;padding:12px 20px;border-bottom:1px solid #334155;display:flex;align-items:center;gap:12px;",
   });
   const totalUnits = data.stores.reduce(
-    (sum, s) => sum + SEGMENTS.reduce((ss, seg) => ss + s.segments[seg].inventory, 0),
+    (sum, s) => sum + segments.reduce((ss, seg) => ss + (s.segments[seg]?.inventory ?? 0), 0),
     0
   );
   header.innerHTML = `
@@ -584,11 +890,13 @@ function render(data: BalancerData) {
     `;
 
     // Get top 5 segments by demand
-    const segEntries = SEGMENTS.map((seg) => ({
-      segment: seg,
-      ...store.segments[seg],
-    }))
-      .sort((a, b) => b.demand - a.demand)
+    const segEntries = segments
+      .map((seg: Segment) => ({
+        segment: seg,
+        inventory: store.segments[seg]?.inventory ?? 0,
+        demand: store.segments[seg]?.demand ?? 0,
+      }))
+      .sort((a: { demand: number }, b: { demand: number }) => b.demand - a.demand)
       .slice(0, 5);
 
     for (const entry of segEntries) {
@@ -692,7 +1000,7 @@ function render(data: BalancerData) {
 
   // Body rows: one per segment
   const mTbody = document.createElement("tbody");
-  for (const seg of SEGMENTS) {
+  for (const seg of segments) {
     const tr = document.createElement("tr");
     tr.style.cssText = "border-bottom:1px solid #1e293b;";
 
@@ -704,7 +1012,7 @@ function render(data: BalancerData) {
     tr.appendChild(labelTd);
 
     for (const store of data.stores) {
-      const segData = store.segments[seg];
+      const segData = store.segments[seg] ?? { inventory: 0, demand: 0 };
       const status = cellStatus(segData.inventory, segData.demand);
       const bgColor = statusColor(status);
       const borderColor = statusBorder(status);
@@ -754,9 +1062,9 @@ function render(data: BalancerData) {
   totalsRow.appendChild(totalLabel);
 
   for (const store of data.stores) {
-    const storeTotal = SEGMENTS.reduce((sum, seg) => sum + store.segments[seg].inventory, 0);
+    const storeTotal = segments.reduce((sum: number, seg: Segment) => sum + (store.segments[seg]?.inventory ?? 0), 0);
     const storeDemandAvg = Math.round(
-      SEGMENTS.reduce((sum, seg) => sum + store.segments[seg].demand, 0) / SEGMENTS.length
+      segments.reduce((sum: number, seg: Segment) => sum + (store.segments[seg]?.demand ?? 0), 0) / Math.max(segments.length, 1)
     );
     const td = document.createElement("td");
     td.style.cssText =

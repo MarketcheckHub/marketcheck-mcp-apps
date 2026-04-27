@@ -185,6 +185,33 @@ const API_ENDPOINTS = {
     ],
     returns: "num_found, listings[], stats{}",
   },
+  dealerInfo: {
+    method: "GET",
+    path: "/v2/dealer/car/{id}",
+    name: "Dealer Profile Lookup",
+    description: "Returns the public profile for a MarketCheck dealer ID — seller name, dealership group, address, latitude/longitude, and current listing count. Used to resolve dealer IDs to human-readable rooftop names.",
+    docUrl: "https://apidocs.marketcheck.com/",
+    params: [
+      { name: "id", type: "string", required: true, desc: "MarketCheck dealer ID (path parameter)" },
+    ],
+    returns: "id, seller_name, dealership_group_name, street, city, state, zip, listing_count, dealer_type",
+  },
+  dealerInventoryActive: {
+    method: "GET",
+    path: "/v2/car/dealer/inventory/active",
+    name: "Dealer Inventory (Active)",
+    description: "Returns the active listings for a specific dealer ID with full per-VIN detail (price, miles, DOM, build, dealer). Unlike the generic /search/car/active endpoint, this one returns the listings array when scoped by dealer_id — making it the right call for per-rooftop inventory drill-downs and high-DOM transfer candidates.",
+    docUrl: "https://apidocs.marketcheck.com/",
+    params: [
+      { name: "dealer_id", type: "string", required: true, desc: "MarketCheck dealer ID" },
+      { name: "rows", type: "number", required: false, desc: "Number of listings (default 10, max 50)" },
+      { name: "sort_by", type: "string", required: false, desc: "Sort field: dom, price, miles, last_seen_at" },
+      { name: "sort_order", type: "string", required: false, desc: "asc or desc" },
+      { name: "stats", type: "string", required: false, desc: "Aggregate stats: price,miles,dom" },
+      { name: "facets", type: "string", required: false, desc: "Facet fields: body_type,make,model" },
+    ],
+    returns: "num_found, listings[] with vin, price, miles, dom, build{}, dealer{}, plus optional facets{} and stats{}",
+  },
 };
 
 // ── App Definitions ─────────────────────────────────────────────────────
@@ -585,16 +612,29 @@ const APPS = [
     tagline: "Move the right cars to the right stores",
     segment: "Dealership Group",
     toolName: null,
-    description: "Identifies inter-store transfer opportunities by comparing each location's inventory mix against local demand patterns. Suggests which vehicles to move where.",
+    description: "Surfaces inter-store transfer opportunities for a dealership group. For each rooftop, the app pulls live MarketCheck inventory facets (counts by body type) and benchmarks them against state-wide sold-vehicle demand to flag overstocked vs. understocked segments. The supply/demand matrix highlights mismatches per store; the recommendations table ranks specific transfers by expected DOM reduction, transport cost, and net floor-plan savings — letting group ops teams prioritise which vehicles to move where for the biggest payoff.",
+    useCases: [
+      { persona: "Dealership Group Operations", desc: "Run weekly across all rooftops to spot stores sitting on aging segments while a sister store could sell them in days. Prioritise the top transfers by net benefit." },
+      { persona: "Used-Car Director", desc: "Validate inventory mix against local demand without per-store spreadsheets — the matrix shows which body types are overstocked vs. understocked at a glance." },
+      { persona: "Floor-Plan Manager", desc: "Quantify the floor-plan interest savings from re-balancing: the app converts DOM-reduction estimates into dollar net benefit per transfer after transport cost." },
+      { persona: "Group CFO / Strategy", desc: "Use the group-level totals row to track overall mix balance and trend rooftop performance over time." },
+    ],
+    urlParams: [
+      { name: "api_key", desc: "Your MarketCheck API key (or set via localStorage)" },
+      { name: "dealer_ids", desc: "Comma-separated MarketCheck dealer IDs (one per rooftop) — auto-fills the form and runs the analysis" },
+      { name: "dealer_id", desc: "Alias for a single dealer ID (treated as a one-store group)" },
+      { name: "state", desc: "2-letter US state code (e.g. TX) used to compute the demand baseline from sold-vehicle facets" },
+    ],
     inputParams: [
-      { name: "dealerIds", type: "string", required: true, desc: "Comma-separated dealer IDs" },
-      { name: "state", type: "string", required: false, desc: "State for demand data" },
+      { name: "dealerIds", type: "string", required: true, desc: "Comma-separated MarketCheck dealer IDs" },
+      { name: "state", type: "string", required: false, desc: "2-letter state code for demand baseline" },
     ],
     apiFlow: [
-      { step: 1, label: "All Store Inventories", apis: ["searchActive"], parallel: true, note: "Fetch inventory for every location in parallel" },
-      { step: 2, label: "Demand Data", apis: ["soldSummary"], parallel: false, note: "Fetch sold demand by make/model and body type" },
+      { step: 1, label: "Per-Rooftop Inventory + High-DOM Listings", apis: ["dealerInventoryActive"], parallel: true, note: "For each dealer ID, fetch /v2/car/dealer/inventory/active sorted by dom desc with stats=price,miles,dom and facets=body_type — returns both the inventory mix and the top high-DOM transfer candidate VINs in one call. All rooftops in parallel." },
+      { step: 2, label: "Dealer Profile Lookup", apis: ["dealerInfo"], parallel: true, note: "Fetch /v2/dealer/car/{id} per rooftop in parallel for the store name, city, and state" },
+      { step: 3, label: "State-Wide Demand Baseline", apis: ["searchRecents"], parallel: false, note: "Fetch sold-last-90-days facets by body_type for the state — used to score relative demand per segment" },
     ],
-    renders: "Transfer recommendation cards, supply/demand heatmap per location, mismatch alerts, transfer ROI estimate",
+    renders: "Per-rooftop demand profile cards, supply/demand matrix coloured by Balanced/Understocked/Overstocked, transfer recommendation table populated with real high-DOM VINs from each rooftop ranked by net benefit, group totals with avg demand and total floor-plan savings",
   },
   {
     id: "location-benchmarking",

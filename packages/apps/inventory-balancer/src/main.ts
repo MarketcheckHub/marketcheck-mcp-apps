@@ -66,15 +66,17 @@ function _mcIncentives(p) { const q={...p}; if(q.oem&&!q.make){q.make=q.oem;dele
 function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
 function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
 function _mcDealer(id) { return _mcApi("/dealer/car/" + id); }
+function _mcDealerInv(p) { return _mcApi("/car/dealer/inventory/active", p); }
 
 async function _fetchDirect(args) {
   const ids: string[] = (args?.dealerIds ?? []).filter(Boolean);
   if (!ids.length) return null;
   const state: string | undefined = args?.state || undefined;
+  // Per-dealer: rooftop info + inventory mix (facets/stats) with the top-DOM listings inline
   const dealerCalls = ids.map(async (id) => {
     const [info, inv] = await Promise.all([
       _mcDealer(id).catch(() => null),
-      _mcActive({ dealer_id: id, rows: 0, stats: "price,miles,dom", facets: "body_type" }).catch(() => null),
+      _mcDealerInv({ dealer_id: id, rows: 30, sort_by: "dom", sort_order: "desc", stats: "price,miles,dom", facets: "body_type" }).catch(() => null),
     ]);
     return { id, info, inv };
   });
@@ -585,7 +587,8 @@ function _liveToBalancerData(payload: any): BalancerData | null {
   const segments = Array.from(segSet).sort((a, b) => totals[b] - totals[a]).slice(0, 8);
   if (!segments.length) return null;
 
-  // Build store profiles
+  // Build store profiles + index real listings by store+segment for the recs table
+  const realListingsByStoreSeg: Record<string, Record<string, any[]>> = {};
   const stores: StoreProfile[] = dealers.map((d, idx) => {
     const info = d?.info ?? {};
     const id: string = String(d.id);
@@ -597,18 +600,110 @@ function _liveToBalancerData(payload: any): BalancerData | null {
     for (const seg of segments) {
       const f = facets.find((x) => x.item === seg);
       const inventory = f?.count ?? 0;
-      // Demand: prefer state-wide demand for this body_type; fall back to a moderate score
       const demand = demandByBody[seg] ?? 50;
       segMap[seg] = { inventory, demand };
     }
+    // Bucket the high-DOM listings we pulled (sort_by=dom desc) by body_type for this store
+    const listings: any[] = d?.inv?.listings ?? [];
+    const bucket: Record<string, any[]> = {};
+    for (const l of listings) {
+      const bt = l?.build?.body_type;
+      if (!bt) continue;
+      (bucket[bt] = bucket[bt] || []).push(l);
+    }
+    realListingsByStoreSeg[name] = bucket;
     return {
       location: { id: id || `store-${idx + 1}`, name, city, state },
       segments: segMap,
     };
   });
 
-  const recommendations = generateRecommendations(stores, segments);
+  const recommendations = generateLiveRecommendations(stores, segments, realListingsByStoreSeg);
   return { segments, stores, recommendations, source: "live" };
+}
+
+// Live recommendation generator — uses real high-DOM VINs from the source store.
+// Mirrors generateRecommendations() but pulls vinLast6/year/make/model/currentDom from listings.
+function generateLiveRecommendations(
+  stores: StoreProfile[],
+  segments: Segment[],
+  byStoreSeg: Record<string, Record<string, any[]>>,
+): TransferRecommendation[] {
+  const recs: TransferRecommendation[] = [];
+  const consumed: Record<string, Set<string>> = {}; // storeName → set of vins already used
+
+  for (const seg of segments) {
+    const storeRatios = stores.map((s) => {
+      const data = s.segments[seg] ?? { inventory: 0, demand: 0 };
+      const idealInventory = data.demand * 0.25;
+      const ratio = idealInventory > 0 ? data.inventory / idealInventory : 1;
+      return { store: s, ratio, data };
+    });
+    const overstocked = storeRatios.filter((r) => r.ratio > 1.2).sort((a, b) => b.ratio - a.ratio);
+    const understocked = storeRatios.filter((r) => r.ratio < 0.8).sort((a, b) => a.ratio - b.ratio);
+
+    for (const over of overstocked) {
+      const sourceStoreName = over.store.location.name;
+      const candidates: any[] = byStoreSeg[sourceStoreName]?.[seg] ?? [];
+      const used = (consumed[sourceStoreName] = consumed[sourceStoreName] || new Set());
+      let candIdx = 0;
+
+      for (const under of understocked) {
+        const surplus = Math.floor(over.data.inventory - over.data.demand * 0.25);
+        const deficit = Math.ceil(under.data.demand * 0.25 - under.data.inventory);
+        const transferCount = Math.min(surplus, deficit, 3);
+        if (transferCount <= 0) continue;
+
+        for (let t = 0; t < transferCount; t++) {
+          // Find the next unconsumed real listing for this store+segment
+          let listing: any = null;
+          while (candIdx < candidates.length) {
+            const c = candidates[candIdx++];
+            if (c?.vin && !used.has(c.vin)) { listing = c; used.add(c.vin); break; }
+          }
+
+          let vinLast6 = String(100000 + recs.length);
+          let year = 2022;
+          let make = "Mixed";
+          let model = seg;
+          let currentDom = 60;
+
+          if (listing) {
+            const v: string = listing.vin || "";
+            vinLast6 = v.slice(-6) || vinLast6;
+            year = listing.build?.year ?? year;
+            make = listing.build?.make ?? make;
+            model = listing.build?.model ?? model;
+            currentDom = listing.dom ?? listing.days_on_market ?? currentDom;
+          }
+
+          const demandFactor = under.data.demand / 100;
+          const estDomReduction = Math.max(1, Math.round(currentDom * demandFactor * 0.6));
+          const floorPlanSavings = estDomReduction * 35;
+          const demandPremium = Math.round((under.data.demand - over.data.demand) * 8);
+          const netBenefit = floorPlanSavings + demandPremium - TRANSPORT_COST;
+
+          recs.push({
+            vinLast6,
+            year,
+            make,
+            model,
+            segment: seg,
+            currentStore: sourceStoreName,
+            currentDom,
+            destStore: under.store.location.name,
+            localDemandScore: under.data.demand,
+            estDomReduction,
+            transportCost: TRANSPORT_COST,
+            netBenefit,
+          });
+        }
+      }
+    }
+  }
+
+  recs.sort((a, b) => b.netBenefit - a.netBenefit);
+  return recs.slice(0, 15);
 }
 
 // ── Main App ───────────────────────────────────────────────────────────

@@ -196,6 +196,22 @@ const API_ENDPOINTS = {
     ],
     returns: "id, seller_name, dealership_group_name, street, city, state, zip, listing_count, dealer_type",
   },
+  dealerInventoryActive: {
+    method: "GET",
+    path: "/v2/car/dealer/inventory/active",
+    name: "Dealer Inventory (Active)",
+    description: "Returns the active listings for a specific dealer ID with full per-VIN detail (price, miles, DOM, build, dealer). Unlike the generic /search/car/active endpoint, this one returns the listings array when scoped by dealer_id — making it the right call for per-rooftop inventory drill-downs and high-DOM transfer candidates.",
+    docUrl: "https://apidocs.marketcheck.com/",
+    params: [
+      { name: "dealer_id", type: "string", required: true, desc: "MarketCheck dealer ID" },
+      { name: "rows", type: "number", required: false, desc: "Number of listings (default 10, max 50)" },
+      { name: "sort_by", type: "string", required: false, desc: "Sort field: dom, price, miles, last_seen_at" },
+      { name: "sort_order", type: "string", required: false, desc: "asc or desc" },
+      { name: "stats", type: "string", required: false, desc: "Aggregate stats: price,miles,dom" },
+      { name: "facets", type: "string", required: false, desc: "Facet fields: body_type,make,model" },
+    ],
+    returns: "num_found, listings[] with vin, price, miles, dom, build{}, dealer{}, plus optional facets{} and stats{}",
+  },
 };
 
 // ── App Definitions ─────────────────────────────────────────────────────
@@ -614,11 +630,11 @@ const APPS = [
       { name: "state", type: "string", required: false, desc: "2-letter state code for demand baseline" },
     ],
     apiFlow: [
-      { step: 1, label: "Per-Rooftop Inventory Mix", apis: ["searchActive"], parallel: true, note: "For each dealer ID, fetch active inventory with stats=price,miles,dom and facets=body_type — every rooftop in parallel" },
+      { step: 1, label: "Per-Rooftop Inventory + High-DOM Listings", apis: ["dealerInventoryActive"], parallel: true, note: "For each dealer ID, fetch /v2/car/dealer/inventory/active sorted by dom desc with stats=price,miles,dom and facets=body_type — returns both the inventory mix and the top high-DOM transfer candidate VINs in one call. All rooftops in parallel." },
       { step: 2, label: "Dealer Profile Lookup", apis: ["dealerInfo"], parallel: true, note: "Fetch /v2/dealer/car/{id} per rooftop in parallel for the store name, city, and state" },
       { step: 3, label: "State-Wide Demand Baseline", apis: ["searchRecents"], parallel: false, note: "Fetch sold-last-90-days facets by body_type for the state — used to score relative demand per segment" },
     ],
-    renders: "Per-rooftop demand profile cards, supply/demand matrix coloured by Balanced/Understocked/Overstocked, transfer recommendation table ranked by net benefit, group totals with avg demand and total floor-plan savings",
+    renders: "Per-rooftop demand profile cards, supply/demand matrix coloured by Balanced/Understocked/Overstocked, transfer recommendation table populated with real high-DOM VINs from each rooftop ranked by net benefit, group totals with avg demand and total floor-plan savings",
   },
   {
     id: "location-benchmarking",

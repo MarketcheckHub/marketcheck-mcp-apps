@@ -366,12 +366,12 @@ https://apps.marketcheck.com/apps/inventory-balancer/dist/index.html?api_key=YOU
     <h2>API Call Flow</h2>
     <p>Here's the exact sequence of MarketCheck API calls this app makes, and which ones run in parallel:</p>
     <div class="flow-diagram">
-      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">Per-Rooftop Inventory Mix</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
+      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">Per-Rooftop Inventory + High-DOM Listings</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
           <div class="flow-api-card">
             <div class="flow-api-method">GET</div>
-            <code class="flow-api-path">/v2/search/car/active</code>
-            <div class="flow-api-name">Search Active Listings</div>
-          </div></div><div class="flow-note">For each dealer ID, fetch active inventory with stats=price,miles,dom and facets=body_type — every rooftop in parallel</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Dealer Profile Lookup</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
+            <code class="flow-api-path">/v2/car/dealer/inventory/active</code>
+            <div class="flow-api-name">Dealer Inventory (Active)</div>
+          </div></div><div class="flow-note">For each dealer ID, fetch /v2/car/dealer/inventory/active sorted by dom desc with stats=price,miles,dom and facets=body_type — returns both the inventory mix and the top high-DOM transfer candidate VINs in one call. All rooftops in parallel.</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Dealer Profile Lookup</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
           <div class="flow-api-card">
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/dealer/car/{id}</code>
@@ -406,19 +406,19 @@ https://apps.marketcheck.com/apps/inventory-balancer/dist/index.html?api_key=YOU
     <div class="api-detail-card">
       <div class="api-detail-header">
         <span class="api-method-badge">GET</span>
-        <code>/v2/search/car/active</code>
+        <code>/v2/car/dealer/inventory/active</code>
         
       </div>
-      <h4>Search Active Listings</h4>
-      <p>Search currently active car listings across 95%+ of US dealer inventory. Supports filters by make, model, year, ZIP, radius, price range, body type, and more. Returns listing details with photos, dealer info, and computed statistics.</p>
+      <h4>Dealer Inventory (Active)</h4>
+      <p>Returns the active listings for a specific dealer ID with full per-VIN detail (price, miles, DOM, build, dealer). Unlike the generic /search/car/active endpoint, this one returns the listings array when scoped by dealer_id — making it the right call for per-rooftop inventory drill-downs and high-DOM transfer candidates.</p>
       <table class="param-table">
         <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td><code>make</code></td><td>string</td><td>No</td><td>Vehicle make (e.g., Toyota)</td></tr><tr><td><code>model</code></td><td>string</td><td>No</td><td>Vehicle model (e.g., Camry)</td></tr><tr><td><code>year</code></td><td>string</td><td>No</td><td>Year or range (e.g., 2020-2022)</td></tr><tr><td><code>zip</code></td><td>string</td><td>No</td><td>Center ZIP for radius search</td></tr><tr><td><code>radius</code></td><td>number</td><td>No</td><td>Search radius in miles</td></tr><tr><td><code>rows</code></td><td>number</td><td>No</td><td>Number of results (max 50)</td></tr><tr><td><code>stats</code></td><td>string</td><td>No</td><td>Aggregate stats: price,miles,dom</td></tr><tr><td><code>sort_by</code></td><td>string</td><td>No</td><td>Sort field: price, miles, dom</td></tr><tr><td><code>sort_order</code></td><td>string</td><td>No</td><td>asc or desc</td></tr><tr><td><code>dealer_id</code></td><td>string</td><td>No</td><td>Filter by dealer ID</td></tr><tr><td><code>facets</code></td><td>string</td><td>No</td><td>Facet fields: make,model,body_type</td></tr>
+          <tr><td><code>dealer_id</code></td><td>string</td><td><span class="required">Yes</span></td><td>MarketCheck dealer ID</td></tr><tr><td><code>rows</code></td><td>number</td><td>No</td><td>Number of listings (default 10, max 50)</td></tr><tr><td><code>sort_by</code></td><td>string</td><td>No</td><td>Sort field: dom, price, miles, last_seen_at</td></tr><tr><td><code>sort_order</code></td><td>string</td><td>No</td><td>asc or desc</td></tr><tr><td><code>stats</code></td><td>string</td><td>No</td><td>Aggregate stats: price,miles,dom</td></tr><tr><td><code>facets</code></td><td>string</td><td>No</td><td>Facet fields: body_type,make,model</td></tr>
         </tbody>
       </table>
-      <div class="api-returns"><strong>Returns:</strong> num_found, listings[] with id, vin, price, miles, dom, dealer{}, media{}, stats{}</div>
-      <a href="https://apidocs.marketcheck.com/#search-active" target="_blank" class="api-doc-link">View full API documentation &#8599;</a>
+      <div class="api-returns"><strong>Returns:</strong> num_found, listings[] with vin, price, miles, dom, build{}, dealer{}, plus optional facets{} and stats{}</div>
+      <a href="https://apidocs.marketcheck.com/" target="_blank" class="api-doc-link">View full API documentation &#8599;</a>
     </div>
     <div class="api-detail-card">
       <div class="api-detail-header">
@@ -461,7 +461,7 @@ https://apps.marketcheck.com/apps/inventory-balancer/dist/index.html?api_key=YOU
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Per-rooftop demand profile cards</div><div class="render-item"><div class="render-dot"></div>supply/demand matrix coloured by Balanced/Understocked/Overstocked</div><div class="render-item"><div class="render-dot"></div>transfer recommendation table ranked by net benefit</div><div class="render-item"><div class="render-dot"></div>group totals with avg demand and total floor-plan savings</div>
+      <div class="render-item"><div class="render-dot"></div>Per-rooftop demand profile cards</div><div class="render-item"><div class="render-dot"></div>supply/demand matrix coloured by Balanced/Understocked/Overstocked</div><div class="render-item"><div class="render-dot"></div>transfer recommendation table populated with real high-DOM VINs from each rooftop ranked by net benefit</div><div class="render-item"><div class="render-dot"></div>group totals with avg demand and total floor-plan savings</div>
     </div>
   </div>
 

@@ -27,7 +27,7 @@ function _isEmbedMode(): boolean {
 function _getUrlParams(): Record<string, string> {
   const params = new URLSearchParams(location.search);
   const result: Record<string, string> = {};
-  for (const key of ["vin", "zip", "make", "model", "miles", "state", "dealer_id", "ticker", "price", "postal_code"]) {
+  for (const key of ["vin", "zip", "make", "model", "miles", "state", "dealer_id", "ticker", "price", "postal_code", "radius", "year_min", "year_max", "price_min", "price_max"]) {
     const v = params.get(key);
     if (v) result[key] = v;
   }
@@ -257,6 +257,51 @@ const MOCK_RECENT_SALES: RecentSale[] = [
 const UK_MAKES = ["Any", "Audi", "BMW", "Ford", "Honda", "Hyundai", "Kia", "Mercedes-Benz", "Nissan", "Peugeot", "Renault", "SEAT", "Skoda", "Toyota", "Vauxhall", "Volkswagen", "Volvo"];
 const RADIUS_OPTIONS = [10, 25, 50, 100, 200];
 
+// ── API Normalizers ────────────────────────────────────────────────────────
+// MarketCheck UK API returns listings with nested `build` and `dealer` objects
+// (e.g. listing.build.year, listing.dealer.city). A proxy may pre-flatten these.
+// These normalizers accept either shape and return the flat UkListing / RecentSale
+// the UI renders from.
+function _normalizeListing(l: any, idx: number): UkListing {
+  const b = l.build || {};
+  const d = l.dealer || {};
+  const engine = l.engine ?? b.engine ?? (b.engine_size ? `${b.engine_size}L` : "") ?? "";
+  return {
+    id: String(l.id ?? l.vin ?? `API-${idx}`),
+    year: Number(l.year ?? b.year ?? 0),
+    make: String(l.make ?? b.make ?? ""),
+    model: String(l.model ?? b.model ?? ""),
+    trim: String(l.trim ?? b.trim ?? ""),
+    price: Number(l.price ?? 0),
+    miles: Number(l.miles ?? 0),
+    city: String(l.city ?? d.city ?? ""),
+    dealer_name: String(l.dealer_name ?? d.dealer_name ?? d.name ?? ""),
+    body_type: String(l.body_type ?? b.body_type ?? ""),
+    fuel_type: String(l.fuel_type ?? b.fuel_type ?? ""),
+    engine: String(engine),
+    transmission: String(l.transmission ?? b.transmission ?? ""),
+    exterior_color: String(l.exterior_color ?? l.ref_color ?? b.exterior_color ?? ""),
+    registration: String(l.registration ?? l.registration_num ?? l.vin ?? ""),
+  };
+}
+
+function _normalizeRecent(r: any): RecentSale {
+  const b = r.build || {};
+  const d = r.dealer || {};
+  return {
+    year: Number(r.year ?? b.year ?? 0),
+    make: String(r.make ?? b.make ?? ""),
+    model: String(r.model ?? b.model ?? ""),
+    trim: String(r.trim ?? b.trim ?? ""),
+    price: Number(r.price ?? r.last_seen_price ?? 0),
+    miles: Number(r.miles ?? 0),
+    // UK Recents returns close-out date as `last_seen_at_date` (ISO string).
+    // Slice to YYYY-MM-DD so the Recently Sold table stays compact.
+    sold_date: String(r.sold_date ?? r.last_seen_at_date ?? r.last_seen_date ?? r.removed_date ?? "").slice(0, 10),
+    city: String(r.city ?? d.city ?? ""),
+  };
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 function fmtGBP(v: number | undefined): string {
   if (v == null || isNaN(v)) return "N/A";
@@ -349,12 +394,19 @@ async function loadData() {
     const result = await _callTool("search-uk-cars", args);
     if (result) {
       const data = JSON.parse(result.content[0].text);
-      if (data.listings && data.listings.length > 0) {
-        listings = data.listings;
-        recentSales = data.recent_sales || [];
-        numFound = data.num_found || listings.length;
-        avgPrice = data.stats?.price?.avg || 0;
-        avgMiles = data.stats?.miles?.avg || 0;
+      // Unwrap {active, recent} (direct fetch) or treat {listings, ...} (proxy) as root.
+      const activeSrc = data.active ?? data;
+      const recentSrc = data.recent ?? data;
+      const rawListings: any[] = activeSrc?.listings ?? [];
+      const rawRecent: any[] = recentSrc?.listings ?? recentSrc?.recent_sales ?? [];
+      if (rawListings.length > 0) {
+        listings = rawListings.map(_normalizeListing);
+        recentSales = rawRecent.slice(0, 10).map(_normalizeRecent);
+        numFound = activeSrc?.num_found ?? listings.length;
+        const priceStats = activeSrc?.stats?.price ?? {};
+        const milesStats = activeSrc?.stats?.miles ?? {};
+        avgPrice = priceStats.avg ?? priceStats.mean ?? (listings.reduce((s, l) => s + l.price, 0) / listings.length);
+        avgMiles = milesStats.avg ?? milesStats.mean ?? (listings.reduce((s, l) => s + l.miles, 0) / listings.length);
         searchPerformed = true;
         loading = false;
         render();
@@ -420,16 +472,7 @@ function render() {
 
   const container = el("div", { style: "max-width:1400px;margin:0 auto;padding:20px;" });
 
-  // Search Form
-  renderSearchForm(container);
-
-  if (loading) {
-    const spin = el("div", { style: "text-align:center;padding:60px 0;" });
-    spin.innerHTML = `<div style="display:inline-block;width:40px;height:40px;border:3px solid #334155;border-top-color:#3b82f6;border-radius:50%;animation:spin 0.8s linear infinite;"></div><div style="margin-top:12px;color:#94a3b8;font-size:14px;">Searching UK market...</div>`;
-    container.appendChild(spin);
-    document.body.appendChild(container);
-
-  // ── Demo mode banner ──
+  // ── Demo mode banner (always visible while in demo mode) ──
   if (_detectAppMode() === "demo") {
     const _db = document.createElement("div");
     _db.id = "_demo_banner";
@@ -444,8 +487,8 @@ function render() {
         <button id="_banner_save" style="padding:8px 16px;border-radius:6px;border:none;background:#f59e0b;color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Activate</button>
       </div>`;
     container.appendChild(_db);
-    _db.querySelector("#_banner_save").addEventListener("click", () => {
-      const k = _db.querySelector("#_banner_key").value.trim();
+    _db.querySelector("#_banner_save")!.addEventListener("click", () => {
+      const k = (_db.querySelector("#_banner_key") as HTMLInputElement).value.trim();
       if (!k) return;
       localStorage.setItem("mc_api_key", k);
       _db.style.background = "linear-gradient(135deg,#05966922,#10b98111)";
@@ -453,8 +496,17 @@ function render() {
       _db.innerHTML = '<div style="font-size:13px;font-weight:700;color:#10b981;">&#10003; API key saved — reloading with live data...</div>';
       setTimeout(() => location.reload(), 800);
     });
-    _db.querySelector("#_banner_key").addEventListener("keydown", (e) => { if (e.key === "Enter") _db.querySelector("#_banner_save").click(); });
+    _db.querySelector("#_banner_key")!.addEventListener("keydown", (e) => { if ((e as KeyboardEvent).key === "Enter") (_db.querySelector("#_banner_save") as HTMLElement).click(); });
   }
+
+  // Search Form
+  renderSearchForm(container);
+
+  if (loading) {
+    const spin = el("div", { style: "text-align:center;padding:60px 0;" });
+    spin.innerHTML = `<div style="display:inline-block;width:40px;height:40px;border:3px solid #334155;border-top-color:#3b82f6;border-radius:50%;animation:spin 0.8s linear infinite;"></div><div style="margin-top:12px;color:#94a3b8;font-size:14px;">Searching UK market...</div>`;
+    container.appendChild(spin);
+    document.body.appendChild(container);
     return;
   }
 
@@ -975,8 +1027,16 @@ const urlParams = _getUrlParams();
 if (urlParams.postal_code) searchState.postal_code = urlParams.postal_code;
 if (urlParams.make) searchState.make = urlParams.make;
 if (urlParams.model) searchState.model = urlParams.model;
+if (urlParams.radius) {
+  const r = parseInt(urlParams.radius);
+  if (!isNaN(r)) searchState.radius = r;
+}
+if (urlParams.year_min) searchState.year_min = urlParams.year_min;
+if (urlParams.year_max) searchState.year_max = urlParams.year_max;
+if (urlParams.price_min) searchState.price_min = urlParams.price_min;
+if (urlParams.price_max) searchState.price_max = urlParams.price_max;
 
-if (searchState.postal_code || searchState.make !== "Any") {
+if (searchState.postal_code || searchState.make !== "Any" || searchState.model) {
   loadData();
 } else {
   render();

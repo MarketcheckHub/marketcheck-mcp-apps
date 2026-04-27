@@ -705,8 +705,13 @@ const APPS = [
     urlParams: [
       { name: "api_key", desc: "Your MarketCheck API key — activates live VIN decode and pricing for each portfolio VIN" },
       { name: "zip", desc: "Central ZIP code for localized market pricing context (e.g. 90210, 10001, 60601)" },
-      { name: "vins", desc: "Semicolon-separated VIN,LoanAmount pairs to pre-fill the portfolio (e.g. 5YJSA1E26MF100001,38000;1FTFW1E85MFA00002,42000)" },
+      { name: "vins", desc: "Semicolon-separated VIN,LoanAmount pairs to pre-fill the portfolio (e.g. KNDCB3LC9L5359658,20000;1HGCV1F34LA000001,25000)" },
       { name: "scenario", desc: "Pre-select stress scenario: ev_drop_20 | trucks_drop_15 | market_wide_10 | custom" },
+    ],
+    urlExamples: [
+      { label: "Basic — run EV stress scenario on two loans", params: "vins=KNDCB3LC9L5359658,20000;1HGCV1F34LA000001,25000&zip=90210&scenario=ev_drop_20" },
+      { label: "Market-wide decline — mixed portfolio with ZIP context", params: "vins=KNDCB3LC9L5359658,20000;1FTFW1E85MFA00001,42000;5YJSA1E26MF000001,52000&zip=10001&scenario=market_wide_10" },
+      { label: "Custom drop — trucks portfolio", params: "vins=1FTFW1E85MFA00001,42000;1FTFW1E85MFA00002,38000&zip=60601&scenario=custom" },
     ],
   },
   {
@@ -1920,17 +1925,14 @@ pre.code-block {
       </tbody>
     </table>
     <h3>URL Examples</h3>
-    <pre class="code-block"># Basic — auto-generate a report for a VIN
+    <pre class="code-block">${app.urlExamples ? app.urlExamples.map(ex => `# ${ex.label}\nhttps://apps.marketcheck.com/apps/${app.id}/dist/index.html?api_key=YOUR_KEY&amp;${ex.params}`).join("\n\n") : `# Basic — auto-generate a report for a VIN
 https://apps.marketcheck.com/apps/${app.id}/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
 
 # Full — with asking price, mileage, and ZIP for deal scoring
 https://apps.marketcheck.com/apps/${app.id}/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
 
 # Compact widget — for iframe embeds (400px width)
-https://apps.marketcheck.com/apps/${app.id}/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
-
-# Using aliases
-https://apps.marketcheck.com/apps/${app.id}/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+https://apps.marketcheck.com/apps/${app.id}/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true`}</pre>
   </div>` : ""}
 
   <!-- Screenshot -->

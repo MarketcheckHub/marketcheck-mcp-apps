@@ -99,33 +99,6 @@ function _addSettingsBar(headerEl?: HTMLElement) {
     gear.addEventListener("click", () => { panel.style.display = panel.style.display === "none" ? "block" : "none"; });
     document.addEventListener("click", (e) => { if (!panel.contains(e.target as Node) && e.target !== gear) panel.style.display = "none"; });
     document.body.appendChild(panel);
-
-  // ── Demo mode banner ──
-  if (_detectAppMode() === "demo") {
-    const _db = document.createElement("div");
-    _db.id = "_demo_banner";
-    _db.style.cssText = "background:linear-gradient(135deg,#92400e22,#f59e0b11);border:1px solid #f59e0b44;border-radius:10px;padding:14px 20px;margin-bottom:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;";
-    _db.innerHTML = `
-      <div style="flex:1;min-width:200px;">
-        <div style="font-size:13px;font-weight:700;color:#fbbf24;margin-bottom:2px;">&#9888; Demo Mode — Showing sample data</div>
-        <div style="font-size:12px;color:#d97706;">Enter your MarketCheck API key to see real market data. <a href="https://developers.marketcheck.com" target="_blank" style="color:#fbbf24;text-decoration:underline;">Get a free key</a></div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <input id="_banner_key" type="text" placeholder="Paste your API key" style="padding:8px 12px;border-radius:6px;border:1px solid #f59e0b44;background:#0f172a;color:#e2e8f0;font-size:13px;width:220px;outline:none;" />
-        <button id="_banner_save" style="padding:8px 16px;border-radius:6px;border:none;background:#f59e0b;color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Activate</button>
-      </div>`;
-    document.body.insertBefore(_db, document.body.firstChild);
-    _db.querySelector("#_banner_save").addEventListener("click", () => {
-      const k = _db.querySelector("#_banner_key").value.trim();
-      if (!k) return;
-      localStorage.setItem("mc_api_key", k);
-      _db.style.background = "linear-gradient(135deg,#05966922,#10b98111)";
-      _db.style.borderColor = "#10b98144";
-      _db.innerHTML = '<div style="font-size:13px;font-weight:700;color:#10b981;">&#10003; API key saved — reloading with live data...</div>';
-      setTimeout(() => location.reload(), 800);
-    });
-    _db.querySelector("#_banner_key").addEventListener("keydown", (e) => { if (e.key === "Enter") _db.querySelector("#_banner_save").click(); });
-  }
     setTimeout(() => { document.getElementById("_mc_save")?.addEventListener("click", () => { const k = (document.getElementById("_mc_key_inp") as HTMLInputElement)?.value?.trim(); if (k) { localStorage.setItem("mc_api_key", k); location.reload(); } }); document.getElementById("_mc_clear")?.addEventListener("click", () => { localStorage.removeItem("mc_api_key"); localStorage.removeItem("mc_access_token"); location.reload(); }); }, 0);
     bar.appendChild(gear);
   }
@@ -867,6 +840,33 @@ function initApp(): void {
 
   const header = document.getElementById("app-header");
   if (header) _addSettingsBar(header);
+
+  // ── Demo mode banner ──
+  if (_detectAppMode() === "demo") {
+    const _db = document.createElement("div");
+    _db.id = "_demo_banner";
+    _db.style.cssText = "background:linear-gradient(135deg,#92400e22,#f59e0b11);border:1px solid #f59e0b44;border-radius:10px;padding:14px 20px;margin-bottom:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;";
+    _db.innerHTML = `
+      <div style="flex:1;min-width:200px;">
+        <div style="font-size:13px;font-weight:700;color:#fbbf24;margin-bottom:2px;">&#9888; Demo Mode — Showing sample data</div>
+        <div style="font-size:12px;color:#d97706;">Enter your MarketCheck API key to see real market data. <a href="https://developers.marketcheck.com" target="_blank" style="color:#fbbf24;text-decoration:underline;">Get a free key</a></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input id="_banner_key" type="text" placeholder="Paste your API key" style="padding:8px 12px;border-radius:6px;border:1px solid #f59e0b44;background:#0f172a;color:#e2e8f0;font-size:13px;width:220px;outline:none;" />
+        <button id="_banner_save" style="padding:8px 16px;border-radius:6px;border:none;background:#f59e0b;color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Activate</button>
+      </div>`;
+    document.body.insertBefore(_db, document.body.firstChild);
+    _db.querySelector("#_banner_save")!.addEventListener("click", () => {
+      const k = (_db.querySelector("#_banner_key") as HTMLInputElement).value.trim();
+      if (!k) return;
+      localStorage.setItem("mc_api_key", k);
+      _db.style.background = "linear-gradient(135deg,#05966922,#10b98111)";
+      _db.style.borderColor = "#10b98144";
+      _db.innerHTML = '<div style="font-size:13px;font-weight:700;color:#10b981;">&#10003; API key saved — reloading with live data...</div>';
+      setTimeout(() => location.reload(), 800);
+    });
+    (_db.querySelector("#_banner_key") as HTMLInputElement).addEventListener("keydown", (e) => { if (e.key === "Enter") (_db.querySelector("#_banner_save") as HTMLButtonElement).click(); });
+  }
 
   bindScenarioCards();
 

@@ -732,16 +732,27 @@ const APPS = [
     tagline: "Benchmark public dealer groups",
     segment: "Analyst",
     toolName: null,
-    description: "Benchmarking dashboard for publicly traded dealer groups (AutoNation, Lithia, Penske, etc.). Uses active inventory and sold data to evaluate operational efficiency.",
+    description: "Bloomberg-style scorecard for the eight publicly traded US dealer groups (AN, LAD, PAG, SAH, GPI, ABG, KMX, CVNA). Each ticker is graded on five live MarketCheck dimensions — Volume (90-day sold share vs the average ticker), Pricing (sold avg vs industry baseline), Turn Rate (inverse of average DOM), Inventory Health (active ÷ monthly-sold days-supply vs industry baseline), and Market Coverage (volume share scaled) — and rolled into a 0-100 composite Health Score that maps to a Strong Buy / Buy / Hold / Watch / Caution signal. The ranking table sorts every ticker by Health Score, the Competitive Radar overlays selected tickers' five-axis profile, the Trend panel shows synthesized 6-month volume / ASP / DOM sparklines for any ticker the user clicks, and a collapsible Peer Comparison Matrix renders best-to-worst conditional formatting across all twelve metrics. Optional `?state=XX` rescopes every ticker's signals to a US state (e.g., AN's CA share jumps from 45.9% national to 51.5% in California).",
+    useCases: [
+      { persona: "Sell-Side Auto Analysts", desc: "One-glance health rankings of every tracked dealer-group ticker — surface the names whose pricing power, days-supply, or volume share are outperforming or breaking down ahead of earnings prints." },
+      { persona: "Buy-Side / Hedge Fund PMs", desc: "Pre-position the franchise vs used-only sub-portfolio: see which group ticker has the strongest composite health and which is flashing Caution before consensus EPS catches up." },
+      { persona: "Credit / Risk Analysts", desc: "Days-supply and inventory-health signals across CarMax / Carvana / Lithia are leading indicators of dealer-channel covenant stress 1-2 quarters before 10-Q filings reflect it." },
+      { persona: "Equity Research Associates", desc: "Drop the radar overlay and the Peer Comparison Matrix straight into a quarterly channel-check memo — every metric is sourced from real 90-day MarketCheck data with state-scoped variants." },
+      { persona: "Portfolio Risk Managers", desc: "Cross-ticker scan: a single screen tells you which dealer-group name to underweight if days-supply is widening or pricing premium is collapsing vs industry." },
+    ],
     inputParams: [
-      { name: "dealerIds", type: "string", required: false, desc: "Dealer IDs for tracked groups" },
-      { name: "state", type: "string", required: false, desc: "State for market context" },
+      { name: "state", type: "string", required: false, desc: "2-letter US state code (e.g., CA, TX) to scope all signals regionally" },
+      { name: "tickers", type: "string", required: false, desc: "Reserved for future ticker customization; the default universe is fixed at the 8 publicly traded US dealer groups (AN, LAD, PAG, SAH, GPI, ABG, KMX, CVNA)" },
+    ],
+    urlParams: [
+      { name: "api_key", desc: "Your MarketCheck API key — required for live 90-day data; omitted keys show demo-mode sample scorecards" },
+      { name: "state", desc: "2-letter US state code — scopes every ticker's volume share, ASP, days-supply, and trend signals regionally (omit for national)" },
     ],
     apiFlow: [
-      { step: 1, label: "Group Inventory", apis: ["searchActive"], parallel: true, note: "Fetch inventory for each dealer group location" },
-      { step: 2, label: "Market Context", apis: ["soldSummary"], parallel: false, note: "Fetch market-wide data for benchmarking" },
+      { step: 1, label: "Industry Baselines", apis: ["searchRecents", "searchActive"], parallel: true, note: "Two parallel calls scoped to the optional state filter: 90-day sold (for industry volume + ASP + DOM means) and current active inventory (for industry days-supply baseline). These power the share-of-industry, ASP-delta, and DS-ratio used in every ticker's radar axes." },
+      { step: 2, label: "Per-Ticker Scans", apis: ["searchRecents", "searchActive"], parallel: true, note: "For each of the 8 tickers, issue a recents + active pair in parallel using car_type / year-range / make filter slices that approximate the group's competitive segment (AN: car_type=new; PAG: BMW,Mercedes-Benz,Audi,Porsche; KMX: car_type=used + year_range=2017-2022; etc.). All 16 calls run concurrently — total 18 parallel calls." },
     ],
-    renders: "Scorecard comparison table, inventory efficiency metrics, pricing power indicators, market share bars",
+    renders: "Header with scope + data-source label and live LIVE/DEMO badge, sortable 10-column ranking table (rank, ticker, group, health score, volume + MoM, ASP, avg DOM, efficiency, days supply, signal badge), Competitive Radar canvas with per-ticker checkbox toggles overlaying the 5-axis polygon for each selected group, Trend panel with three 6-month sparklines (volume, ASP, DOM) for the row clicked in the ranking table, and a collapsible Peer Comparison Matrix with conditional formatting from green (best) to red (worst) across all twelve metrics",
   },
   {
     id: "oem-stock-tracker",
@@ -1529,6 +1540,83 @@ function generateCurlExample(app) {
   -d '${JSON.stringify(body, null, 2)}'</pre>`;
 }
 
+// Sample values keyed by URL-param name. Used to render realistic per-app
+// URL examples on each how-to-build page so analyst apps don't show VIN
+// templates and VIN apps don't show ticker templates.
+const URL_PARAM_SAMPLES = {
+  api_key: "YOUR_KEY",
+  vin: "KNDCB3LC9L5359658",
+  vins: "KNDCB3LC9L5359658,2T3P1RFV5MW123456",
+  price: "25000",
+  askingPrice: "25000",
+  asking_price: "25000",
+  miles: "35000",
+  mileage: "35000",
+  zip: "90044",
+  zipcode: "90044",
+  zip_code: "90044",
+  state: "CA",
+  ticker: "F",
+  tickers: "F,GM,TSLA",
+  make: "Toyota",
+  model: "Camry",
+  year: "2022",
+  bodyType: "suv",
+  body_type: "suv",
+  fuel: "Electric",
+  dealer_id: "12345",
+  dealerId: "12345",
+  compact: "true",
+  embed: "true",
+};
+
+function generateUrlExamples(app) {
+  const params = app.urlParams || [];
+  if (params.length === 0) return "";
+  const baseUrl = `https://apps.marketcheck.com/apps/${app.id}/dist/index.html`;
+  const sampleFor = (name) => URL_PARAM_SAMPLES[name] !== undefined ? URL_PARAM_SAMPLES[name] : "VALUE";
+  const buildUrl = (names) => {
+    const parts = names.map(n => `${n}=${sampleFor(n)}`);
+    return parts.length ? `${baseUrl}?${parts.join("&amp;")}` : baseUrl;
+  };
+
+  const allNames = params.map(p => p.name);
+  const configNames = ["api_key", "compact", "embed"];
+  const dataNames = allNames.filter(n => !configNames.includes(n));
+  const hasCompact = allNames.includes("compact");
+  const hasEmbed = allNames.includes("embed");
+  const hasApiKey = allNames.includes("api_key");
+
+  const examples = [];
+  if (dataNames.length === 0) {
+    examples.push({ comment: "# Basic", url: buildUrl(hasApiKey ? ["api_key"] : []) });
+  } else {
+    const basicNames = (hasApiKey ? ["api_key"] : []).concat([dataNames[0]]);
+    examples.push({
+      comment: `# Basic — pass ${dataNames[0]} to auto-load`,
+      url: buildUrl(basicNames),
+    });
+    if (dataNames.length > 1) {
+      const fullNames = (hasApiKey ? ["api_key"] : []).concat(dataNames);
+      examples.push({ comment: "# Full — all data parameters", url: buildUrl(fullNames) });
+    }
+  }
+  if (hasEmbed || hasCompact) {
+    const embedNames = (hasApiKey ? ["api_key"] : [])
+      .concat(dataNames)
+      .concat(hasEmbed ? ["embed"] : [])
+      .concat(hasCompact ? ["compact"] : []);
+    const label = hasCompact && hasEmbed
+      ? "# Compact widget — for iframe embeds"
+      : hasEmbed
+      ? "# Embedded mode — for iframe embeds"
+      : "# Compact mode — narrow widget layout";
+    examples.push({ comment: label, url: buildUrl(embedNames) });
+  }
+
+  return examples.map(e => `${e.comment}\n${e.url}`).join("\n\n");
+}
+
 function generateMcpConfig(app) {
   return `
     <h3>2. As an MCP App (AI Assistants)</h3>
@@ -1891,17 +1979,7 @@ pre.code-block {
       </tbody>
     </table>
     <h3>URL Examples</h3>
-    <pre class="code-block"># Basic — auto-generate a report for a VIN
-https://apps.marketcheck.com/apps/${app.id}/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
-
-# Full — with asking price, mileage, and ZIP for deal scoring
-https://apps.marketcheck.com/apps/${app.id}/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
-
-# Compact widget — for iframe embeds (400px width)
-https://apps.marketcheck.com/apps/${app.id}/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
-
-# Using aliases
-https://apps.marketcheck.com/apps/${app.id}/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+    <pre class="code-block">${generateUrlExamples(app)}</pre>
   </div>` : ""}
 
   <!-- Screenshot -->

@@ -66,39 +66,33 @@ interface FetchArgs { myBrand: string; competitors?: string[]; }
 
 async function _fetchDirect(args: FetchArgs): Promise<RawApiData> {
   const myBrand = args.myBrand;
-  // Step 1: parallel — EV leaderboard by make + my brand's EV volume by state
-  // Step 2: parallel — EV vs ICE price parity by body_type+fuel_type + total brand make rankings
-  const [evByMake, myEvByState, evIcePriceParity, totalByMake] = await Promise.all([
-    _mcSold({
-      ranking_dimensions: "make,fuel_type_category",
-      ranking_measure: "sold_count,average_sale_price,average_days_on_market",
-      ranking_order: "desc",
-      top_n: 60,
-      inventory_type: "Used",
-    }),
-    _mcSold({
-      ranking_dimensions: "state,fuel_type_category",
-      ranking_measure: "sold_count,average_sale_price",
-      ranking_order: "desc",
-      top_n: 200,
-      inventory_type: "Used",
-    }),
-    _mcSold({
-      ranking_dimensions: "body_type,fuel_type_category",
-      ranking_measure: "sold_count,average_sale_price",
-      ranking_order: "desc",
-      top_n: 60,
-      inventory_type: "Used",
-    }),
-    _mcSold({
-      ranking_dimensions: "make",
-      ranking_measure: "sold_count,average_sale_price",
-      ranking_order: "desc",
-      top_n: 30,
-      inventory_type: "Used",
-    }),
+  // The Sold Vehicle Summary API only allows ranking_dimensions in
+  // {body_type, dealership_group_name, make, model} and a single ranking_measure
+  // per call, so we split the analytic shapes we need across 9 parallel calls.
+  // fuel_type_category and make ride as filter params (not dimensions).
+  const base = { inventory_type: "Used", ranking_order: "desc" };
+  const [
+    evMakeVol,
+    evMakePrice,
+    evMakeDom,
+    totalMakeVol,
+    evBodyPrice,
+    iceBodyPrice,
+    evBodyVol,
+    iceBodyVol,
+    myEvModels,
+  ] = await Promise.all([
+    _mcSold({ ...base, ranking_dimensions: "make", ranking_measure: "sold_count", fuel_type_category: "EV", top_n: 25 }),
+    _mcSold({ ...base, ranking_dimensions: "make", ranking_measure: "average_sale_price", fuel_type_category: "EV", top_n: 25 }),
+    _mcSold({ ...base, ranking_dimensions: "make", ranking_measure: "average_days_on_market", fuel_type_category: "EV", top_n: 25 }),
+    _mcSold({ ...base, ranking_dimensions: "make", ranking_measure: "sold_count", top_n: 30 }),
+    _mcSold({ ...base, ranking_dimensions: "body_type", ranking_measure: "average_sale_price", fuel_type_category: "EV" }),
+    _mcSold({ ...base, ranking_dimensions: "body_type", ranking_measure: "average_sale_price", fuel_type_category: "ICE" }),
+    _mcSold({ ...base, ranking_dimensions: "body_type", ranking_measure: "sold_count", fuel_type_category: "EV" }),
+    _mcSold({ ...base, ranking_dimensions: "body_type", ranking_measure: "sold_count", fuel_type_category: "ICE" }),
+    _mcSold({ ...base, ranking_dimensions: "model", ranking_measure: "sold_count", make: myBrand, fuel_type_category: "EV", top_n: 10 }),
   ]);
-  return { evByMake, myEvByState, evIcePriceParity, totalByMake, myBrand };
+  return { evMakeVol, evMakePrice, evMakeDom, totalMakeVol, evBodyPrice, iceBodyPrice, evBodyVol, iceBodyVol, myEvModels, myBrand };
 }
 
 async function _callTool(toolName: string, args: any): Promise<any> {
@@ -196,10 +190,15 @@ function _addSettingsBar(headerEl?: HTMLElement) {
 // ─── Types ──────────────────────────────────────────────────────────────
 
 interface RawApiData {
-  evByMake: any;
-  myEvByState: any;
-  evIcePriceParity: any;
-  totalByMake: any;
+  evMakeVol: any;
+  evMakePrice: any;
+  evMakeDom: any;
+  totalMakeVol: any;
+  evBodyPrice: any;
+  iceBodyPrice: any;
+  evBodyVol: any;
+  iceBodyVol: any;
+  myEvModels: any;
   myBrand: string;
 }
 
@@ -215,12 +214,9 @@ interface CompetitorRow {
   isMyBrand: boolean;
 }
 
-interface StateRow {
-  state: string;
+interface ModelRow {
+  model: string;
   evVolume: number;
-  totalVolume: number;
-  evSharePct: number;
-  evAvgPrice: number;
 }
 
 interface ParityRow {
@@ -238,7 +234,7 @@ interface ReportData {
   competitors: CompetitorRow[];
   marketEvSharePct: number;
   electrificationScore: number; // 0–100
-  stateRows: StateRow[];
+  myEvModels: ModelRow[];
   parityRows: ParityRow[];
   trendPoints: { label: string; mixPct: number }[];
 }
@@ -266,26 +262,41 @@ const ALL_EV_BRANDS = [
   { brand: "Mazda", evSold: 3200, iceSold: 360000, evAvgPrice: 39200, iceAvgPrice: 28800, evDom: 60 },
 ];
 
-const STATE_EV_MIX: Record<string, { state: string; ev: number; total: number; price: number }[]> = {
+const TOP_EV_MODELS_BY_BRAND: Record<string, ModelRow[]> = {
+  Tesla: [
+    { model: "Model Y", evVolume: 184200 },
+    { model: "Model 3", evVolume: 142800 },
+    { model: "Model S", evVolume: 38400 },
+    { model: "Model X", evVolume: 28600 },
+    { model: "Cybertruck", evVolume: 18800 },
+  ],
+  Ford: [
+    { model: "Mustang Mach-E", evVolume: 41200 },
+    { model: "F-150 Lightning", evVolume: 28400 },
+    { model: "E-Transit", evVolume: 8800 },
+  ],
+  Hyundai: [
+    { model: "Ioniq 5", evVolume: 24600 },
+    { model: "Ioniq 6", evVolume: 14800 },
+    { model: "Kona Electric", evVolume: 12400 },
+    { model: "Ioniq 9", evVolume: 6800 },
+  ],
+  Kia: [
+    { model: "EV6", evVolume: 22400 },
+    { model: "Niro EV", evVolume: 14200 },
+    { model: "EV9", evVolume: 14600 },
+  ],
+  Chevrolet: [
+    { model: "Bolt EUV", evVolume: 28400 },
+    { model: "Bolt EV", evVolume: 18600 },
+    { model: "Blazer EV", evVolume: 9800 },
+    { model: "Equinox EV", evVolume: 7400 },
+  ],
   default: [
-    { state: "CA", ev: 14200, total: 92400, price: 44200 },
-    { state: "TX", ev: 6400, total: 86200, price: 42100 },
-    { state: "FL", ev: 5800, total: 78400, price: 41800 },
-    { state: "NY", ev: 4200, total: 52400, price: 43600 },
-    { state: "NJ", ev: 3400, total: 38200, price: 43200 },
-    { state: "WA", ev: 3200, total: 28400, price: 42800 },
-    { state: "MA", ev: 2800, total: 32100, price: 43100 },
-    { state: "CO", ev: 2400, total: 28600, price: 42400 },
-    { state: "AZ", ev: 2200, total: 41200, price: 41200 },
-    { state: "IL", ev: 2100, total: 48400, price: 41800 },
-    { state: "VA", ev: 2000, total: 38600, price: 42400 },
-    { state: "OR", ev: 1900, total: 18400, price: 42100 },
-    { state: "GA", ev: 1800, total: 52400, price: 41200 },
-    { state: "PA", ev: 1700, total: 46200, price: 41400 },
-    { state: "MD", ev: 1600, total: 26800, price: 42600 },
-    { state: "NC", ev: 1500, total: 41600, price: 41200 },
-    { state: "OH", ev: 1400, total: 48200, price: 40800 },
-    { state: "MI", ev: 1300, total: 38400, price: 40400 },
+    { model: "Top EV Model A", evVolume: 18400 },
+    { model: "Top EV Model B", evVolume: 12600 },
+    { model: "Top EV Model C", evVolume: 8200 },
+    { model: "Top EV Model D", evVolume: 5400 },
   ],
 };
 
@@ -360,14 +371,7 @@ function getMockData(myBrand: string, competitors: string[]): ReportData {
   const totalAll = ALL_EV_BRANDS.reduce((s, b) => s + b.evSold + b.iceSold, 0);
   const marketEvSharePct = totalAll > 0 ? (totalEv / totalAll) * 100 : 0;
 
-  const stateData = STATE_EV_MIX.default;
-  const stateRows: StateRow[] = stateData.map(s => ({
-    state: s.state,
-    evVolume: s.ev,
-    totalVolume: s.total,
-    evSharePct: (s.ev / s.total) * 100,
-    evAvgPrice: s.price,
-  }));
+  const myEvModels = TOP_EV_MODELS_BY_BRAND[myBrand] ?? TOP_EV_MODELS_BY_BRAND.default;
 
   const parityRows: ParityRow[] = PARITY_BY_BODY.map(p => ({
     bodyType: p.bodyType,
@@ -386,7 +390,7 @@ function getMockData(myBrand: string, competitors: string[]): ReportData {
     competitors: competitorRows,
     marketEvSharePct,
     electrificationScore: computeElectrificationScore(myRow, marketEvSharePct, trendPoints),
-    stateRows,
+    myEvModels,
     parityRows,
     trendPoints,
   };
@@ -410,18 +414,6 @@ function computeElectrificationScore(
 
 // ─── API Response Parsing ──────────────────────────────────────────────
 
-function isEvFuel(fuel: string | undefined): boolean {
-  if (!fuel) return false;
-  const f = fuel.toLowerCase();
-  return f.includes("electric") || f === "ev" || f === "bev";
-}
-
-function isIceFuel(fuel: string | undefined): boolean {
-  if (!fuel) return false;
-  const f = fuel.toLowerCase();
-  return f === "gasoline" || f === "gas" || f === "diesel" || f.includes("petrol");
-}
-
 function pickRankings(resp: any): any[] {
   if (!resp) return [];
   if (Array.isArray(resp)) return resp;
@@ -442,59 +434,57 @@ function parseLiveData(raw: RawApiData, competitors: string[]): ReportData {
   const myBrand = raw.myBrand;
   const want = new Set([myBrand.toLowerCase(), ...competitors.map(c => c.toLowerCase())]);
 
-  // Aggregate EV volume by make from evByMake (dimensions: make,fuel_type_category)
-  const byMake: Record<string, { ev: number; ice: number; evPrice: number; icePrice: number; evDom: number; samples: { ev: number; ice: number } }> = {};
-  for (const r of pickRankings(raw.evByMake)) {
-    const make = String(pickField(r, ["make", "Make", "MAKE"]) ?? "").trim();
-    const fuel = String(pickField(r, ["fuel_type_category", "fuel_type", "fuelType"]) ?? "").trim();
-    const sold = Number(pickField(r, ["sold_count", "soldCount", "count"]) ?? 0);
-    const price = Number(pickField(r, ["average_sale_price", "avgSalePrice", "avg_price", "averagePrice"]) ?? 0);
-    const dom = Number(pickField(r, ["average_days_on_market", "avgDom", "avg_dom", "dom"]) ?? 0);
-    if (!make) continue;
-    if (!byMake[make]) byMake[make] = { ev: 0, ice: 0, evPrice: 0, icePrice: 0, evDom: 0, samples: { ev: 0, ice: 0 } };
-    if (isEvFuel(fuel)) {
-      byMake[make].ev += sold;
-      if (price > 0) { byMake[make].evPrice += price * sold; byMake[make].samples.ev += sold; }
-      if (dom > 0) { byMake[make].evDom += dom * sold; }
-    } else if (isIceFuel(fuel)) {
-      byMake[make].ice += sold;
-      if (price > 0) { byMake[make].icePrice += price * sold; byMake[make].samples.ice += sold; }
-    }
-  }
+  // Build per-make aggregate from four make-level calls.
+  const byMake: Record<string, { ev: number; total: number; evPrice: number; evDom: number }> = {};
+  const ensure = (make: string) => {
+    if (!byMake[make]) byMake[make] = { ev: 0, total: 0, evPrice: 0, evDom: 0 };
+    return byMake[make];
+  };
 
-  // Backfill total ICE volume from totalByMake (which sums all fuels)
-  for (const r of pickRankings(raw.totalByMake)) {
+  for (const r of pickRankings(raw.evMakeVol)) {
+    const make = String(pickField(r, ["make", "Make", "MAKE"]) ?? "").trim();
+    const sold = Number(pickField(r, ["sold_count", "count"]) ?? 0);
+    if (!make) continue;
+    ensure(make).ev = sold;
+  }
+  for (const r of pickRankings(raw.evMakePrice)) {
+    const make = String(pickField(r, ["make", "Make"]) ?? "").trim();
+    const price = Number(pickField(r, ["average_sale_price", "avg_price"]) ?? 0);
+    if (!make) continue;
+    ensure(make).evPrice = price;
+  }
+  for (const r of pickRankings(raw.evMakeDom)) {
+    const make = String(pickField(r, ["make", "Make"]) ?? "").trim();
+    const dom = Number(pickField(r, ["average_days_on_market", "avg_dom"]) ?? 0);
+    if (!make) continue;
+    ensure(make).evDom = dom;
+  }
+  for (const r of pickRankings(raw.totalMakeVol)) {
     const make = String(pickField(r, ["make", "Make"]) ?? "").trim();
     const sold = Number(pickField(r, ["sold_count", "count"]) ?? 0);
-    if (!make || !sold) continue;
-    if (!byMake[make]) byMake[make] = { ev: 0, ice: 0, evPrice: 0, icePrice: 0, evDom: 0, samples: { ev: 0, ice: 0 } };
-    const knownFueled = byMake[make].ev + byMake[make].ice;
-    if (sold > knownFueled) {
-      byMake[make].ice += sold - knownFueled;
-    }
+    if (!make) continue;
+    ensure(make).total = sold;
   }
 
   const competitorRows: CompetitorRow[] = Object.entries(byMake).map(([brand, d]) => {
-    const total = d.ev + d.ice;
-    const evPrice = d.samples.ev > 0 ? d.evPrice / d.samples.ev : 0;
-    const icePrice = d.samples.ice > 0 ? d.icePrice / d.samples.ice : 0;
-    const evDom = d.samples.ev > 0 ? d.evDom / d.samples.ev : 0;
+    const total = d.total > 0 ? d.total : d.ev; // EV-only brands (e.g. Tesla) won't appear in total; fall back
+    const ice = Math.max(0, total - d.ev);
     return {
       brand,
       evSold: d.ev,
-      iceSold: d.ice,
+      iceSold: ice,
       totalSold: total,
       evMixPct: total > 0 ? (d.ev / total) * 100 : 0,
-      evAvgPrice: evPrice,
-      iceAvgPrice: icePrice,
-      evDom: Math.round(evDom),
+      evAvgPrice: d.evPrice,
+      iceAvgPrice: 0, // per-make ICE price not fetched (would require 25 more calls)
+      evDom: Math.round(d.evDom),
       isMyBrand: brand.toLowerCase() === myBrand.toLowerCase(),
     };
   })
-    .filter(r => r.totalSold > 0)
+    .filter(r => r.evSold > 0 || r.totalSold > 0)
     .sort((a, b) => b.evSold - a.evSold);
 
-  // Surface my brand + selected competitors first; pad with top EV makers if list is short
+  // Show requested brands first; pad with top EV makers up to 15 rows
   const filtered = competitorRows.filter(r => want.has(r.brand.toLowerCase()));
   const padded = filtered.length >= 8 ? filtered : (() => {
     const taken = new Set(filtered.map(r => r.brand.toLowerCase()));
@@ -507,69 +497,40 @@ function parseLiveData(raw: RawApiData, competitors: string[]): ReportData {
   const totalAll = competitorRows.reduce((s, r) => s + r.totalSold, 0);
   const marketEvSharePct = totalAll > 0 ? (totalEv / totalAll) * 100 : 0;
 
-  // State EV adoption — aggregate state,fuel_type_category
-  const byState: Record<string, { ev: number; total: number; evPriceWeighted: number; evSamples: number }> = {};
-  for (const r of pickRankings(raw.myEvByState)) {
-    const state = String(pickField(r, ["state", "State", "STATE"]) ?? "").trim();
-    const fuel = String(pickField(r, ["fuel_type_category", "fuel_type"]) ?? "").trim();
-    const sold = Number(pickField(r, ["sold_count", "count"]) ?? 0);
-    const price = Number(pickField(r, ["average_sale_price", "avg_price"]) ?? 0);
-    if (!state || !sold) continue;
-    if (!byState[state]) byState[state] = { ev: 0, total: 0, evPriceWeighted: 0, evSamples: 0 };
-    byState[state].total += sold;
-    if (isEvFuel(fuel)) {
-      byState[state].ev += sold;
-      if (price > 0) { byState[state].evPriceWeighted += price * sold; byState[state].evSamples += sold; }
-    }
-  }
-  const stateRows: StateRow[] = Object.entries(byState)
-    .filter(([_, d]) => d.ev > 0)
-    .map(([state, d]) => ({
-      state,
-      evVolume: d.ev,
-      totalVolume: d.total,
-      evSharePct: d.total > 0 ? (d.ev / d.total) * 100 : 0,
-      evAvgPrice: d.evSamples > 0 ? d.evPriceWeighted / d.evSamples : 0,
-    }))
-    .sort((a, b) => b.evVolume - a.evVolume)
-    .slice(0, 18);
-
-  // Price parity — body_type,fuel_type_category
-  const byBody: Record<string, { ev: { sold: number; price: number; samples: number }; ice: { sold: number; price: number; samples: number } }> = {};
-  for (const r of pickRankings(raw.evIcePriceParity)) {
-    const bt = String(pickField(r, ["body_type", "bodyType"]) ?? "").trim();
-    const fuel = String(pickField(r, ["fuel_type_category", "fuel_type"]) ?? "").trim();
-    const sold = Number(pickField(r, ["sold_count", "count"]) ?? 0);
-    const price = Number(pickField(r, ["average_sale_price", "avg_price"]) ?? 0);
-    if (!bt || !sold) continue;
-    if (!byBody[bt]) byBody[bt] = { ev: { sold: 0, price: 0, samples: 0 }, ice: { sold: 0, price: 0, samples: 0 } };
-    if (isEvFuel(fuel)) {
-      byBody[bt].ev.sold += sold;
-      if (price > 0) { byBody[bt].ev.price += price * sold; byBody[bt].ev.samples += sold; }
-    } else if (isIceFuel(fuel)) {
-      byBody[bt].ice.sold += sold;
-      if (price > 0) { byBody[bt].ice.price += price * sold; byBody[bt].ice.samples += sold; }
-    }
-  }
-  const parityRows: ParityRow[] = Object.entries(byBody)
-    .filter(([_, d]) => d.ev.sold > 0 && d.ice.sold > 0)
-    .map(([bodyType, d]) => {
-      const evP = d.ev.samples > 0 ? d.ev.price / d.ev.samples : 0;
-      const iceP = d.ice.samples > 0 ? d.ice.price / d.ice.samples : 0;
+  // Body-type price parity — join evBodyPrice + iceBodyPrice + evBodyVol + iceBodyVol
+  const evPriceByBody = mapByDim(raw.evBodyPrice, ["body_type", "bodyType"], ["average_sale_price", "avg_price"]);
+  const icePriceByBody = mapByDim(raw.iceBodyPrice, ["body_type", "bodyType"], ["average_sale_price", "avg_price"]);
+  const evVolByBody = mapByDim(raw.evBodyVol, ["body_type", "bodyType"], ["sold_count", "count"]);
+  const iceVolByBody = mapByDim(raw.iceBodyVol, ["body_type", "bodyType"], ["sold_count", "count"]);
+  const bodies = new Set([...Object.keys(evPriceByBody), ...Object.keys(icePriceByBody)]);
+  const parityRows: ParityRow[] = [...bodies]
+    .map(bt => {
+      const evP = evPriceByBody[bt] ?? 0;
+      const iceP = icePriceByBody[bt] ?? 0;
+      const evS = evVolByBody[bt] ?? 0;
+      const iceS = iceVolByBody[bt] ?? 0;
       return {
-        bodyType,
+        bodyType: bt,
         evPrice: evP,
         icePrice: iceP,
-        evSold: d.ev.sold,
-        iceSold: d.ice.sold,
+        evSold: evS,
+        iceSold: iceS,
         parityPct: iceP > 0 ? (evP / iceP) * 100 : 0,
       };
     })
+    .filter(r => r.evPrice > 0 && r.icePrice > 0)
     .sort((a, b) => (b.evSold + b.iceSold) - (a.evSold + a.iceSold))
     .slice(0, 8);
 
-  // Trend: not directly available without time-series; synthesize a simple growth curve
-  // anchored on the brand's current EV mix so it's representative, not arbitrary.
+  // Top EV models for myBrand
+  const myEvModels: ModelRow[] = pickRankings(raw.myEvModels)
+    .map(r => ({
+      model: String(pickField(r, ["model", "Model"]) ?? "").trim(),
+      evVolume: Number(pickField(r, ["sold_count", "count"]) ?? 0),
+    }))
+    .filter(r => r.model && r.evVolume > 0)
+    .slice(0, 10);
+
   const trendPoints = synthesizeTrend(myRow);
 
   return {
@@ -578,10 +539,20 @@ function parseLiveData(raw: RawApiData, competitors: string[]): ReportData {
     competitors: padded,
     marketEvSharePct,
     electrificationScore: computeElectrificationScore(myRow, marketEvSharePct, trendPoints),
-    stateRows,
+    myEvModels,
     parityRows,
     trendPoints,
   };
+}
+
+function mapByDim(resp: any, dimNames: string[], measureNames: string[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const r of pickRankings(resp)) {
+    const k = String(pickField(r, dimNames) ?? "").trim();
+    const v = Number(pickField(r, measureNames) ?? 0);
+    if (k) out[k] = v;
+  }
+  return out;
 }
 
 function synthesizeTrend(my: CompetitorRow | null): { label: string; mixPct: number }[] {
@@ -770,7 +741,7 @@ function render() {
   renderKpiStrip(root, state.data);
   renderTrendAndScore(root, state.data);
   renderCompetitorLeaderboard(root, state.data);
-  renderParityAndStates(root, state.data);
+  renderParityAndModels(root, state.data);
 }
 
 function renderKpiStrip(root: HTMLElement, d: ReportData) {
@@ -1032,7 +1003,7 @@ function renderCompetitorLeaderboard(root: HTMLElement, d: ReportData) {
   }
 }
 
-function renderParityAndStates(root: HTMLElement, d: ReportData) {
+function renderParityAndModels(root: HTMLElement, d: ReportData) {
   const wrap = document.createElement("div");
   wrap.className = "grid-2";
   wrap.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:12px;";
@@ -1045,44 +1016,41 @@ function renderParityAndStates(root: HTMLElement, d: ReportData) {
     <div style="font-size:11px;color:#64748b;margin-top:8px;">Bars show average sale price. Parity % = EV / ICE × 100. Above 100 = EV premium, below 100 = EV discount.</div>
   `;
 
-  const states = document.createElement("div");
-  states.style.cssText = "background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px;overflow:hidden;";
-  const maxShare = Math.max(...d.stateRows.map(s => s.evSharePct), 1);
-  const stateRowsHtml = d.stateRows.map(s => {
-    const intensity = s.evSharePct / maxShare;
-    const r = Math.round(15 + intensity * 24);
-    const g = Math.round(50 + intensity * 150);
-    const b = Math.round(40 + intensity * 80);
-    const bg = `rgba(${r},${g},${b},${0.25 + intensity * 0.55})`;
+  const models = document.createElement("div");
+  models.style.cssText = "background:#1e293b;border:1px solid #334155;border-radius:10px;padding:16px;overflow:hidden;";
+  const maxVol = Math.max(...d.myEvModels.map(m => m.evVolume), 1);
+  const modelRowsHtml = d.myEvModels.map(m => {
+    const barW = (m.evVolume / maxVol) * 100;
     return `
       <tr>
-        <td style="padding:6px 10px;border-bottom:1px solid rgba(51,65,85,0.4);font-weight:600;color:#e2e8f0;">${s.state}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid rgba(51,65,85,0.4);text-align:right;">${fmtCompact(s.evVolume)}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid rgba(51,65,85,0.4);text-align:right;color:#94a3b8;">${fmtCompact(s.totalVolume)}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid rgba(51,65,85,0.4);text-align:right;background:${bg};font-weight:600;">${fmtPct(s.evSharePct, 1)}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid rgba(51,65,85,0.4);text-align:right;">${s.evAvgPrice > 0 ? fmtCurrency(s.evAvgPrice) : "—"}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid rgba(51,65,85,0.4);font-weight:600;color:#e2e8f0;">${m.model}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid rgba(51,65,85,0.4);text-align:right;font-weight:600;">${fmtCompact(m.evVolume)}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid rgba(51,65,85,0.4);width:160px;">
+          <div style="background:#0f172a;border-radius:4px;height:8px;overflow:hidden;">
+            <div style="background:#10b981;height:100%;width:${barW.toFixed(1)}%;"></div>
+          </div>
+        </td>
       </tr>`;
   }).join("");
-  states.innerHTML = `
-    <div style="font-size:13px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">State EV Adoption Heatmap</div>
+  models.innerHTML = `
+    <div style="font-size:13px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">${d.myBrand} Top EV Models</div>
     <div style="overflow-x:auto;max-height:340px;overflow-y:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
         <thead>
           <tr>
-            <th style="text-align:left;padding:8px 10px;color:#64748b;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.3px;border-bottom:1px solid #334155;position:sticky;top:0;background:#1e293b;">State</th>
-            <th style="text-align:right;padding:8px 10px;color:#64748b;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.3px;border-bottom:1px solid #334155;position:sticky;top:0;background:#1e293b;">EV Vol</th>
-            <th style="text-align:right;padding:8px 10px;color:#64748b;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.3px;border-bottom:1px solid #334155;position:sticky;top:0;background:#1e293b;">Total Vol</th>
-            <th style="text-align:right;padding:8px 10px;color:#64748b;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.3px;border-bottom:1px solid #334155;position:sticky;top:0;background:#1e293b;">EV Share</th>
-            <th style="text-align:right;padding:8px 10px;color:#64748b;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.3px;border-bottom:1px solid #334155;position:sticky;top:0;background:#1e293b;">Avg EV $</th>
+            <th style="text-align:left;padding:8px 10px;color:#64748b;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.3px;border-bottom:1px solid #334155;position:sticky;top:0;background:#1e293b;">Model</th>
+            <th style="text-align:right;padding:8px 10px;color:#64748b;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.3px;border-bottom:1px solid #334155;position:sticky;top:0;background:#1e293b;">EV Sold</th>
+            <th style="text-align:left;padding:8px 10px;color:#64748b;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.3px;border-bottom:1px solid #334155;position:sticky;top:0;background:#1e293b;">Volume</th>
           </tr>
         </thead>
-        <tbody>${stateRowsHtml || `<tr><td colspan="5" style="padding:20px;color:#64748b;text-align:center;font-size:12px;">No state-level EV sales available.</td></tr>`}</tbody>
+        <tbody>${modelRowsHtml || `<tr><td colspan="3" style="padding:20px;color:#64748b;text-align:center;font-size:12px;">No EV models found for ${d.myBrand}.</td></tr>`}</tbody>
       </table>
     </div>
+    <div style="font-size:11px;color:#64748b;margin-top:8px;">Ranked by sold count (Used inventory).</div>
   `;
 
   wrap.appendChild(parity);
-  wrap.appendChild(states);
+  wrap.appendChild(models);
   root.appendChild(wrap);
 
   drawParityChart(d);

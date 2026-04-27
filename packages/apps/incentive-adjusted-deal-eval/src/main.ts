@@ -15,14 +15,31 @@ function _getAuth(): { mode: "api_key" | "oauth_token" | null; value: string | n
   if (key) return { mode: "api_key", value: key };
   return { mode: null, value: null };
 }
-function _detectAppMode(): "mcp" | "live" | "demo" { if (_getAuth().value) return "live"; if (_safeApp) return "mcp"; return "demo"; }
+function _detectAppMode(): "mcp" | "live" | "demo" {
+  // Auth (URL or localStorage) takes priority — standalone live mode
+  if (_getAuth().value) return "live";
+  // Only use MCP mode when no auth AND actually iframed into an MCP host.
+  // Without the window.parent guard, a top-level page with no key would still
+  // try MCP (the SDK constructs successfully) and hang on a never-resolving
+  // postMessage — leaving the demo banner suppressed and the UI stuck.
+  if (_safeApp && window.parent !== window) return "mcp";
+  return "demo";
+}
 function _isEmbedMode(): boolean { return new URLSearchParams(location.search).has("embed"); }
-function _getUrlParams(): Record<string, string> { const params = new URLSearchParams(location.search); const result: Record<string, string> = {}; for (const key of ["vin","zip","make","model","miles","state","dealer_id","ticker","price"]) { const v = params.get(key); if (v) result[key] = v; } return result; }
+function _getUrlParams(): Record<string, string> {
+  const params = new URLSearchParams(location.search);
+  const result: Record<string, string> = {};
+  for (const key of ["vin", "zip", "make", "model", "miles", "state", "dealer_id", "ticker", "askingPrice"]) {
+    const v = params.get(key);
+    if (v) result[key] = v;
+  }
+  return result;
+}
 function _proxyBase(): string { return location.protocol.startsWith("http") ? "" : "http://localhost:3001"; }
 
 // ── Direct MarketCheck API Client (browser → api.marketcheck.com) ──────
 const _MC = "https://api.marketcheck.com";
-async function _mcApi(path, params = {}) {
+async function _mcApi(path: string, params: Record<string, any> = {}) {
   const auth = _getAuth();
   if (!auth.value) return null;
   const prefix = path.startsWith("/api/") ? "" : "/v2";
@@ -31,47 +48,241 @@ async function _mcApi(path, params = {}) {
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
   }
-  const headers = {};
+  const headers: Record<string, string> = {};
   if (auth.mode === "oauth_token") headers["Authorization"] = "Bearer " + auth.value;
   const res = await fetch(url.toString(), { headers });
-  if (!res.ok) throw new Error("MC API " + res.status);
+  if (!res.ok) {
+    // Capture response body prefix — blank status-code errors waste hours during live debugging
+    let body = "";
+    try { body = (await res.text()).slice(0, 200); } catch {}
+    throw new Error(`MC API ${res.status} ${path} ${body}`);
+  }
   return res.json();
 }
-function _mcDecode(vin) { return _mcApi("/decode/car/neovin/" + vin + "/specs"); }
-function _mcPredict(p) { return _mcApi("/predict/car/us/marketcheck_price/comparables", p); }
-function _mcActive(p) { return _mcApi("/search/car/active", p); }
-function _mcRecent(p) { return _mcApi("/search/car/recents", p); }
-function _mcHistory(vin) { return _mcApi("/history/car/" + vin); }
-function _mcSold(p) { return _mcApi("/api/v1/sold-vehicles/summary", p); }
-function _mcIncentives(p) { const q={...p}; if(q.oem&&!q.make){q.make=q.oem;delete q.oem;} return _mcApi("/search/car/incentive/oem", q); }
-function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
-function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
-
-async function _fetchDirect(args) {
-  const decode = await _mcDecode(args.vin);
-  const [prediction,incentives,activeComps] = await Promise.all([_mcPredict({...args,dealer_type:"franchise"}),_mcIncentives({oem:decode?.make,zip:args.zip,model:decode?.model}),_mcActive({make:decode?.make,model:decode?.model,zip:args.zip,radius:75,rows:5,stats:"price"})]);
-  return {decode,prediction,incentives,activeComps};
+function _mcDecode(vin: string) { return _mcApi("/decode/car/neovin/" + vin + "/specs"); }
+function _mcPredict(p: Record<string, any>) { return _mcApi("/predict/car/us/marketcheck_price/comparables", p); }
+function _mcActive(p: Record<string, any>) { return _mcApi("/search/car/active", p); }
+function _mcIncentives(p: Record<string, any>) {
+  const q: Record<string, any> = { ...p };
+  if (q.oem && !q.make) { q.make = q.oem; delete q.oem; }
+  // Incentive data is at MSA/state level — ZIP yields 0 results, so strip it.
+  // Matches server-side handleIncentives behavior in packages/server/src/proxy.ts.
+  delete q.zip;
+  if (!q.rows) q.rows = 50;
+  return _mcApi("/search/car/incentive/oem", q);
 }
-async function _callTool(toolName, args) {
+
+async function _fetchDirect(args: Record<string, any>) {
+  const decode = await _mcDecode(args.vin);
+  // Whitelist predict params — spreading `args` forwards client-only fields like
+  // askingPrice that /predict rejects with 400.
+  const predictParams = {
+    vin: args.vin,
+    zip: args.zip,
+    miles: args.miles,
+    dealer_type: "franchise",
+  };
+  const [prediction, rawIncentives, activeComps] = await Promise.all([
+    _mcPredict(predictParams),
+    _mcIncentives({ oem: decode?.make, model: decode?.model }),
+    _mcActive({ make: decode?.make, model: decode?.model, zip: args.zip, radius: 75, rows: 5, stats: "price" }),
+  ]);
+  return { decode, prediction, rawIncentives, activeComps };
+}
+
+// Transform raw MarketCheck API responses into the EvalResult shape the renderer expects.
+// Handles BOTH input shapes so we can skip a branch in _callTool:
+//   - Proxy (dev) returns { decode, prediction, incentives: [...pre-flattened], activeComps }
+//     where each incentive already has { offerType, amount, expirationDate } from
+//     server-side transformIncentiveListings (see packages/server/src/proxy.ts).
+//   - Direct API (prod) returns { decode, prediction, rawIncentives: {listings:[{offer:{...}}]}, activeComps }
+//     — the raw /search/car/incentive/oem payload, needing the same flattening client-side.
+function _transformToEvalResult(raw: any, args: Record<string, any>): EvalResult {
+  const decode = raw?.decode ?? {};
+  const prediction = raw?.prediction ?? {};
+  const activeComps = raw?.activeComps ?? {};
+
+  const stickerPrice = Number(decode.msrp ?? prediction.price_range_high ?? 0) || 33000;
+  const predictedFMV = Number(prediction.predicted_price ?? prediction.price ?? stickerPrice) || stickerPrice;
+  const askingPrice = Number(args.askingPrice ?? args.asking_price ?? predictedFMV) || predictedFMV;
+
+  // Normalize incentives: accept proxy-pre-flattened array OR raw API listings shape
+  const typeMap: Record<string, Incentive["type"]> = { cash: "cashback", finance: "apr", lease: "lease" };
+  let incentives: Incentive[] = [];
+  if (Array.isArray(raw?.incentives)) {
+    // Proxy path: already flattened by server-side transformIncentiveListings
+    incentives = raw.incentives.slice(0, 8).map((i: any) => {
+      const type = (i.offerType as Incentive["type"]) ?? typeMap[i.offer_type] ?? "cashback";
+      const value = Number(i.amount ?? 0);
+      return {
+        type,
+        title: String(i.title ?? `${decode.make ?? ""} offer`).slice(0, 80),
+        description: String(i.description ?? "").slice(0, 200),
+        value,
+        term: Number(i.term) || undefined,
+        monthlyPayment: type === "lease" ? value : undefined,
+        expiration: String(i.expirationDate ?? ""),
+      };
+    }).filter((i: Incentive) => i.value > 0);
+  } else {
+    // Direct API path: raw { listings: [{ offer: {...} }] }
+    const listings = Array.isArray(raw?.rawIncentives?.listings) ? raw.rawIncentives.listings : [];
+    incentives = listings.slice(0, 8).map((listing: any) => {
+      const o = listing?.offer ?? {};
+      const amt = (o.amounts ?? [])[0] ?? {};
+      const type = typeMap[o.offer_type] ?? "cashback";
+      const value = type === "cashback" ? Number(o.cashback_amount ?? 0)
+        : type === "apr" ? Number(amt.apr ?? 0)
+        : Number(amt.monthly ?? 0);
+      return {
+        type,
+        title: (o.titles?.[0] || o.oem_program_name || `${decode.make ?? ""} offer`).slice(0, 80),
+        description: (o.offers?.[0] || o.disclaimers?.[0] || "").slice(0, 200),
+        value,
+        term: Number(amt.term) || undefined,
+        monthlyPayment: type === "lease" ? value : undefined,
+        expiration: o.valid_through || "",
+      };
+    }).filter((i: Incentive) => i.value > 0);
+  }
+
+  const totalIncentiveSavings = incentives.filter(i => i.type === "cashback").reduce((s, i) => s + i.value, 0);
+  const bestApr = incentives.find(i => i.type === "apr");
+  const incentiveAdjustedCost = Math.max(0, askingPrice - totalIncentiveSavings);
+
+  // Build buy paths: cashback route vs low-APR route vs lease (if offered)
+  const standardApr = 5.9;
+  const calcMonthly = (principal: number, annualRate: number, months: number) => {
+    if (annualRate <= 0) return Math.round(principal / months);
+    const r = annualRate / 12;
+    return Math.round(principal * (r * Math.pow(1 + r, months)) / (Math.pow(1 + r, months) - 1));
+  };
+  const loan = Math.max(0, askingPrice - totalIncentiveSavings);
+  const cashMonthly = calcMonthly(loan, standardApr / 100, 60);
+  const cashTotal = cashMonthly * 60;
+  const aprRate = bestApr?.value ?? standardApr;
+  const aprMonthly = calcMonthly(askingPrice, aprRate / 100, bestApr?.term ?? 60);
+  const aprTotal = aprMonthly * (bestApr?.term ?? 60);
+  const preferAPR = bestApr && aprTotal < cashTotal;
+  const buyPaths: BuyPath[] = [
+    {
+      name: "Cash Back + Standard Financing",
+      totalCost: cashTotal,
+      monthlyCost: cashMonthly,
+      totalSavings: totalIncentiveSavings,
+      details: `${fmtCurrency(totalIncentiveSavings)} cash back applied. Finance ${fmtCurrency(loan)} at ${standardApr}% APR for 60 months.`,
+      recommended: !preferAPR && totalIncentiveSavings > 0,
+    },
+  ];
+  if (bestApr) {
+    buyPaths.push({
+      name: `Low APR Financing (${aprRate}%)`,
+      totalCost: aprTotal,
+      monthlyCost: aprMonthly,
+      totalSavings: Math.max(0, cashTotal - aprTotal),
+      details: `${aprRate}% APR for ${bestApr.term ?? 60} months on ${fmtCurrency(askingPrice)}. Total interest: ${fmtCurrency(Math.max(0, aprTotal - askingPrice))}.`,
+      recommended: !!preferAPR,
+    });
+  }
+  const leaseOffer = incentives.find(i => i.type === "lease");
+  if (leaseOffer) {
+    const termM = leaseOffer.term ?? 36;
+    buyPaths.push({
+      name: `Lease (${fmtCurrency(leaseOffer.value)}/mo)`,
+      totalCost: leaseOffer.value * termM,
+      monthlyCost: leaseOffer.value,
+      totalSavings: 0,
+      details: `${fmtCurrency(leaseOffer.value)}/mo for ${termM} months. No equity at end of term.`,
+      recommended: false,
+    });
+  }
+
+  // Comparables transform
+  const compListings = Array.isArray(activeComps?.listings) ? activeComps.listings : [];
+  const comparables: Comparable[] = compListings.slice(0, 5).map((l: any) => ({
+    year: Number(l.build?.year ?? decode.year ?? 0),
+    make: l.build?.make ?? decode.make ?? "",
+    model: l.build?.model ?? decode.model ?? "",
+    trim: l.build?.trim ?? "",
+    price: Number(l.price ?? 0),
+    miles: Number(l.miles ?? 0),
+    city: l.dealer?.city ?? l.city ?? "",
+    state: l.dealer?.state ?? l.state ?? "",
+    dealerName: l.dealer?.name ?? l.dealer?.dealer_name ?? "",
+  }));
+
+  // Waterfall: MSRP → Dealer Discount → Asking → ML delta → each cashback → Final
+  const waterfallSteps: EvalResult["waterfallSteps"] = [
+    { label: "MSRP", value: stickerPrice, color: "#94a3b8" },
+  ];
+  const dealerDiscount = stickerPrice - askingPrice;
+  if (Math.abs(dealerDiscount) > 1) {
+    waterfallSteps.push({ label: "Dealer Discount", value: -dealerDiscount, color: "#3b82f6" });
+  }
+  waterfallSteps.push({ label: "Asking Price", value: askingPrice, color: "#f8fafc" });
+  const fmvDelta = predictedFMV - askingPrice;
+  if (Math.abs(fmvDelta) > 50) {
+    waterfallSteps.push({ label: "ML Fair Value", value: fmvDelta, color: "#8b5cf6" });
+  }
+  for (const inc of incentives.filter(i => i.type === "cashback").slice(0, 3)) {
+    waterfallSteps.push({ label: inc.title.slice(0, 18), value: -inc.value, color: "#10b981" });
+  }
+  waterfallSteps.push({ label: "Final Cost", value: incentiveAdjustedCost, color: "#10b981" });
+
+  return {
+    vehicle: {
+      vin: decode.vin ?? args.vin ?? "",
+      year: Number(decode.year ?? 0),
+      make: decode.make ?? "",
+      model: decode.model ?? "",
+      trim: decode.trim ?? "",
+      bodyType: decode.body_type ?? decode.bodyType ?? "",
+      fuelType: decode.fuel_type ?? decode.fuelType ?? "",
+      msrp: stickerPrice,
+    },
+    stickerPrice,
+    askingPrice,
+    predictedFMV,
+    incentiveAdjustedCost,
+    incentives,
+    buyPaths,
+    comparables,
+    totalIncentiveSavings,
+    waterfallSteps,
+  };
+}
+
+async function _callTool(toolName: string, args: Record<string, any>) {
+  const mode = _detectAppMode();
   const auth = _getAuth();
   if (auth.value) {
-    // 1. Proxy (same-origin, reliable)
+    // 1. Proxy (same-origin, reliable on localhost dev server). Returns raw
+    // {decode, prediction, incentives, activeComps} — we still need the
+    // transformer to produce EvalResult for the renderer.
     try {
       const r = await fetch((_proxyBase()) + "/api/proxy/" + toolName, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...args, _auth_mode: auth.mode, _auth_value: auth.value }),
       });
-      if (r.ok) { const d = await r.json(); return { content: [{ type: "text", text: JSON.stringify(d) }] }; }
-    } catch {}
-    // 2. Direct API fallback
+      if (r.ok) {
+        const raw = await r.json();
+        const transformed = _transformToEvalResult(raw, args);
+        return { content: [{ type: "text", text: JSON.stringify(transformed) }] };
+      }
+    } catch (e) { console.warn("Proxy failed, trying direct API:", e); }
+    // 2. Direct API fallback (production path — apps.marketcheck.com has no proxy)
     try {
-      const data = await _fetchDirect(args);
-      if (data) return { content: [{ type: "text", text: JSON.stringify(data) }] };
-    } catch {}
+      const raw = await _fetchDirect(args);
+      if (raw) {
+        const transformed = _transformToEvalResult(raw, args);
+        return { content: [{ type: "text", text: JSON.stringify(transformed) }] };
+      }
+    } catch (e) { console.warn("Direct API failed:", e); }
   }
-  // 3. MCP mode (Claude, VS Code, etc.)
-  if (_safeApp) {
-    try { return await _safeApp.callServerTool({ name: toolName, arguments: args }); } catch {}
+  // 3. MCP mode — only attempt when actually inside a host; otherwise the
+  // postMessage to a non-existent parent never resolves and the UI hangs.
+  if (mode === "mcp" && _safeApp) {
+    try { return await _safeApp.callServerTool({ name: toolName, arguments: args }); } catch (e) { console.warn("MCP call failed:", e); }
   }
   // 4. Demo mode
   return null;
@@ -234,6 +445,12 @@ function fmtCurrency(v: number): string {
   return "$" + Math.round(v).toLocaleString();
 }
 
+// Sign-before-dollar formatting — avoids "$-1,200" bug class in signed deltas.
+function fmtSigned(v: number): string {
+  const sign = v < 0 ? "-" : "+";
+  return sign + "$" + Math.abs(Math.round(v)).toLocaleString();
+}
+
 function fmtNumber(v: number): string {
   return Math.round(v).toLocaleString();
 }
@@ -380,8 +597,12 @@ function drawWaterfall(canvas: HTMLCanvasElement, steps: { label: string; value:
 // ── Main App ───────────────────────────────────────────────────────────────────
 
 async function main() {
-  let serverAvailable = !!_safeApp;
-  try { (_safeApp as any)?.connect?.(); } catch { serverAvailable = false; }
+  // Only connect to MCP host when we're actually iframed — otherwise the SDK
+  // constructor succeeds but connect() posts to a non-existent parent window
+  // and the UI hangs awaiting responses.
+  const mode = _detectAppMode();
+  if (mode === "mcp") { try { (_safeApp as any)?.connect?.(); } catch {} }
+  const canCallServer = mode === "live" || mode === "mcp";
 
   document.body.style.cssText = "margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#e2e8f0;overflow-x:hidden;";
 
@@ -444,9 +665,11 @@ async function main() {
     return input;
   }
 
-  const vinInput = makeField("VIN", "Enter 17-character VIN", { width: "240px", value: "3GNAXKEV5RS123456" });
+  const vinInput = makeField("VIN", "Enter 17-character VIN", { width: "240px", value: "KNDCB3LC9L5359658" });
   const zipInput = makeField("ZIP Code", "e.g. 60601", { width: "120px", value: "60601" });
   const priceInput = makeField("Asking Price (optional)", "$0", { width: "140px", type: "number" });
+  // Mileage is required by /v2/predict/... — omitting it triggers 400s in live mode.
+  const milesInput = makeField("Mileage (optional)", "e.g. 15000", { width: "140px", type: "number" });
 
   const evalBtn = document.createElement("button");
   evalBtn.textContent = "Evaluate Deal";
@@ -465,7 +688,8 @@ async function main() {
   const urlParams = _getUrlParams();
   if (urlParams.vin) vinInput.value = urlParams.vin;
   if (urlParams.zip) zipInput.value = urlParams.zip;
-  if (urlParams.price) priceInput.value = urlParams.price;
+  if (urlParams.askingPrice) priceInput.value = urlParams.askingPrice;
+  if (urlParams.miles) milesInput.value = urlParams.miles;
 
   // ── Evaluate ──
   evalBtn.addEventListener("click", () => runEval());
@@ -486,23 +710,28 @@ async function main() {
     let data: EvalResult;
 
     try {
-      if (serverAvailable) {
+      if (canCallServer) {
         const args: Record<string, any> = { vin };
         if (zipInput.value.trim()) args.zip = zipInput.value.trim();
-        if (priceInput.value) args.asking_price = Number(priceInput.value);
+        if (priceInput.value) args.askingPrice = Number(priceInput.value);
+        if (milesInput.value) args.miles = Number(milesInput.value);
 
         const response = await _callTool("evaluate-incentive-deal", args);
-        const textContent = response?.content?.find((c: any) => c.type === "text");
-        data = JSON.parse(textContent?.text ?? "{}");
+        if (!response) throw new Error("Tool returned no data");
+        const textContent = response.content?.find((c: any) => c.type === "text");
+        const parsed = JSON.parse(textContent?.text ?? "{}");
+        // Guard against partial responses (e.g. transformer failed upstream)
+        if (!parsed?.vehicle) throw new Error("Malformed response: missing vehicle");
+        data = parsed as EvalResult;
       } else {
-        await new Promise(r => setTimeout(r, 800));
+        await new Promise(r => setTimeout(r, 400));
         data = getMockData(vin, zipInput.value.trim(), priceInput.value ? Number(priceInput.value) : undefined);
       }
 
       renderResults(data);
     } catch (err: any) {
       console.error("Eval failed, falling back to mock:", err);
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise(r => setTimeout(r, 200));
       data = getMockData(vin, zipInput.value.trim(), priceInput.value ? Number(priceInput.value) : undefined);
       renderResults(data);
     }
@@ -549,15 +778,20 @@ async function main() {
         <div style="font-size:26px;font-weight:800;color:${tier.color};">${fmtCurrency(tier.value)}</div>`;
       if (i === 2) {
         const savings = data.stickerPrice - data.incentiveAdjustedCost;
-        card.innerHTML += `<div style="font-size:11px;color:#10b981;font-weight:600;margin-top:6px;">Save ${fmtCurrency(savings)} vs MSRP</div>`;
+        const savingsTxt = savings >= 0
+          ? `Save ${fmtCurrency(savings)} vs MSRP`
+          : `${fmtCurrency(Math.abs(savings))} above MSRP`;
+        const savingsColor = savings >= 0 ? "#10b981" : "#ef4444";
+        card.innerHTML += `<div style="font-size:11px;color:${savingsColor};font-weight:600;margin-top:6px;">${savingsTxt}</div>`;
       }
       tierSection.appendChild(card);
 
       if (i < 2) {
         const arrow = document.createElement("div");
         arrow.style.cssText = "text-align:center;padding:0 8px;";
+        const delta = i === 0 ? data.stickerPrice - data.predictedFMV : data.predictedFMV - data.incentiveAdjustedCost;
         arrow.innerHTML = `<div style="font-size:20px;color:#475569;">&#8594;</div>
-          <div style="font-size:11px;color:#10b981;font-weight:600;">${fmtCurrency(i === 0 ? data.stickerPrice - data.predictedFMV : data.predictedFMV - data.incentiveAdjustedCost)}</div>`;
+          <div style="font-size:11px;color:${delta >= 0 ? "#10b981" : "#ef4444"};font-weight:600;">${fmtSigned(delta)}</div>`;
         tierSection.appendChild(arrow);
       }
     }
@@ -669,7 +903,8 @@ async function main() {
     for (const comp of data.comparables) {
       const diff = comp.price - data.incentiveAdjustedCost;
       const diffColor = diff > 0 ? "#10b981" : "#ef4444";
-      const diffLabel = diff > 0 ? `+${fmtCurrency(diff)}` : fmtCurrency(diff);
+      // Sign must prefix the `$` — fmtCurrency otherwise yields "$-1,200"
+      const diffLabel = `${diff >= 0 ? "+" : "-"}${fmtCurrency(Math.abs(diff))}`;
       compHtml += `<tr>
         <td style="padding:10px 12px;border-bottom:1px solid #1e293b44;color:#f8fafc;font-weight:500;">${comp.year} ${comp.make} ${comp.model} ${comp.trim}</td>
         <td style="padding:10px 12px;border-bottom:1px solid #1e293b44;text-align:right;color:#f8fafc;font-weight:600;">${fmtCurrency(comp.price)}</td>
@@ -697,8 +932,15 @@ async function main() {
     const loanAmount = data.askingPrice - cashBackTotal;
     const aprSavings = bestApr ? calculateInterestSavings(loanAmount, standardApr / 100, bestApr.value / 100, bestApr.term ?? 60) : 0;
 
+    // Deltas may be negative when asking price exceeds MSRP/FMV (dealer markup).
+    // Use fmtSigned and word the headline so negative values read correctly.
+    const dealerDelta = data.stickerPrice - data.askingPrice;
+    const vsFmvDelta = data.predictedFMV - data.incentiveAdjustedCost;
+    const savingsHeadline = totalSavingsVsMsrp >= 0
+      ? fmtCurrency(totalSavingsVsMsrp)
+      : `Above MSRP by ${fmtCurrency(Math.abs(totalSavingsVsMsrp))}`;
     savingsCalc.innerHTML = `<div style="font-size:13px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Your Total Savings Breakdown</div>
-      <div style="font-size:36px;font-weight:800;color:#10b981;margin-bottom:16px;">${fmtCurrency(totalSavingsVsMsrp)}</div>
+      <div style="font-size:36px;font-weight:800;color:${totalSavingsVsMsrp >= 0 ? "#10b981" : "#ef4444"};margin-bottom:16px;">${savingsHeadline}</div>
       <div style="display:flex;justify-content:center;gap:24px;flex-wrap:wrap;">
         <div style="text-align:center;">
           <div style="font-size:10px;color:#94a3b8;">Cash Back</div>
@@ -707,7 +949,7 @@ async function main() {
         <div style="width:1px;background:#334155;"></div>
         <div style="text-align:center;">
           <div style="font-size:10px;color:#94a3b8;">Dealer Discount</div>
-          <div style="font-size:16px;font-weight:700;color:#f8fafc;">${fmtCurrency(data.stickerPrice - data.askingPrice)}</div>
+          <div style="font-size:16px;font-weight:700;color:${dealerDelta >= 0 ? "#f8fafc" : "#ef4444"};">${fmtSigned(dealerDelta)}</div>
         </div>
         <div style="width:1px;background:#334155;"></div>
         <div style="text-align:center;">
@@ -717,7 +959,7 @@ async function main() {
         <div style="width:1px;background:#334155;"></div>
         <div style="text-align:center;">
           <div style="font-size:10px;color:#94a3b8;">vs Market (FMV)</div>
-          <div style="font-size:16px;font-weight:700;color:#f8fafc;">${fmtCurrency(data.predictedFMV - data.incentiveAdjustedCost)}</div>
+          <div style="font-size:16px;font-weight:700;color:${vsFmvDelta >= 0 ? "#f8fafc" : "#ef4444"};">${fmtSigned(vsFmvDelta)}</div>
         </div>
       </div>`;
     results.appendChild(savingsCalc);
@@ -848,11 +1090,16 @@ async function main() {
     const summaryCard = document.createElement("div");
     summaryCard.style.cssText = "background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid #334155;border-radius:10px;padding:16px 20px;margin-bottom:16px;";
     const bestPath = data.buyPaths.find(p => p.recommended) ?? data.buyPaths[0];
+    // "below" only reads correctly when delta is positive; flip to "above" for markup cases.
+    const msrpDelta = data.stickerPrice - data.incentiveAdjustedCost;
+    const fmvDelta = data.predictedFMV - data.incentiveAdjustedCost;
+    const msrpPhrase = `${fmtCurrency(Math.abs(msrpDelta))} ${msrpDelta >= 0 ? "below" : "above"} MSRP`;
+    const fmvPhrase = `${fmtCurrency(Math.abs(fmvDelta))} ${fmvDelta >= 0 ? "below" : "above"} fair market value`;
     summaryCard.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
       <div>
         <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Bottom Line</div>
         <div style="font-size:15px;font-weight:700;color:#f8fafc;margin-top:4px;">The best route for this ${data.vehicle.year} ${data.vehicle.make} ${data.vehicle.model} is <span style="color:#10b981;">${bestPath?.name ?? "Low APR Financing"}</span>.</div>
-        <div style="font-size:12px;color:#94a3b8;margin-top:4px;">Your incentive-adjusted cost of ${fmtCurrency(data.incentiveAdjustedCost)} is ${fmtCurrency(data.stickerPrice - data.incentiveAdjustedCost)} below MSRP and ${fmtCurrency(data.predictedFMV - data.incentiveAdjustedCost)} below fair market value.</div>
+        <div style="font-size:12px;color:#94a3b8;margin-top:4px;">Your incentive-adjusted cost of ${fmtCurrency(data.incentiveAdjustedCost)} is ${msrpPhrase} and ${fmvPhrase}.</div>
       </div>
       <div style="text-align:center;background:#10b98115;border:1px solid #10b98133;border-radius:10px;padding:12px 20px;">
         <div style="font-size:10px;color:#10b981;">YOUR PRICE</div>

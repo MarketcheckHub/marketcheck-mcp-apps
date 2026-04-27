@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: UK Dealer Pricing — MarketCheck Apps">
-  <meta property="og:description" content="UK dealer lot pricing dashboard. Fetches dealer inventory from UK active listings and overlays recently sold data for market context.">
+  <meta property="og:description" content="UK dealer lot-pricing dashboard. Given a numeric MarketCheck dealer_id and an optional make filter, the app issues three parallel calls — UK Active scoped to the dealer (up to 100 listings with price/">
   <meta property="og:url" content="https://apps.marketcheck.com/app/uk-dealer-pricing/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/uk-dealer-pricing.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: UK Dealer Pricing">
-  <meta name="twitter:description" content="UK dealer lot pricing dashboard. Fetches dealer inventory from UK active listings and overlays recently sold data for market context.">
+  <meta name="twitter:description" content="UK dealer lot-pricing dashboard. Given a numeric MarketCheck dealer_id and an optional make filter, the app issues three parallel calls — UK Active scoped to the dealer (up to 100 listings with price/">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/uk-dealer-pricing.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: UK Dealer Pricing","description":"UK dealer lot pricing dashboard. Fetches dealer inventory from UK active listings and overlays recently sold data for market context.","url":"https://apps.marketcheck.com/app/uk-dealer-pricing/","image":"https://apps.marketcheck.com/assets/screenshots/uk-dealer-pricing.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: UK Dealer Pricing","description":"UK dealer lot-pricing dashboard. Given a numeric MarketCheck dealer_id and an optional make filter, the app issues three parallel calls — UK Active scoped to the dealer (up to 100 listings with price/miles stats), UK Active again for the market baseline stats, and UK Recents for sold evidence — then classifies every inventory row as REDUCE / COMPETITIVE / RAISE based on its gap vs the market average. The result is a KPI ribbon (units, avg price, avg miles, % overpriced / underpriced), a sortable inventory table with per-row gap £ and gap %, a clickable aging heatmap (0-30d / 31-60d / 61-90d / 90+d) that filters the table, a recent-sales evidence panel, a price-action summary (REDUCE / COMPETITIVE / RAISE cards with share bars), and a revenue-impact strip estimating the GBP uplift if every recommendation were taken.","url":"https://apps.marketcheck.com/app/uk-dealer-pricing/","image":"https://apps.marketcheck.com/assets/screenshots/uk-dealer-pricing.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -306,12 +306,52 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>UK dealer lot pricing dashboard. Fetches dealer inventory from UK active listings and overlays recently sold data for market context.</p>
+    <p>UK dealer lot-pricing dashboard. Given a numeric MarketCheck dealer_id and an optional make filter, the app issues three parallel calls — UK Active scoped to the dealer (up to 100 listings with price/miles stats), UK Active again for the market baseline stats, and UK Recents for sold evidence — then classifies every inventory row as REDUCE / COMPETITIVE / RAISE based on its gap vs the market average. The result is a KPI ribbon (units, avg price, avg miles, % overpriced / underpriced), a sortable inventory table with per-row gap £ and gap %, a clickable aging heatmap (0-30d / 31-60d / 61-90d / 90+d) that filters the table, a recent-sales evidence panel, a price-action summary (REDUCE / COMPETITIVE / RAISE cards with share bars), and a revenue-impact strip estimating the GBP uplift if every recommendation were taken.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">UK Independent Dealer Principals</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Identify which vehicles on your lot are overpriced vs the live UK market, and which are leaving money on the table — sorted by gap % with REDUCE / COMPETITIVE / RAISE chips to filter in one click.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">UK Dealer Group Pricing Teams</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Deep-link ?dealer_id=<n>&make=<brand> into each rooftop's dashboard from internal tools or dashboards — the app auto-runs the analysis on load.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">UK Used-Car Analysts</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Compare a single dealer's pricing posture to the UK-wide make average and recent sold evidence; quantify the gross revenue opportunity if all actions were executed.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Lender Risk Reviewers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Spot rooftops with heavy overpriced inventory and long DOM as early risk signals — the aging heatmap surfaces stale stock at a glance.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (or set via localStorage)</td></tr><tr><td><code>dealer_id</code></td><td>Numeric MarketCheck UK dealer_id — pre-fills the form and auto-runs the analysis on load.</td></tr><tr><td><code>make</code></td><td>Scope the market baseline and recent-sold evidence to a single make (e.g. Ford, BMW) — also auto-runs.</td></tr><tr><td><code>postal_code</code></td><td>Context-only UK postcode shown on the form; does not re-scope the API calls.</td></tr><tr><td><code>embed</code></td><td>Set to 'true' to hide the settings gear (embedded mode)</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/uk-dealer-pricing/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/uk-dealer-pricing/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/uk-dealer-pricing/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/uk-dealer-pricing/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -326,7 +366,12 @@ pre.code-block {
     <h2>API Call Flow</h2>
     <p>Here's the exact sequence of MarketCheck API calls this app makes, and which ones run in parallel:</p>
     <div class="flow-diagram">
-      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">UK Inventory + Recent Sold</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
+      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">Inventory + Market Baseline + Recent Sold (parallel)</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
+          <div class="flow-api-card">
+            <div class="flow-api-method">GET</div>
+            <code class="flow-api-path">/v2/search/car/uk/active</code>
+            <div class="flow-api-name">Search UK Active Listings</div>
+          </div>
           <div class="flow-api-card">
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/uk/active</code>
@@ -336,7 +381,7 @@ pre.code-block {
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/uk/recents</code>
             <div class="flow-api-name">Search UK Recently Sold</div>
-          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Fetch dealer inventory and market sold data in parallel</div></div>
+          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Three parallel calls. 1) UK Active scoped by dealer_id with rows=100, stats=price,miles. 2) UK Active with rows=0, stats=price,miles, optional make scope — used as the market baseline for gap computation. 3) UK Recents with rows=15, stats=price,miles — sold evidence.</div></div>
     </div>
   </div>
 
@@ -348,7 +393,7 @@ pre.code-block {
     <table class="param-table">
       <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>dealer_id</code></td><td>string</td><td><span class="required">Yes</span></td><td>UK dealer ID</td></tr><tr><td><code>make</code></td><td>string</td><td>No</td><td>Filter by make</td></tr>
+        <tr><td><code>dealer_id</code></td><td>string</td><td><span class="required">Yes</span></td><td>Numeric UK dealer_id (MarketCheck)</td></tr><tr><td><code>make</code></td><td>string</td><td>No</td><td>Filter baseline + recents by make</td></tr><tr><td><code>postal_code</code></td><td>string</td><td>No</td><td>Context only (displayed, not sent)</td></tr>
       </tbody>
     </table>
   </div>
@@ -399,7 +444,7 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Inventory table with market positioning</div><div class="render-item"><div class="render-dot"></div>price gap indicators</div><div class="render-item"><div class="render-dot"></div>aging analysis</div><div class="render-item"><div class="render-dot"></div>sold comparison overlay</div>
+      <div class="render-item"><div class="render-dot"></div>KPI ribbon (total units</div><div class="render-item"><div class="render-dot"></div>avg price</div><div class="render-item"><div class="render-dot"></div>avg miles</div><div class="render-item"><div class="render-dot"></div>% over/underpriced)</div><div class="render-item"><div class="render-dot"></div>sortable inventory table with per-row gap £ / gap % / action chip</div><div class="render-item"><div class="render-dot"></div>clickable aging heatmap (0-30 / 31-60 / 61-90 / 90+ days) that filters the table</div><div class="render-item"><div class="render-dot"></div>recent-sales evidence table</div><div class="render-item"><div class="render-dot"></div>price-action summary cards with share bars</div><div class="render-item"><div class="render-dot"></div>and revenue-impact strip estimating GBP uplift if all actions were taken.</div>
     </div>
   </div>
 
@@ -413,7 +458,7 @@ pre.code-block {
         <span class="api-method-badge" style="background:#dbeafe;color:#1e40af;">POST</span>
         <code>https://apps.marketcheck.com/api/proxy/scan-uk-lot-pricing</code>
       </div>
-      <p>This single endpoint runs all 2 API calls in the optimal sequence and returns the combined result.</p>
+      <p>This single endpoint runs all 3 API calls in the optimal sequence and returns the combined result.</p>
       <p><a href="/docs/derivative-apis/#scan-uk-lot-pricing">View full composite endpoint documentation &#8599;</a></p>
     </div>
     
@@ -424,7 +469,8 @@ pre.code-block {
   "_auth_mode": "api_key",
   "_auth_value": "YOUR_API_KEY",
   "dealer_id": "abc123",
-  "make": "Toyota"
+  "make": "Toyota",
+  "postal_code": "SW1A 1AA"
 }'</pre>
   </div>
 

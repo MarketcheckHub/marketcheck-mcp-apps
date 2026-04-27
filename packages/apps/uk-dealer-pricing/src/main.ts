@@ -11,7 +11,11 @@ function _getAuth(): { mode: "api_key" | "oauth_token" | null; value: string | n
   if (key) return { mode: "api_key", value: key };
   return { mode: null, value: null };
 }
-function _detectAppMode(): "mcp" | "live" | "demo" { if (_getAuth().value) return "live"; if (_safeApp) return "mcp"; return "demo"; }
+function _detectAppMode(): "mcp" | "live" | "demo" {
+  if (_getAuth().value) return "live";
+  if (_safeApp && window.parent !== window) return "mcp";
+  return "demo";
+}
 function _isEmbedMode(): boolean { return new URLSearchParams(location.search).has("embed"); }
 function _getUrlParams(): Record<string, string> { const params = new URLSearchParams(location.search); const result: Record<string, string> = {}; for (const key of ["vin","zip","make","model","miles","state","dealer_id","ticker","price","postal_code"]) { const v = params.get(key); if (v) result[key] = v; } return result; }
 function _proxyBase(): string { return location.protocol.startsWith("http") ? "" : "http://localhost:3001"; }
@@ -43,10 +47,17 @@ function _mcIncentives(p) { const q={...p}; if(q.oem&&!q.make){q.make=q.oem;dele
 function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
 function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
 
-async function _fetchDirect(args) {
-  const inventory = await _mcUkActive({dealer_id:args.dealer_id,rows:30,stats:"price,miles"});
-  const recent = await _mcUkRecent({make:args.make,rows:10,stats:"price"});
-  return {inventory,recent};
+async function _fetchDirect(args: any) {
+  const scope = args?.make ? { make: args.make } : {};
+  const [inventory, market, recent] = await Promise.all([
+    args?.dealer_id
+      ? _mcUkActive({ dealer_id: args.dealer_id, rows: 100, stats: "price,miles" })
+      : _mcUkActive({ rows: 100, stats: "price,miles", ...scope }),
+    // Market baseline stats used as the per-vehicle comparison.
+    _mcUkActive({ rows: 0, stats: "price,miles", ...scope }),
+    _mcUkRecent({ rows: 15, stats: "price,miles", ...scope }),
+  ]);
+  return { inventory, market, recent };
 }
 async function _callTool(toolName, args) {
   const auth = _getAuth();
@@ -262,6 +273,110 @@ function generateMockData(): DashboardData {
   };
 }
 
+// ── API → DashboardData normalizer ──────────────────────────────────────
+// Raw MarketCheck UK responses come back nested (listing.build.year,
+// listing.dealer.city, etc.) and the shape that the UI renders is flat with
+// per-vehicle computed gap/action. This mapper accepts either the raw
+// {inventory, market, recent} envelope or a pre-flattened proxy response.
+function _normalizeDashboard(raw: any, dealerLabel: string): DashboardData | null {
+  if (!raw) return null;
+  const invSrc = raw.inventory ?? raw.active ?? raw;
+  const marketSrc = raw.market ?? invSrc;
+  const recentSrc = raw.recent ?? raw.recent_sales ?? {};
+  const rawListings: any[] = invSrc?.listings ?? [];
+  if (rawListings.length === 0) return null;
+
+  const marketAvgPrice =
+    Number(marketSrc?.stats?.price?.avg ?? marketSrc?.stats?.price?.mean ?? invSrc?.stats?.price?.avg ?? invSrc?.stats?.price?.mean ?? 0);
+  const marketCount = Number(marketSrc?.num_found ?? invSrc?.num_found ?? rawListings.length);
+
+  const inventory: UkVehicle[] = rawListings
+    .map((l: any, idx: number): UkVehicle => {
+      const b = l.build ?? {};
+      const price = Number(l.price ?? 0);
+      const miles = Number(l.miles ?? 0);
+      const dom = Number(l.dom ?? l.days_on_market ?? 0);
+      const mavg = marketAvgPrice > 0 ? marketAvgPrice : price;
+      const gapGBP = price - mavg;
+      const gapPct = mavg > 0 ? Math.round(((price - mavg) / mavg) * 1000) / 10 : 0;
+      let action = "COMPETITIVE";
+      if (gapPct > 5) action = "REDUCE";
+      else if (gapPct < -5) action = "RAISE";
+      return {
+        vin: String(l.vin ?? l.id ?? `API-${idx}`),
+        year: Number(l.year ?? b.year ?? 0),
+        make: String(l.make ?? b.make ?? ""),
+        model: String(l.model ?? b.model ?? ""),
+        trim: String(l.trim ?? b.trim ?? ""),
+        listedPrice: price,
+        marketAvg: Math.round(mavg),
+        gapGBP: Math.round(gapGBP),
+        gapPct,
+        miles,
+        dom,
+        marketCount,
+        action,
+      };
+    })
+    .filter((v) => v.listedPrice > 0);
+
+  if (inventory.length === 0) return null;
+
+  const aging: AgingBucket[] = [
+    { label: "0-30d", min: 0, max: 30, count: 0, color: "#10b981" },
+    { label: "31-60d", min: 31, max: 60, count: 0, color: "#f59e0b" },
+    { label: "61-90d", min: 61, max: 90, count: 0, color: "#f97316" },
+    { label: "90+d", min: 91, max: 9999, count: 0, color: "#ef4444" },
+  ];
+  for (const v of inventory) {
+    for (const b of aging) {
+      if (v.dom >= b.min && v.dom <= b.max) {
+        b.count++;
+        break;
+      }
+    }
+  }
+
+  const rawSales: any[] = recentSrc?.listings ?? recentSrc?.recent_sales ?? [];
+  const recentSales: RecentSale[] = rawSales.slice(0, 15).map((r: any): RecentSale => {
+    const b = r.build ?? {};
+    // UK Recents returns close-out date as `last_seen_at_date` (ISO string).
+    // Keep the older fallbacks for proxy/normalized payloads.
+    const soldRaw = String(r.sold_date ?? r.last_seen_at_date ?? r.last_seen_date ?? r.removed_date ?? "");
+    return {
+      year: Number(r.year ?? b.year ?? 0),
+      make: String(r.make ?? b.make ?? ""),
+      model: String(r.model ?? b.model ?? ""),
+      trim: String(r.trim ?? b.trim ?? ""),
+      price: Number(r.price ?? r.last_seen_price ?? 0),
+      miles: Number(r.miles ?? 0),
+      dom: Number(r.dom ?? r.days_on_market ?? 0),
+      soldDate: soldRaw.slice(0, 10),
+    };
+  });
+
+  const totalUnits = inventory.length;
+  const avgPrice = Math.round(inventory.reduce((s, v) => s + v.listedPrice, 0) / totalUnits);
+  const avgMiles = Math.round(inventory.reduce((s, v) => s + v.miles, 0) / totalUnits);
+  const pctOverpriced = Math.round((inventory.filter((v) => v.action === "REDUCE").length / totalUnits) * 100);
+  const pctUnderpriced = Math.round((inventory.filter((v) => v.action === "RAISE").length / totalUnits) * 100);
+
+  const actionSummary: ActionSummary = {
+    reduce: inventory.filter((v) => v.action === "REDUCE").length,
+    hold: inventory.filter((v) => v.action === "COMPETITIVE").length,
+    raise: inventory.filter((v) => v.action === "RAISE").length,
+  };
+
+  return {
+    dealerName: dealerLabel,
+    inventory,
+    aging,
+    recentSales,
+    kpis: { totalUnits, avgPrice, avgMiles, pctOverpriced, pctUnderpriced },
+    actionSummary,
+  };
+}
+
 // ── Formatters ─────────────────────────────────────────────────────────
 function fmtGBP(v: number): string {
   return "\u00A3" + Math.round(v).toLocaleString();
@@ -285,6 +400,12 @@ async function main() {
     "margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#e2e8f0;overflow-x:hidden;";
 
   renderInputForm();
+
+  // Auto-submit when a dealer or make scope is provided via URL.
+  const urlP = _getUrlParams();
+  if (urlP.dealer_id || urlP.make) {
+    handleAnalyse();
+  }
 }
 
 // ── Input Form ─────────────────────────────────────────────────────────
@@ -348,29 +469,47 @@ function renderInputForm() {
     style: "background:#1e293b;border:1px solid #334155;border-radius:8px;padding:20px;margin-bottom:16px;",
   });
 
-  // Dealer name
+  const urlP = _getUrlParams();
+
+  // Dealer ID (numeric MarketCheck ID)
   const dealerLabel = el("label", { style: "font-size:12px;color:#94a3b8;display:block;margin-bottom:4px;" });
-  dealerLabel.textContent = "Dealer Name / ID";
+  dealerLabel.textContent = "Dealer ID";
   formPanel.appendChild(dealerLabel);
 
   const dealerInput = document.createElement("input");
   dealerInput.id = "dealer-input";
   dealerInput.type = "text";
-  dealerInput.placeholder = "e.g. Brighton Motor Group";
-  dealerInput.value = "Brighton Motor Group";
-  dealerInput.style.cssText = "width:100%;padding:10px 12px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:13px;margin-bottom:14px;box-sizing:border-box;";
+  dealerInput.placeholder = "Numeric MarketCheck dealer_id, e.g. 12345";
+  dealerInput.value = urlP.dealer_id ?? "";
+  dealerInput.style.cssText = "width:100%;padding:10px 12px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:13px;margin-bottom:4px;box-sizing:border-box;";
   formPanel.appendChild(dealerInput);
+  const dealerHint = el("div", { style: "font-size:10px;color:#64748b;margin-bottom:14px;" });
+  dealerHint.textContent = "Leave blank to see a UK-wide sample. With a key and dealer_id, the app fetches that dealer's live inventory.";
+  formPanel.appendChild(dealerHint);
 
-  // Postal code
+  // Make filter (optional)
+  const makeLabel = el("label", { style: "font-size:12px;color:#94a3b8;display:block;margin-bottom:4px;" });
+  makeLabel.textContent = "Make (optional)";
+  formPanel.appendChild(makeLabel);
+
+  const makeInput = document.createElement("input");
+  makeInput.id = "make-input";
+  makeInput.type = "text";
+  makeInput.placeholder = "e.g. Ford, BMW — scopes the market baseline";
+  makeInput.value = urlP.make ?? "";
+  makeInput.style.cssText = "width:100%;padding:10px 12px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:13px;margin-bottom:14px;box-sizing:border-box;";
+  formPanel.appendChild(makeInput);
+
+  // Postal code (context only)
   const postalLabel = el("label", { style: "font-size:12px;color:#94a3b8;display:block;margin-bottom:4px;" });
-  postalLabel.textContent = "Postal Code";
+  postalLabel.textContent = "Postal Code (context)";
   formPanel.appendChild(postalLabel);
 
   const postalInput = document.createElement("input");
   postalInput.id = "postal-input";
   postalInput.type = "text";
   postalInput.placeholder = "e.g. BN1 1AE";
-  postalInput.value = _getUrlParams().postal_code ?? "BN1 1AE";
+  postalInput.value = urlP.postal_code ?? "";
   postalInput.style.cssText = "width:100%;padding:10px 12px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:13px;margin-bottom:14px;box-sizing:border-box;";
   formPanel.appendChild(postalInput);
 
@@ -387,6 +526,8 @@ function renderInputForm() {
   demoBtn.textContent = "Load Demo Data";
   demoBtn.style.cssText = "padding:10px 24px;border-radius:6px;border:1px solid #334155;background:transparent;color:#94a3b8;font-size:14px;cursor:pointer;font-family:inherit;";
   demoBtn.addEventListener("click", () => {
+    activeDomBucket = null;
+    activeAction = null;
     renderDashboard(generateMockData());
   });
   buttonRow.appendChild(demoBtn);
@@ -398,37 +539,44 @@ function renderInputForm() {
 // ── Handle Analyse ─────────────────────────────────────────────────────
 async function handleAnalyse() {
   const dealerInput = document.getElementById("dealer-input") as HTMLInputElement;
+  const makeInput = document.getElementById("make-input") as HTMLInputElement;
   const postalInput = document.getElementById("postal-input") as HTMLInputElement;
-  const dealerName = dealerInput?.value?.trim() || "Brighton Motor Group";
-  const postalCode = postalInput?.value?.trim() || "BN1 1AE";
+  const dealerId = dealerInput?.value?.trim() || "";
+  const make = makeInput?.value?.trim() || "";
+  const postalCode = postalInput?.value?.trim() || "";
+  const dealerLabel = dealerId ? `Dealer ${dealerId}` : "UK Market Sample";
+
+  // Fresh dataset → reset interactive filters from any prior dashboard.
+  activeDomBucket = null;
+  activeAction = null;
 
   // Show loading
   document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#94a3b8;">
     <div style="width:20px;height:20px;border:2px solid #334155;border-top-color:#3b82f6;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:12px;"></div>
     <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
-    Analysing pricing for ${dealerName}...
+    Analysing pricing for ${dealerLabel}...
   </div>`;
 
-  let data: DashboardData;
+  let data: DashboardData = generateMockData();
   try {
     const result = await _callTool("scan-uk-lot-pricing", {
-      dealer_name: dealerName,
-      postal_code: postalCode,
+      dealer_id: dealerId || undefined,
+      make: make || undefined,
+      postal_code: postalCode || undefined,
     });
     const text = result?.content?.find((c: any) => c.type === "text")?.text;
     if (text) {
       const parsed = JSON.parse(text);
-      if (parsed.inventory && parsed.inventory.length > 0) {
-        data = parsed as DashboardData;
+      // Preferred: proxy pre-built DashboardData.
+      if (Array.isArray(parsed.inventory) && parsed.inventory.length > 0 && parsed.kpis) {
+        data = { ...parsed, dealerName: parsed.dealerName || dealerLabel } as DashboardData;
       } else {
-        data = generateMockData();
+        // Fallback: raw {inventory, market, recent} envelope — normalize.
+        const normalized = _normalizeDashboard(parsed, dealerLabel);
+        if (normalized) data = normalized;
       }
-    } else {
-      data = generateMockData();
     }
-  } catch {
-    data = generateMockData();
-  }
+  } catch {}
 
   renderDashboard(data);
 }
@@ -436,8 +584,6 @@ async function handleAnalyse() {
 // ── Render Dashboard ───────────────────────────────────────────────────
 function renderDashboard(data: DashboardData) {
   document.body.innerHTML = "";
-  activeDomBucket = null;
-  activeAction = null;
 
   // Header
   const header = el("div", {
@@ -602,7 +748,7 @@ function renderDashboard(data: DashboardData) {
       fmtNum(v.miles),
       `<span style="color:${gapColor};">${fmtPct(v.gapPct)}</span>`,
       `${v.dom}d`,
-      `<span style="padding:3px 8px;border-radius:8px;font-size:10px;font-weight:700;background:${actionBg};color:${actionColor};border:1px solid ${actionColor}33;">${v.action}</span>`,
+      `<span style="padding:3px 8px;border-radius:8px;font-size:10px;font-weight:700;background:${actionBg};color:${actionColor};border:1px solid ${actionColor}33;">${v.action === "COMPETITIVE" ? "HOLD" : v.action}</span>`,
     ];
 
     for (const cellHtml of cells) {
@@ -685,7 +831,7 @@ function renderDashboard(data: DashboardData) {
 
   const actionCards = [
     { label: "REDUCE", count: data.actionSummary.reduce, color: "#ef4444", desc: "Overpriced vs market - consider lowering" },
-    { label: "COMPETITIVE", count: data.actionSummary.hold, color: "#f59e0b", desc: "Priced within market range - hold position" },
+    { label: "HOLD", count: data.actionSummary.hold, color: "#f59e0b", desc: "Priced within market range - hold position" },
     { label: "RAISE", count: data.actionSummary.raise, color: "#10b981", desc: "Underpriced vs market - opportunity to increase" },
   ];
 

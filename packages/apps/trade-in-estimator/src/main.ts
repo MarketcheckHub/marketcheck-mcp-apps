@@ -15,7 +15,7 @@ function _getAuth(): { mode: "api_key" | "oauth_token" | null; value: string | n
 
 function _detectAppMode(): "mcp" | "live" | "demo" {
   if (_getAuth().value) return "live";
-  if (_safeApp) return "mcp";
+  if (_safeApp && window.parent !== window) return "mcp";
   return "demo";
 }
 
@@ -74,6 +74,14 @@ async function _fetchDirect(args) {
   return {decode,retail,wholesale,soldComps};
 }
 
+function _str(v: any): string {
+  if (v == null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (typeof v === "object") return v.name ?? v.display ?? v.value ?? v.label ?? "";
+  return "";
+}
+
 function _transformRawToTradeIn(raw: any, args: any): TradeInResult {
   const d = raw.decode ?? {};
   const retail = raw.retail ?? {};
@@ -86,21 +94,34 @@ function _transformRawToTradeIn(raw: any, args: any): TradeInResult {
   const confHigh = retail.price_range?.high ?? (franchiseFmv > 0 ? franchiseFmv * 1.1 : 0);
 
   // Trade-in is typically 10-15% below retail; instant cash ~20% below
-  const tradeInValue = independentFmv > 0 ? independentFmv : Math.round(franchiseFmv * 0.88);
+  // Cap trade-in at 88% of retail to guarantee it stays below private party value
+  // (some VINs return wholesale FMV >= retail FMV, which is unrealistic for trade-in)
+  const retailFloor = franchiseFmv > 0 ? Math.round(franchiseFmv * 0.88) : 0;
+  const tradeInValue = independentFmv > 0 && independentFmv < franchiseFmv
+    ? Math.min(independentFmv, retailFloor || independentFmv)
+    : retailFloor || independentFmv;
   const tradeInLow = Math.round(tradeInValue * 0.92);
   const tradeInHigh = Math.round(tradeInValue * 1.08);
 
   const soldListings = soldResult.listings ?? [];
   const soldStats = soldResult.stats?.price ?? {};
-  const soldComps: SoldComp[] = soldListings.slice(0, 8).map((l: any) => ({
-    year: l.year ?? l.build?.year ?? d.year ?? 0,
-    make: l.make ?? l.build?.make ?? d.make ?? "",
-    model: (l.model ?? l.build?.model ?? d.model ?? "") + (l.trim ? " " + l.trim : ""),
-    price: l.price ?? 0,
-    miles: l.miles ?? 0,
-    days_to_sell: l.dom ?? l.dom_active ?? 0,
-    location: (l.dealer?.city ?? l.city ?? "") + (l.dealer?.state ?? l.state ? ", " + (l.dealer?.state ?? l.state) : ""),
-  }));
+  const soldComps: SoldComp[] = soldListings
+    .filter((l: any) => (l.price ?? 0) > 0)
+    .slice(0, 8)
+    .map((l: any) => {
+      const trim = _str(l.trim ?? l.build?.trim);
+      const city = _str(l.dealer?.city ?? l.city);
+      const state = _str(l.dealer?.state ?? l.state);
+      return {
+        year: l.year ?? l.build?.year ?? d.year ?? 0,
+        make: _str(l.make ?? l.build?.make ?? d.make),
+        model: _str(l.model ?? l.build?.model ?? d.model) + (trim ? " " + trim : ""),
+        price: l.price ?? 0,
+        miles: l.miles ?? 0,
+        days_to_sell: l.dom ?? l.dom_active ?? 0,
+        location: city + (state ? ", " + state : ""),
+      };
+    });
 
   const now = new Date();
   const threeMonthsAgo = new Date(now);
@@ -111,15 +132,15 @@ function _transformRawToTradeIn(raw: any, args: any): TradeInResult {
     vehicle: {
       vin: args.vin,
       year: d.year ?? 0,
-      make: d.make ?? "Unknown",
-      model: d.model ?? "Unknown",
-      trim: d.trim ?? "",
-      engine: d.engine ?? "",
-      transmission: d.transmission ?? "",
-      drivetrain: d.drivetrain ?? "",
-      fuel_type: d.fuel_type ?? "",
+      make: _str(d.make) || "Unknown",
+      model: _str(d.model) || "Unknown",
+      trim: _str(d.trim),
+      engine: _str(d.engine),
+      transmission: _str(d.transmission),
+      drivetrain: _str(d.drivetrain),
+      fuel_type: _str(d.fuel_type),
       msrp: d.msrp ?? 0,
-      body_type: d.body_type ?? "",
+      body_type: _str(d.body_type),
     },
     privatePartyValue: franchiseFmv,
     privatePartyLow: Math.round(confLow),

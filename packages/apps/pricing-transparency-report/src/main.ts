@@ -77,6 +77,118 @@ async function _fetchDirect(args) {
   return {decode,prediction,activeComps,soldComps};
 }
 
+function _str(v: any): string {
+  if (v == null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (typeof v === "object") return v.name ?? v.display ?? v.value ?? v.label ?? "";
+  return "";
+}
+
+function _transformRawToPricingReport(raw: any, args: any): PricingReportData {
+  const d = raw.decode ?? {};
+  const prediction = raw.prediction ?? {};
+  const activeResult = raw.activeComps ?? {};
+  const soldResult = raw.soldComps ?? {};
+
+  const askingPrice = Number(args.askingPrice ?? args.price ?? 0);
+  const fmv = prediction.predicted_price ?? prediction.marketcheck_price ?? prediction.price ?? 0;
+  const confLow = prediction.price_range?.low ?? (fmv > 0 ? Math.round(fmv * 0.9) : 0);
+  const confHigh = prediction.price_range?.high ?? (fmv > 0 ? Math.round(fmv * 1.1) : 0);
+
+  const activeListings = activeResult.listings ?? [];
+  const priceStats = activeResult.stats?.price ?? {};
+  const minPrice = priceStats.min ?? (activeListings.length > 0 ? Math.min(...activeListings.map((l: any) => l.price ?? Infinity)) : Math.round(fmv * 0.85));
+  const maxPrice = priceStats.max ?? (activeListings.length > 0 ? Math.max(...activeListings.map((l: any) => l.price ?? 0)) : Math.round(fmv * 1.15));
+  const priceRange = maxPrice - minPrice || 1;
+  const percentile = Math.max(0, Math.min(100, ((askingPrice - minPrice) / priceRange) * 100));
+
+  let badge: PricingReportData["dealBadge"] = "FAIR PRICE";
+  if (percentile <= 20) badge = "GREAT DEAL";
+  else if (percentile <= 40) badge = "GOOD VALUE";
+  else if (percentile <= 60) badge = "FAIR PRICE";
+  else if (percentile <= 80) badge = "ABOVE MARKET";
+  else badge = "OVERPRICED";
+
+  const activeComps: ActiveComp[] = activeListings
+    .filter((l: any) => (l.price ?? 0) > 0)
+    .slice(0, 8)
+    .map((l: any) => ({
+      year: l.year ?? l.build?.year ?? d.year ?? 0,
+      make: _str(l.make ?? l.build?.make ?? d.make),
+      model: _str(l.model ?? l.build?.model ?? d.model),
+      trim: _str(l.trim ?? l.build?.trim),
+      price: l.price ?? 0,
+      miles: l.miles ?? 0,
+      dealerName: _str(l.dealer?.name ?? l.dealer_name),
+      city: _str(l.dealer?.city ?? l.city),
+      state: _str(l.dealer?.state ?? l.state),
+      distance: l.dist ?? l.distance ?? 0,
+      dom: l.dom ?? l.days_on_market ?? 0,
+      vdpUrl: l.vdp_url ?? "#",
+    }));
+
+  const soldListings = soldResult.listings ?? [];
+  const soldComps: SoldComp[] = soldListings
+    .filter((l: any) => (l.price ?? 0) > 0)
+    .slice(0, 8)
+    .map((l: any) => ({
+      year: l.year ?? l.build?.year ?? d.year ?? 0,
+      make: _str(l.make ?? l.build?.make ?? d.make),
+      model: _str(l.model ?? l.build?.model ?? d.model),
+      trim: _str(l.trim ?? l.build?.trim),
+      soldPrice: l.price ?? 0,
+      miles: l.miles ?? 0,
+      soldDate: l.last_seen_at_date ?? l.last_seen_at ?? l.scraped_at ?? new Date().toISOString().split("T")[0],
+      dealerName: _str(l.dealer?.name ?? l.dealer_name),
+      city: _str(l.dealer?.city ?? l.city),
+      state: _str(l.dealer?.state ?? l.state),
+    }));
+
+  const avgPrice = priceStats.mean ?? priceStats.avg ?? (activeComps.length > 0 ? activeComps.reduce((s, c) => s + c.price, 0) / activeComps.length : fmv);
+  const medianPrice = priceStats.median ?? avgPrice;
+  const milesStats = activeResult.stats?.miles ?? {};
+  const avgMiles = milesStats.mean ?? milesStats.avg ?? (activeComps.length > 0 ? activeComps.reduce((s, c) => s + c.miles, 0) / activeComps.length : 0);
+  const domStats = activeResult.stats?.dom ?? activeResult.stats?.days_on_market ?? {};
+  const avgDom = domStats.mean ?? domStats.avg ?? (activeComps.length > 0 ? activeComps.reduce((s, c) => s + c.dom, 0) / activeComps.length : 0);
+
+  return {
+    vehicle: {
+      vin: args.vin ?? d.vin ?? "",
+      year: d.year ?? 0,
+      make: _str(d.make) || "Unknown",
+      model: _str(d.model) || "Unknown",
+      trim: _str(d.trim),
+      bodyType: _str(d.body_type),
+      engine: _str(d.engine),
+      transmission: _str(d.transmission),
+      drivetrain: _str(d.drivetrain),
+      fuelType: _str(d.fuel_type),
+      exteriorColor: _str(d.exterior_color) || "N/A",
+      miles: Number(args.miles) || 0,
+    },
+    askingPrice,
+    predictedFmv: fmv,
+    confidenceLow: confLow,
+    confidenceHigh: confHigh,
+    percentile,
+    dealBadge: badge,
+    activeComps,
+    soldComps,
+    marketSummary: {
+      totalSimilar: activeResult.num_found ?? activeComps.length,
+      medianPrice: Math.round(medianPrice),
+      avgPrice: Math.round(avgPrice),
+      minPrice: Math.round(minPrice),
+      maxPrice: Math.round(maxPrice),
+      avgMiles: Math.round(avgMiles),
+      avgDom: Math.round(avgDom),
+    },
+    reportDate: new Date().toISOString().split("T")[0],
+    dealerName: "",
+  };
+}
+
 async function _callTool(toolName, args) {
   const auth = _getAuth();
   if (auth.value) {
@@ -86,16 +198,24 @@ async function _callTool(toolName, args) {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...args, _auth_mode: auth.mode, _auth_value: auth.value }),
       });
-      if (r.ok) { const d = await r.json(); return { content: [{ type: "text", text: JSON.stringify(d) }] }; }
+      if (r.ok) {
+        const raw = await r.json();
+        const d = _transformRawToPricingReport(raw, args);
+        return { content: [{ type: "text", text: JSON.stringify(d) }] };
+      }
     } catch {}
     // 2. Direct API fallback
     try {
-      const data = await _fetchDirect(args);
-      if (data) return { content: [{ type: "text", text: JSON.stringify(data) }] };
+      const raw = await _fetchDirect(args);
+      if (raw) {
+        const d = _transformRawToPricingReport(raw, args);
+        return { content: [{ type: "text", text: JSON.stringify(d) }] };
+      }
     } catch {}
+    return null;
   }
-  // 3. MCP mode (Claude, VS Code, etc.)
-  if (_safeApp) {
+  // 3. MCP mode (Claude, VS Code, etc.) — only when no auth and inside MCP host
+  if (_safeApp && window.parent !== window) {
     try { return await _safeApp.callServerTool({ name: toolName, arguments: args }); } catch {}
   }
   // 4. Demo mode
@@ -343,11 +463,9 @@ function badgeConfig(badge: string): { color: string; bg: string; border: string
 // ── Main App ───────────────────────────────────────────────────────────────────
 
 async function main() {
-  let serverAvailable = !!_safeApp;
-  try {
-    (_safeApp as any)?.connect?.();
-  } catch {
-    serverAvailable = false;
+  // Only attempt MCP connect when actually inside an MCP host iframe
+  if (_safeApp && window.parent !== window) {
+    try { (_safeApp as any)?.connect?.(); } catch {}
   }
 
   const urlParams = _getUrlParams();
@@ -453,15 +571,20 @@ async function main() {
     </div>`;
 
     let data: PricingReportData;
+    const mode = _detectAppMode();
     try {
-      if (serverAvailable) {
+      if (mode === "live" || mode === "mcp") {
         const args: Record<string, unknown> = { vin };
         if (price) args.askingPrice = Number(price);
         if (miles) args.miles = Number(miles);
         if (zip) args.zip = zip;
         const response = await _callTool("generate-pricing-report", args);
-        const textContent = response.content.find((c: any) => c.type === "text");
-        data = JSON.parse(textContent?.text ?? "{}");
+        const textContent = response?.content?.find((c: any) => c.type === "text");
+        if (textContent?.text) {
+          data = JSON.parse(textContent.text);
+        } else {
+          throw new Error("No data returned from API");
+        }
       } else {
         await new Promise(r => setTimeout(r, 800));
         data = getMockData(vin, price ? Number(price) : undefined, miles ? Number(miles) : undefined, zip);
@@ -610,7 +733,7 @@ async function main() {
           ${data.activeComps.map(c => {
             const priceDiff = c.price - data.askingPrice;
             const priceColor = priceDiff < 0 ? "#10b981" : priceDiff > 0 ? "#f59e0b" : "#e2e8f0";
-            const diffStr = priceDiff === 0 ? "" : ` <span style="color:${priceColor};font-size:10px;">(${priceDiff > 0 ? '+' : ''}${fmtCurrency(priceDiff)})</span>`;
+            const diffStr = priceDiff === 0 ? "" : ` <span style="color:${priceColor};font-size:10px;">(${priceDiff > 0 ? '+' : '-'}${fmtCurrency(Math.abs(priceDiff))})</span>`;
             return `<tr style="border-bottom:1px solid #1e293b;">
               <td style="padding:10px;color:#e2e8f0;font-weight:600;">${c.year} ${c.make} ${c.model} <span style="color:#94a3b8;font-weight:400;">${c.trim}</span></td>
               <td style="padding:10px;text-align:right;color:#e2e8f0;font-weight:600;">${fmtCurrency(c.price)}${diffStr}</td>
@@ -664,7 +787,7 @@ async function main() {
           ${data.soldComps.map(s => {
             const sDiff = s.soldPrice - data.askingPrice;
             const sDiffColor = sDiff < 0 ? "#10b981" : sDiff > 0 ? "#f59e0b" : "#e2e8f0";
-            const sDiffStr = ` <span style="color:${sDiffColor};font-size:10px;">(${sDiff > 0 ? '+' : ''}${fmtCurrency(sDiff)})</span>`;
+            const sDiffStr = sDiff === 0 ? "" : ` <span style="color:${sDiffColor};font-size:10px;">(${sDiff > 0 ? '+' : '-'}${fmtCurrency(Math.abs(sDiff))})</span>`;
             return `<tr style="border-bottom:1px solid #1e293b;">
               <td style="padding:10px;color:#e2e8f0;font-weight:600;">${s.year} ${s.make} ${s.model} <span style="color:#94a3b8;font-weight:400;">${s.trim}</span></td>
               <td style="padding:10px;text-align:right;color:#e2e8f0;font-weight:600;">${fmtCurrency(s.soldPrice)}${sDiffStr}</td>

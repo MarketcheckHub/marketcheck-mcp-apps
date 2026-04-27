@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Pricing Transparency Report — MarketCheck Apps">
-  <meta property="og:description" content="Generates a professional, shareable pricing report that dealers can give to buyers. Shows predicted fair price, active comparables, and sold comparables — building trust through transparency.">
+  <meta property="og:description" content="Generates a professional, print-ready pricing report that dealers can share with buyers to build trust through market transparency. Enter a VIN, asking price, mileage, and ZIP — the report shows the M">
   <meta property="og:url" content="https://apps.marketcheck.com/app/pricing-transparency-report/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/pricing-transparency-report.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Pricing Transparency Report">
-  <meta name="twitter:description" content="Generates a professional, shareable pricing report that dealers can give to buyers. Shows predicted fair price, active comparables, and sold comparables — building trust through transparency.">
+  <meta name="twitter:description" content="Generates a professional, print-ready pricing report that dealers can share with buyers to build trust through market transparency. Enter a VIN, asking price, mileage, and ZIP — the report shows the M">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/pricing-transparency-report.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Pricing Transparency Report","description":"Generates a professional, shareable pricing report that dealers can give to buyers. Shows predicted fair price, active comparables, and sold comparables — building trust through transparency.","url":"https://apps.marketcheck.com/app/pricing-transparency-report/","image":"https://apps.marketcheck.com/assets/screenshots/pricing-transparency-report.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Pricing Transparency Report","description":"Generates a professional, print-ready pricing report that dealers can share with buyers to build trust through market transparency. Enter a VIN, asking price, mileage, and ZIP — the report shows the ML-predicted fair market value, a deal badge (Great Deal to Overpriced), the vehicle's price position across the full local market, a table of active comparable listings within 75 miles, and a table of recently sold comparables from the past 90 days. Includes a print button and a copy-share-link button so dealers can send the report directly to buyers.","url":"https://apps.marketcheck.com/app/pricing-transparency-report/","image":"https://apps.marketcheck.com/assets/screenshots/pricing-transparency-report.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -306,12 +306,52 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Generates a professional, shareable pricing report that dealers can give to buyers. Shows predicted fair price, active comparables, and sold comparables — building trust through transparency.</p>
+    <p>Generates a professional, print-ready pricing report that dealers can share with buyers to build trust through market transparency. Enter a VIN, asking price, mileage, and ZIP — the report shows the ML-predicted fair market value, a deal badge (Great Deal to Overpriced), the vehicle's price position across the full local market, a table of active comparable listings within 75 miles, and a table of recently sold comparables from the past 90 days. Includes a print button and a copy-share-link button so dealers can send the report directly to buyers.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Dealers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Generate a branded market report to hand to buyers during negotiations — shows your price is fair relative to comparable active listings and recent sales.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Car Shoppers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Ask your dealer for a Pricing Transparency Report on any vehicle you're considering — it shows exactly where the asking price sits relative to the market.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Used Car Managers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Run reports on incoming trade-ins to validate pricing before listing — the active comps table shows exactly what similar vehicles are selling for nearby.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Auto Lenders</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Use as a lightweight collateral validation tool — the ML-predicted FMV and market position provide a quick sanity check on the asking price.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (or set via localStorage)</td></tr><tr><td><code>vin</code></td><td>17-character VIN — auto-fills the form and triggers report generation</td></tr><tr><td><code>price</code></td><td>Dealer asking price — used for deal badge and market position calculation</td></tr><tr><td><code>miles</code></td><td>Current mileage</td></tr><tr><td><code>zip</code></td><td>Dealer ZIP code for local comparable search</td></tr><tr><td><code>embed</code></td><td>Set to 'true' for embedded mode (hides settings gear)</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/pricing-transparency-report/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/pricing-transparency-report/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/pricing-transparency-report/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/pricing-transparency-report/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -331,7 +371,7 @@ pre.code-block {
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/decode/car/neovin/{vin}/specs</code>
             <div class="flow-api-name">VIN Decode</div>
-          </div></div><div class="flow-note">Get vehicle specs for the report header</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Price + Comps</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
+          </div></div><div class="flow-note">Get vehicle specs (year/make/model/trim/engine/drivetrain/color) for the report header</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Price + Comps</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
           <div class="flow-api-card">
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/predict/car/us/marketcheck_price/comparables</code>
@@ -346,7 +386,7 @@ pre.code-block {
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/recents</code>
             <div class="flow-api-name">Search Recently Sold (Past 90 Days)</div>
-          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Predict price, find active comps within 75mi, and sold comps within 100mi — all in parallel</div></div>
+          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Three parallel calls: ML retail price prediction with confidence band, active comps within 75mi (with price/miles/DOM stats), and sold comps within 100mi from past 90 days</div></div>
     </div>
   </div>
 
@@ -358,7 +398,7 @@ pre.code-block {
     <table class="param-table">
       <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>vin</code></td><td>string</td><td><span class="required">Yes</span></td><td>17-character VIN</td></tr><tr><td><code>miles</code></td><td>number</td><td>No</td><td>Current mileage</td></tr><tr><td><code>zip</code></td><td>string</td><td>No</td><td>Dealer ZIP code</td></tr>
+        <tr><td><code>vin</code></td><td>string</td><td><span class="required">Yes</span></td><td>17-character VIN</td></tr><tr><td><code>price</code></td><td>number</td><td>No</td><td>Dealer asking price for deal scoring</td></tr><tr><td><code>miles</code></td><td>number</td><td>No</td><td>Current mileage</td></tr><tr><td><code>zip</code></td><td>string</td><td>No</td><td>Dealer ZIP code</td></tr>
       </tbody>
     </table>
   </div>
@@ -443,7 +483,7 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Professional report layout with vehicle specs header</div><div class="render-item"><div class="render-dot"></div>predicted price bar</div><div class="render-item"><div class="render-dot"></div>active comparable grid</div><div class="render-item"><div class="render-dot"></div>sold comparable grid</div><div class="render-item"><div class="render-dot"></div>printable/shareable format</div>
+      <div class="render-item"><div class="render-dot"></div>Vehicle specs header card (decoded from VIN)</div><div class="render-item"><div class="render-dot"></div>deal badge (Great Deal / Good Value / Fair Price / Above Market / Overpriced)</div><div class="render-item"><div class="render-dot"></div>price vs market value comparison</div><div class="render-item"><div class="render-dot"></div>price position bar across full market range with percentile marker</div><div class="render-item"><div class="render-dot"></div>active comparables table with distance and DOM</div><div class="render-item"><div class="render-dot"></div>sold comparables table with sold dates</div><div class="render-item"><div class="render-dot"></div>market summary KPIs (total vehicles/median/avg/range/DOM)</div><div class="render-item"><div class="render-dot"></div>print button and copy-share-link button</div>
     </div>
   </div>
 
@@ -468,6 +508,7 @@ pre.code-block {
   "_auth_mode": "api_key",
   "_auth_value": "YOUR_API_KEY",
   "vin": "KNDCB3LC9L5359658",
+  "price": 22500,
   "miles": 45000,
   "zip": "90210"
 }'</pre>

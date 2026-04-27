@@ -746,7 +746,7 @@ function renderDashboard(data: DashboardData) {
       fmtNum(v.miles),
       `<span style="color:${gapColor};">${fmtPct(v.gapPct)}</span>`,
       `${v.dom}d`,
-      `<span style="padding:3px 8px;border-radius:8px;font-size:10px;font-weight:700;background:${actionBg};color:${actionColor};border:1px solid ${actionColor}33;">${v.action}</span>`,
+      `<span style="padding:3px 8px;border-radius:8px;font-size:10px;font-weight:700;background:${actionBg};color:${actionColor};border:1px solid ${actionColor}33;">${v.action === "COMPETITIVE" ? "HOLD" : v.action}</span>`,
     ];
 
     for (const cellHtml of cells) {
@@ -829,7 +829,7 @@ function renderDashboard(data: DashboardData) {
 
   const actionCards = [
     { label: "REDUCE", count: data.actionSummary.reduce, color: "#ef4444", desc: "Overpriced vs market - consider lowering" },
-    { label: "COMPETITIVE", count: data.actionSummary.hold, color: "#f59e0b", desc: "Priced within market range - hold position" },
+    { label: "HOLD", count: data.actionSummary.hold, color: "#f59e0b", desc: "Priced within market range - hold position" },
     { label: "RAISE", count: data.actionSummary.raise, color: "#10b981", desc: "Underpriced vs market - opportunity to increase" },
   ];
 

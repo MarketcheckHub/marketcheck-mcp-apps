@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Trade-In Estimator — MarketCheck Apps">
-  <meta property="og:description" content="Produces a 3-tier valuation — private party, dealer trade-in, and instant cash offer — using retail and wholesale price predictions plus recently sold comparable vehicles.">
+  <meta property="og:description" content="The Trade-In Estimator gives car owners an instant, data-backed answer to 'What's my car worth?' by producing three distinct valuations: Private Party Value (what you'd get selling directly to a buyer">
   <meta property="og:url" content="https://apps.marketcheck.com/app/trade-in-estimator/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/trade-in-estimator.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Trade-In Estimator">
-  <meta name="twitter:description" content="Produces a 3-tier valuation — private party, dealer trade-in, and instant cash offer — using retail and wholesale price predictions plus recently sold comparable vehicles.">
+  <meta name="twitter:description" content="The Trade-In Estimator gives car owners an instant, data-backed answer to 'What's my car worth?' by producing three distinct valuations: Private Party Value (what you'd get selling directly to a buyer">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/trade-in-estimator.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Trade-In Estimator","description":"Produces a 3-tier valuation — private party, dealer trade-in, and instant cash offer — using retail and wholesale price predictions plus recently sold comparable vehicles.","url":"https://apps.marketcheck.com/app/trade-in-estimator/","image":"https://apps.marketcheck.com/assets/screenshots/trade-in-estimator.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Trade-In Estimator","description":"The Trade-In Estimator gives car owners an instant, data-backed answer to 'What's my car worth?' by producing three distinct valuations: Private Party Value (what you'd get selling directly to a buyer), Dealer Trade-In Value (what a dealership would offer), and Instant Cash Offer Range (quick-sale offers from dealers and services like CarMax or Carvana). Each tier adjusts dynamically based on vehicle condition (excellent, good, fair, poor). The tool decodes the VIN for exact specs, runs dual ML price predictions (franchise and independent dealer models), and pulls recently sold comparable vehicles as market evidence. Results include interactive range bars, a sold comps evidence table with comp count, date range and geographic scope, and actionable tips to maximize selling price.","url":"https://apps.marketcheck.com/app/trade-in-estimator/","image":"https://apps.marketcheck.com/assets/screenshots/trade-in-estimator.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -306,12 +306,52 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Produces a 3-tier valuation — private party, dealer trade-in, and instant cash offer — using retail and wholesale price predictions plus recently sold comparable vehicles.</p>
+    <p>The Trade-In Estimator gives car owners an instant, data-backed answer to 'What's my car worth?' by producing three distinct valuations: Private Party Value (what you'd get selling directly to a buyer), Dealer Trade-In Value (what a dealership would offer), and Instant Cash Offer Range (quick-sale offers from dealers and services like CarMax or Carvana). Each tier adjusts dynamically based on vehicle condition (excellent, good, fair, poor). The tool decodes the VIN for exact specs, runs dual ML price predictions (franchise and independent dealer models), and pulls recently sold comparable vehicles as market evidence. Results include interactive range bars, a sold comps evidence table with comp count, date range and geographic scope, and actionable tips to maximize selling price.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Car Owners</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Enter your VIN, mileage, and ZIP to instantly see what your car is worth across three selling channels — private sale, dealer trade-in, or instant cash offer.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Dealers (Appraisal Desk)</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Use as a quick appraisal reference — see wholesale vs retail spreads and recent sold comps to make competitive trade-in offers.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Auto Lenders</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Validate collateral value for loan origination or refinancing — the 3-tier breakdown shows retail exposure, wholesale floor, and quick-liquidation value.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Car Shoppers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Know your trade-in value before visiting the dealer — use private party value as your negotiation ceiling and instant cash range as your floor.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (or set via localStorage)</td></tr><tr><td><code>vin</code></td><td>17-character VIN — auto-fills the form</td></tr><tr><td><code>miles</code></td><td>Current mileage</td></tr><tr><td><code>zip</code></td><td>Owner's ZIP code for local market comparables</td></tr><tr><td><code>condition</code></td><td>Vehicle condition: excellent, good, fair, or poor</td></tr><tr><td><code>embed</code></td><td>Set to 'true' for embedded mode (hides settings gear)</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/trade-in-estimator/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/trade-in-estimator/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/trade-in-estimator/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/trade-in-estimator/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -331,7 +371,7 @@ pre.code-block {
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/decode/car/neovin/{vin}/specs</code>
             <div class="flow-api-name">VIN Decode</div>
-          </div></div><div class="flow-note">Get year/make/model for comp search</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Retail + Wholesale Price</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
+          </div></div><div class="flow-note">Get year/make/model/trim/engine for comp search and display</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Retail + Wholesale Price</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
           <div class="flow-api-card">
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/predict/car/us/marketcheck_price/comparables</code>
@@ -341,12 +381,12 @@ pre.code-block {
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/predict/car/us/marketcheck_price/comparables</code>
             <div class="flow-api-name">Price Prediction (Wholesale / Independent)</div>
-          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Get both franchise (retail) and independent (wholesale) predictions in parallel</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">3</div><div class="flow-step-label">Sold Comparables</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
+          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Get both franchise (retail) and independent (wholesale) ML predictions in parallel — retail drives private party value, wholesale informs trade-in floor</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">3</div><div class="flow-step-label">Sold Comparables</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
           <div class="flow-api-card">
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/recents</code>
             <div class="flow-api-name">Search Recently Sold (Past 90 Days)</div>
-          </div></div><div class="flow-note">Search recently sold similar vehicles for market evidence</div></div>
+          </div></div><div class="flow-note">Search recently sold similar vehicles (year +/-1, 100mi radius) for market evidence and pricing validation</div></div>
     </div>
   </div>
 
@@ -443,7 +483,7 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>3-tier value gauge (private party / trade-in / cash)</div><div class="render-item"><div class="render-dot"></div>range bars</div><div class="render-item"><div class="render-dot"></div>sold comparable evidence table</div><div class="render-item"><div class="render-dot"></div>condition adjustment factors</div>
+      <div class="render-item"><div class="render-dot"></div>3-tier value cards (private party / trade-in / instant cash) with range bars and marker dots</div><div class="render-item"><div class="render-dot"></div>condition selector pills that recalculate all values instantly</div><div class="render-item"><div class="render-dot"></div>vehicle specs grid decoded from VIN</div><div class="render-item"><div class="render-dot"></div>expandable 'How We Got This Number' section with comp count/date range/geo scope and sold comps table</div><div class="render-item"><div class="render-dot"></div>'Maximize Your Value' tips section</div>
     </div>
   </div>
 

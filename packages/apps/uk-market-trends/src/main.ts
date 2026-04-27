@@ -66,9 +66,12 @@ function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
 function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
 
 async function _fetchDirect(args) {
-  const active = await _mcUkActive({rows:0,stats:"price,miles",...(args.make?{make:args.make}:{})});
-  const recent = await _mcUkRecent({rows:0,stats:"price,miles",...(args.make?{make:args.make}:{})});
-  return {active,recent};
+  const scope = args?.make ? { make: args.make } : {};
+  const [active, recent] = await Promise.all([
+    _mcUkActive({ rows: 0, stats: "price,miles", facets: "make|body_type|fuel_type", ...scope }),
+    _mcUkRecent({ rows: 0, stats: "price,miles", ...scope }),
+  ]);
+  return { active, recent };
 }
 
 async function _callTool(toolName, args) {
@@ -310,10 +313,44 @@ function el(tag: string, props?: Record<string, string>): HTMLElement {
 let overview: MarketOverview = MOCK_OVERVIEW;
 let makes: MakeData[] = MOCK_MAKES;
 let bodyTypes: BodyTypeData[] = MOCK_BODY_TYPES;
+let fuelTypes: FuelTypeData[] = [];
 let priceBuckets: PriceBucket[] = MOCK_PRICE_BUCKETS;
 let priceTiers: PriceTier[] = MOCK_PRICE_TIERS;
 let recentStats = MOCK_RECENT_STATS;
 let loading = true;
+let activeMakeFilter: string = "";
+
+// ── Facet parser ───────────────────────────────────────────────────────────
+// MarketCheck returns facets in several shapes depending on version / endpoint.
+// Handle array-of-object, flat-pairs, and plain-object forms so UI stays robust.
+function _parseFacet(raw: any): Array<{ item: string; count: number }> {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    if (raw.length === 0) return [];
+    if (typeof raw[0] === "object" && raw[0] !== null) {
+      return raw
+        .map((f: any) => ({
+          item: String(f.item ?? f.value ?? f.name ?? f.term ?? "").trim(),
+          count: Number(f.count ?? f.num_found ?? f.doc_count ?? 0),
+        }))
+        .filter((f) => f.item && f.count > 0);
+    }
+    // flat-pairs: ["Ford", 42000, "VW", 31000, ...]
+    const out: Array<{ item: string; count: number }> = [];
+    for (let i = 0; i < raw.length; i += 2) {
+      const item = String(raw[i] ?? "").trim();
+      const count = Number(raw[i + 1] ?? 0);
+      if (item && count > 0) out.push({ item, count });
+    }
+    return out;
+  }
+  if (typeof raw === "object") {
+    return Object.entries(raw)
+      .map(([k, v]) => ({ item: String(k), count: Number(v) }))
+      .filter((f) => f.item && f.count > 0);
+  }
+  return [];
+}
 
 // ── Data Loading ───────────────────────────────────────────────────────────
 async function loadData() {
@@ -321,15 +358,96 @@ async function loadData() {
   render();
 
   try {
-    const result = await _callTool("get-uk-market-trends", {});
+    const result = await _callTool("get-uk-market-trends", activeMakeFilter ? { make: activeMakeFilter } : {});
     if (result) {
       const data = JSON.parse(result.content[0].text);
-      if (data.overview) overview = data.overview;
-      if (data.makes) makes = data.makes;
-      if (data.body_types) bodyTypes = data.body_types;
-      if (data.price_buckets) priceBuckets = data.price_buckets;
-      if (data.price_tiers) priceTiers = data.price_tiers;
-      if (data.recent_stats) recentStats = data.recent_stats;
+
+      // Unwrap {active, recent} (direct fetch) or accept flat shape (proxy-normalized).
+      const activeSrc = data.active ?? data;
+      const recentSrc = data.recent ?? data.recent_stats ?? {};
+
+      const totalActive = Number(activeSrc?.num_found ?? 0);
+      const priceStats = activeSrc?.stats?.price ?? {};
+      const milesStats = activeSrc?.stats?.miles ?? {};
+      const avgPrice = Number(priceStats.avg ?? priceStats.mean ?? 0);
+      const avgMiles = Number(milesStats.avg ?? milesStats.mean ?? 0);
+      const recentTotal = Number(recentSrc?.num_found ?? recentSrc?.total ?? 0);
+      const recentPriceStats = recentSrc?.stats?.price ?? {};
+      const recentMilesStats = recentSrc?.stats?.miles ?? {};
+      const recentAvgPrice = Number(recentPriceStats.avg ?? recentPriceStats.mean ?? recentSrc?.avg_price ?? 0);
+      const recentAvgMiles = Number(recentMilesStats.avg ?? recentMilesStats.mean ?? recentSrc?.avg_mileage ?? 0);
+
+      // Facets: make / body_type / fuel_type
+      const facets = activeSrc?.facets ?? {};
+      const makeFacet = _parseFacet(facets.make);
+      const bodyFacet = _parseFacet(facets.body_type);
+      const fuelFacet = _parseFacet(facets.fuel_type);
+
+      // Only replace UI state if we actually got something back from the API.
+      const haveReal = totalActive > 0 && (avgPrice > 0 || makeFacet.length > 0);
+      if (haveReal) {
+        overview = {
+          total_active: totalActive,
+          avg_price: avgPrice,
+          avg_mileage: Math.round(avgMiles),
+          recent_count: recentTotal,
+          active_to_recent_ratio: recentTotal > 0 ? Math.round((totalActive / recentTotal) * 10) / 10 : 0,
+        };
+        recentStats = {
+          total: recentTotal,
+          avg_price: Math.round(recentAvgPrice),
+          avg_mileage: Math.round(recentAvgMiles),
+          top_make: makeFacet[0]?.item ?? recentStats.top_make,
+          top_body: bodyFacet[0]?.item ?? recentStats.top_body,
+        };
+
+        if (makeFacet.length > 0) {
+          makes = makeFacet.slice(0, 15).map((f) => ({
+            make: f.item,
+            count: f.count,
+            // API facets don't include per-make avg price; use market-wide average.
+            avg_price: avgPrice,
+            market_share: totalActive > 0 ? Math.round((f.count / totalActive) * 1000) / 10 : 0,
+          }));
+        }
+
+        if (bodyFacet.length > 0) {
+          const totalBody = bodyFacet.reduce((s, b) => s + b.count, 0) || totalActive;
+          bodyTypes = bodyFacet.slice(0, 8).map((f) => ({
+            body_type: f.item,
+            count: f.count,
+            share: Math.round((f.count / totalBody) * 1000) / 10,
+            color: BODY_TYPE_COLORS[f.item] ?? "#64748b",
+          }));
+        }
+
+        if (fuelFacet.length > 0) {
+          const totalFuel = fuelFacet.reduce((s, f) => s + f.count, 0) || totalActive;
+          const trendFor = (name: string) => {
+            if (/electric/i.test(name)) return "Growing Rapidly";
+            if (/hybrid/i.test(name)) return "Growing";
+            if (/petrol/i.test(name)) return "Declining";
+            if (/diesel/i.test(name)) return "Declining";
+            return "Stable";
+          };
+          const colorFor = (name: string) => {
+            if (/electric/i.test(name)) return "#8b5cf6";
+            if (/plug/i.test(name)) return "#06b6d4";
+            if (/hybrid/i.test(name)) return "#10b981";
+            if (/petrol/i.test(name)) return "#3b82f6";
+            if (/diesel/i.test(name)) return "#64748b";
+            return "#94a3b8";
+          };
+          fuelTypes = fuelFacet.slice(0, 8).map((f) => ({
+            fuel_type: f.item,
+            count: f.count,
+            share: Math.round((f.count / totalFuel) * 1000) / 10,
+            avg_price: avgPrice,
+            color: colorFor(f.item),
+            trend: trendFor(f.item),
+          }));
+        }
+      }
     }
   } catch {}
 
@@ -361,13 +479,7 @@ function render() {
 
   const container = el("div", { style: "max-width:1400px;margin:0 auto;padding:20px;" });
 
-  if (loading) {
-    const spin = el("div", { style: "text-align:center;padding:60px 0;" });
-    spin.innerHTML = `<div style="display:inline-block;width:40px;height:40px;border:3px solid #334155;border-top-color:#3b82f6;border-radius:50%;animation:spin 0.8s linear infinite;"></div><div style="margin-top:12px;color:#94a3b8;font-size:14px;">Loading UK market data...</div>`;
-    container.appendChild(spin);
-    document.body.appendChild(container);
-
-  // ── Demo mode banner ──
+  // ── Demo mode banner (always visible while in demo mode) ──
   if (_detectAppMode() === "demo") {
     const _db = document.createElement("div");
     _db.id = "_demo_banner";
@@ -382,8 +494,8 @@ function render() {
         <button id="_banner_save" style="padding:8px 16px;border-radius:6px;border:none;background:#f59e0b;color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Activate</button>
       </div>`;
     container.appendChild(_db);
-    _db.querySelector("#_banner_save").addEventListener("click", () => {
-      const k = _db.querySelector("#_banner_key").value.trim();
+    _db.querySelector("#_banner_save")!.addEventListener("click", () => {
+      const k = (_db.querySelector("#_banner_key") as HTMLInputElement).value.trim();
       if (!k) return;
       localStorage.setItem("mc_api_key", k);
       _db.style.background = "linear-gradient(135deg,#05966922,#10b98111)";
@@ -391,9 +503,21 @@ function render() {
       _db.innerHTML = '<div style="font-size:13px;font-weight:700;color:#10b981;">&#10003; API key saved — reloading with live data...</div>';
       setTimeout(() => location.reload(), 800);
     });
-    _db.querySelector("#_banner_key").addEventListener("keydown", (e) => { if (e.key === "Enter") _db.querySelector("#_banner_save").click(); });
+    _db.querySelector("#_banner_key")!.addEventListener("keydown", (e) => { if ((e as KeyboardEvent).key === "Enter") (_db.querySelector("#_banner_save") as HTMLElement).click(); });
   }
+
+  if (loading) {
+    const spin = el("div", { style: "text-align:center;padding:60px 0;" });
+    spin.innerHTML = `<div style="display:inline-block;width:40px;height:40px;border:3px solid #334155;border-top-color:#3b82f6;border-radius:50%;animation:spin 0.8s linear infinite;"></div><div style="margin-top:12px;color:#94a3b8;font-size:14px;">Loading UK market data...</div>`;
+    container.appendChild(spin);
+    document.body.appendChild(container);
     return;
+  }
+
+  if (activeMakeFilter) {
+    const chip = el("div", { style: "display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:8px 12px;background:#1e293b;border:1px solid #334155;border-radius:8px;font-size:12px;color:#94a3b8;width:fit-content;" });
+    chip.innerHTML = `Filtered to <strong style="color:#60a5fa;">${activeMakeFilter}</strong> &nbsp;·&nbsp; <a href="?" style="color:#fbbf24;text-decoration:underline;">clear</a>`;
+    container.appendChild(chip);
   }
 
   renderKPIs(container);
@@ -765,7 +889,8 @@ function renderFuelTypeAnalysis(container: HTMLElement) {
   table.appendChild(thead);
 
   const tbody = document.createElement("tbody");
-  for (const ft of MOCK_FUEL_TYPES) {
+  const fuelRows = fuelTypes.length > 0 ? fuelTypes : MOCK_FUEL_TYPES;
+  for (const ft of fuelRows) {
     const trendColor = ft.trend.includes("Growing") ? "#10b981" : ft.trend === "Stable" ? "#f59e0b" : "#ef4444";
     const tr = document.createElement("tr");
     tr.style.cssText = "border-bottom:1px solid #334155;";
@@ -882,4 +1007,6 @@ function renderMarketHealth(container: HTMLElement) {
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
+const urlParams = _getUrlParams();
+if (urlParams.make) activeMakeFilter = urlParams.make;
 loadData();

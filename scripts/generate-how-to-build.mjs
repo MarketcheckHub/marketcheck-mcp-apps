@@ -1488,14 +1488,25 @@ const APPS = [
     tagline: "Macro UK automotive market intelligence",
     segment: "Cross-Segment",
     toolName: "get-uk-market-trends",
-    description: "UK automotive market trends dashboard. Tracks active and recently sold listings across UK dealers with prices in GBP.",
+    description: "Macro snapshot of the UK used-car market in GBP. Live data is built from one parallel call to UK Active (requesting price + miles stats and facets on make, body_type, fuel_type) and one to UK Recents (stats only). Renders a KPI ribbon (total active, average price, average mileage, active-to-sold ratio), a top-15 make leaderboard with market-share bars, a price-bucket histogram, a body-type donut centered on the total count, an active-vs-recently-sold comparison with a price delta %, price-tier cards (Budget / Mid-Range / Premium / Luxury), a fuel-type breakdown with trend labels (Petrol/Diesel → Declining, Hybrid → Growing, Electric → Growing Rapidly), a regional overview, and a set of market-health indicators. A ?make=… URL param scopes every live section to that brand.",
+    useCases: [
+      { persona: "UK Automotive Analysts", desc: "Pull a one-screen macro read of the UK retail market — segment share, price tiers, EV adoption, premium concentration — without stitching data sources by hand." },
+      { persona: "OEM Planners", desc: "Deep-link ?make=Ford (or your brand) to see your share of UK live supply, your segment mix, and how your average asking compares against recently sold stock." },
+      { persona: "Auto Journalists", desc: "Quotable stats for UK market coverage: top make by listings, body-type mix, petrol/diesel decline, EV growth trend, and active-to-sold ratio." },
+      { persona: "Cross-Border Buyers / Dealers", desc: "Gauge UK supply breadth and price bands before sourcing — compare the Budget/Mid/Premium/Luxury tiers and regional availability." },
+    ],
+    urlParams: [
+      { name: "api_key", desc: "Your MarketCheck API key (or set via localStorage)" },
+      { name: "make", desc: "Scope every section of the dashboard to a single make (e.g. Ford, BMW). Shown as a chip at the top with a clear link." },
+      { name: "embed", desc: "Set to 'true' to hide the settings gear (embedded mode)" },
+    ],
     inputParams: [
-      { name: "make", type: "string", required: false, desc: "Filter by make" },
+      { name: "make", type: "string", required: false, desc: "Filter all trends to a single make" },
     ],
     apiFlow: [
-      { step: 1, label: "UK Active + Recent", apis: ["searchUkActive", "searchUkRecents"], parallel: true, note: "Fetch UK active and recent listings with price/miles stats in parallel" },
+      { step: 1, label: "UK Active (stats + facets) + UK Recents (stats)", apis: ["searchUkActive", "searchUkRecents"], parallel: true, note: "Two parallel UK calls. Active requests rows=0, stats=price,miles, facets=make|body_type|fuel_type. Recents requests rows=0, stats=price,miles. Both optionally scoped by make." },
     ],
-    renders: "UK market overview, price trend charts (GBP), active vs sold comparison, brand market share, segment analysis",
+    renders: "KPI ribbon, make leaderboard (top 15 with market-share bars), price-distribution histogram, body-type donut, active-vs-recently-sold comparison with price delta, price-tier cards, fuel-type breakdown with trend labels, regional overview, and market-health indicators — all GBP.",
   },
   {
     id: "uk-market-explorer",

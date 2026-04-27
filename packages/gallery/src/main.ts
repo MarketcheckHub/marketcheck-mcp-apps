@@ -133,10 +133,34 @@ const APPS: AppDef[] = [
 
 // Apps that are tested and ready for live demo
 const READY_APPS = new Set([
+  // Consumer
   "vin-market-report", "trade-in-estimator", "used-car-market-index",
-  "car-search-app",
+  "car-search-app", "car-search-compare", "deal-evaluator",
+  "incentive-adjusted-deal-eval", "oem-incentives-explorer", "incentive-deal-finder",
+  // Dealer
+  "lot-pricing-dashboard", "stocking-intelligence", "pricing-transparency-report",
   "dealer-inventory-fit-scorer", "dealer-conquest-analyzer", "deal-finder",
+  // Appraiser
+  "appraiser-workbench", "comparables-explorer",
+  // Dealership Group
+  "dealer-group-scorecard",
+  // Lender
+  "underwriting-decision-support", "lender-portfolio-stress-test", "portfolio-risk-monitor",
+  // Analyst
+  "earnings-signal-dashboard", "watchlist-monitor",
+  // Cross-Segment
+  "ev-market-monitor", "vin-history-detective", "market-anomaly-detector",
+  // Auction House
+  "auction-lane-planner", "auction-arbitrage-finder",
+  "auction-run-list-analyzer", "consignment-sourcer", "auction-dealer-targeting",
+  // Lender Sales
   "floor-plan-opportunity-scanner", "dealer-intelligence-brief", "subprime-opportunity-finder",
+  // UK
+  "uk-market-explorer", "uk-market-trends", "uk-dealer-pricing",
+  // Manufacturer (new builds)
+  "oem-depreciation-tracker", "ev-transition-monitor", "model-contenting-analyzer",
+  "market-momentum-report", "incentive-effectiveness-dashboard",
+  // Chat Demos
   "chat-vercel-ai", "chat-copilotkit", "chat-assistant-ui", "chat-sdk-bot",
   "chat-chainlit", "chat-streamlit", "chat-langchain",
 ]);

@@ -70,14 +70,18 @@ async function _fetchDirect(args: FetchArgs) {
   if (state) baseFilter.state = state;
 
   // Step 1 (parallel): used + new for residual computation
+  // ranking_measure=sold_count returns popular models (not exotic high-priced low-volume ones).
+  // body_type in ranking_dimensions makes the API include the body_type field on each row.
   const [usedRanking, newRanking] = await Promise.all([
-    _mcSold({ ranking_dimensions: "make,model", ranking_measure: "average_sale_price", inventory_type: "Used", top_n: 200, ...baseFilter }),
-    _mcSold({ ranking_dimensions: "make,model", ranking_measure: "average_sale_price", inventory_type: "New", top_n: 200, ...baseFilter }),
+    _mcSold({ ranking_dimensions: "make,model,body_type", ranking_measure: "sold_count", inventory_type: "Used", top_n: 300, ...baseFilter }),
+    _mcSold({ ranking_dimensions: "make,model,body_type", ranking_measure: "sold_count", inventory_type: "New", top_n: 300, ...baseFilter }),
   ]);
 
   // Step 2 (parallel): body-type segment benchmark + state-level regional
   const segmentArgs: Record<string, unknown> = { ranking_dimensions: "body_type", ranking_measure: "average_sale_price", inventory_type: "Used", top_n: 12 };
-  const regionalArgs: Record<string, unknown> = { ranking_dimensions: "state", ranking_measure: "average_sale_price", inventory_type: "Used", top_n: 50 };
+  // ranking_dimensions only accepts {body_type, dealership_group_name, make, model};
+  // state breakdowns come back as a `state` field on each row when ranking by make+model.
+  const regionalArgs: Record<string, unknown> = { ranking_dimensions: "make,model", ranking_measure: "sold_count", inventory_type: "Used", top_n: 200 };
   if (myBrand) regionalArgs.make = myBrand;
   const [segmentRanking, regionalRanking] = await Promise.all([
     _mcSold(segmentArgs),
@@ -348,10 +352,11 @@ function _transformRawToTracker(raw: any): TrackerData | null {
   for (const r of newRows) {
     const make = r.make ?? ""; const model = r.model ?? "";
     if (!make || !model) continue;
-    const key = `${make}|${model}`;
+    const bt = r.body_type ?? "";
+    const key = `${make}|${model}|${bt}`;
     const price = r.average_sale_price ?? 0;
     if (price <= 0) continue;
-    if (!newPriceMap[key]) newPriceMap[key] = { price, bodyType: r.body_type ?? "Unknown", volume: r.sold_count ?? 0 };
+    if (!newPriceMap[key]) newPriceMap[key] = { price, bodyType: bt || "Unknown", volume: r.sold_count ?? 0 };
   }
 
   const models: ModelResidual[] = [];
@@ -360,13 +365,19 @@ function _transformRawToTracker(raw: any): TrackerData | null {
     const make = r.make ?? ""; const model = r.model ?? "";
     if (!make || !model) continue;
     if (!includeMakes.has(make)) continue;
-    const key = `${make}|${model}`;
+    const bt = r.body_type ?? "";
+    const key = `${make}|${model}|${bt}`;
     if (seen.has(key)) continue;
     seen.add(key);
     const usedPrice = r.average_sale_price ?? 0;
-    const newEntry = newPriceMap[key];
+    // Try exact match (incl. body type), then fall back to any body type for the same make+model
+    let newEntry = newPriceMap[key];
+    if (!newEntry) {
+      const fallback = Object.entries(newPriceMap).find(([k]) => k.startsWith(`${make}|${model}|`));
+      if (fallback) newEntry = fallback[1];
+    }
     const newPrice = newEntry?.price ?? Math.round(usedPrice / 0.65);
-    const bodyTypeVal = newEntry?.bodyType ?? r.body_type ?? "Unknown";
+    const bodyTypeVal = bt || newEntry?.bodyType || "Unknown";
     if (usedPrice <= 0 || newPrice <= 0) continue;
     const residualPct = +(usedPrice / newPrice * 100).toFixed(1);
     if (residualPct < 25 || residualPct > 110) continue;
@@ -446,6 +457,25 @@ async function init() {
   await fetchData();
 }
 
+let _fetchTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleFetch(delay = 400) {
+  if (_fetchTimer) clearTimeout(_fetchTimer);
+  _fetchTimer = setTimeout(() => { _fetchTimer = null; fetchData(); }, delay);
+}
+
+// Cached raw API response. Filters that don't change server params (competitors)
+// just re-run the transform against this — no API call needed.
+let _lastRaw: any = null;
+
+function recompute() {
+  if (_lastRaw) {
+    currentData = _transformRawToTracker(_lastRaw) ?? getMockData();
+  } else {
+    currentData = getMockData();
+  }
+  renderResults();
+}
+
 async function fetchData() {
   isLoading = true; errorMsg = "";
   renderResults();
@@ -459,19 +489,24 @@ async function fetchData() {
       try {
         const txt = (result as any).content[0]?.text;
         const parsed = txt ? JSON.parse(txt) : null;
+        _lastRaw = parsed;
         const transformed = _transformRawToTracker(parsed);
         currentData = transformed ?? getMockData();
       } catch {
+        _lastRaw = null;
         currentData = getMockData();
       }
     } else if (result && typeof result === "object") {
+      _lastRaw = null;
       currentData = result as unknown as TrackerData;
     } else {
+      _lastRaw = null;
       currentData = getMockData();
     }
   } catch (e) {
     console.warn("fetchData error:", e);
     errorMsg = "Failed to load data — showing sample.";
+    _lastRaw = null;
     currentData = getMockData();
   }
   isLoading = false;
@@ -490,7 +525,10 @@ function buildShell() {
   titleBlock.appendChild(el("h1", { textContent: "OEM Depreciation Tracker", style: `font-size:22px;font-weight:700;color:${TEXT_PRI};margin:0 0 4px;` }));
   titleBlock.appendChild(el("div", { textContent: "How fast are your models losing value vs the competition?", style: `font-size:13px;color:${TEXT_SEC};` }));
   header.appendChild(titleBlock);
-  header.appendChild(buildModeBadge());
+  const badgeWrap = el("div", { style: "display:flex;align-items:center;gap:8px;" });
+  badgeWrap.appendChild(buildModeBadge());
+  if (!_isEmbedMode()) badgeWrap.appendChild(buildSettingsGear());
+  header.appendChild(badgeWrap);
   container.appendChild(header);
 
   if (_detectAppMode() === "demo" && !_isEmbedMode()) {
@@ -517,6 +555,65 @@ function buildModeBadge(): HTMLElement {
     textContent: c.label,
     style: `padding:4px 12px;border-radius:12px;font-size:11px;font-weight:700;letter-spacing:0.5px;background:${c.bg};color:${c.fg};border:1px solid ${c.fg}55;`,
   });
+}
+
+function buildSettingsGear(): HTMLElement {
+  const wrap = el("div", { style: "position:relative;" });
+  const gear = el<HTMLButtonElement>("button", {
+    title: "API Settings",
+    innerHTML: "&#9881;",
+    style: `background:none;border:1px solid ${BORDER};color:${TEXT_SEC};font-size:16px;cursor:pointer;padding:4px 9px;border-radius:8px;line-height:1;`,
+  });
+  const panel = el("div", {
+    style: `display:none;position:absolute;top:36px;right:0;background:${SURFACE};border:1px solid ${BORDER};border-radius:10px;padding:14px;z-index:1000;min-width:300px;box-shadow:0 8px 32px rgba(0,0,0,0.5);`,
+  });
+  const auth = _getAuth();
+  const currentKey = auth.mode === "api_key" ? (auth.value ?? "") : "";
+  panel.innerHTML = `
+    <div style="font-size:13px;font-weight:600;color:${TEXT_PRI};margin-bottom:10px;">API Configuration</div>
+    <label style="font-size:11px;color:${TEXT_MUTED};display:block;margin-bottom:4px;">MarketCheck API Key</label>
+    <input id="_set_key" type="password" placeholder="Enter your API key" value="${currentKey}"
+      style="width:100%;padding:8px;border-radius:6px;border:1px solid ${BORDER};background:${SURFACE_2};color:${TEXT_PRI};font-size:13px;margin-bottom:8px;box-sizing:border-box;outline:none;" />
+    <div style="font-size:10px;color:${TEXT_MUTED};margin-bottom:12px;">Sold Vehicle Summary requires an Enterprise key. <a href="https://developers.marketcheck.com" target="_blank" style="color:${ACCENT};">Get a key</a></div>
+    <div style="display:flex;gap:8px;">
+      <button id="_set_save" style="flex:1;padding:8px;border-radius:6px;border:none;background:${ACCENT};color:${BG};font-size:13px;font-weight:700;cursor:pointer;">Save & Reload</button>
+      <button id="_set_clear" style="padding:8px 12px;border-radius:6px;border:1px solid ${BORDER};background:transparent;color:${TEXT_SEC};font-size:13px;cursor:pointer;">Clear</button>
+    </div>`;
+  wrap.appendChild(gear);
+  wrap.appendChild(panel);
+
+  gear.addEventListener("click", (e) => {
+    e.stopPropagation();
+    panel.style.display = panel.style.display === "none" ? "block" : "none";
+  });
+  document.addEventListener("click", (e) => {
+    if (!wrap.contains(e.target as Node)) panel.style.display = "none";
+  });
+
+  setTimeout(() => {
+    const inp = panel.querySelector("#_set_key") as HTMLInputElement | null;
+    const saveBtn = panel.querySelector("#_set_save") as HTMLButtonElement | null;
+    const clearBtn = panel.querySelector("#_set_clear") as HTMLButtonElement | null;
+    saveBtn?.addEventListener("click", () => {
+      const k = inp?.value?.trim() ?? "";
+      if (!k) return;
+      localStorage.setItem("mc_api_key", k);
+      const url = new URL(location.href);
+      url.searchParams.delete("api_key");
+      location.href = url.toString();
+    });
+    clearBtn?.addEventListener("click", () => {
+      localStorage.removeItem("mc_api_key");
+      localStorage.removeItem("mc_access_token");
+      const url = new URL(location.href);
+      url.searchParams.delete("api_key");
+      url.searchParams.delete("access_token");
+      location.href = url.toString();
+    });
+    inp?.addEventListener("keydown", (e: KeyboardEvent) => { if (e.key === "Enter") saveBtn?.click(); });
+  }, 0);
+
+  return wrap;
 }
 
 function buildDemoBanner(): HTMLElement {
@@ -559,7 +656,7 @@ function buildControls(): HTMLElement {
     myBrand = myBrandSel.value;
     competitors = competitors.filter(c => c !== myBrand);
     buildShell();
-    fetchData();
+    scheduleFetch();
   });
   myWrap.appendChild(myBrandSel);
   bar.appendChild(myWrap);
@@ -574,7 +671,7 @@ function buildControls(): HTMLElement {
       if (competitors.includes(b)) competitors = competitors.filter(c => c !== b);
       else competitors.push(b);
       buildShell();
-      fetchData();
+      recompute();
     });
     chips.appendChild(chip);
   });
@@ -589,7 +686,7 @@ function buildControls(): HTMLElement {
     if (b === bodyType) opt.selected = true;
     btSel.appendChild(opt);
   });
-  btSel.addEventListener("change", () => { bodyType = btSel.value; fetchData(); });
+  btSel.addEventListener("change", () => { bodyType = btSel.value; scheduleFetch(); });
   btWrap.appendChild(btSel);
   bar.appendChild(btWrap);
 
@@ -601,7 +698,7 @@ function buildControls(): HTMLElement {
     if (s === stateFilter) opt.selected = true;
     stSel.appendChild(opt);
   });
-  stSel.addEventListener("change", () => { stateFilter = stSel.value; fetchData(); });
+  stSel.addEventListener("change", () => { stateFilter = stSel.value; scheduleFetch(); });
   stWrap.appendChild(stSel);
   bar.appendChild(stWrap);
 

@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: EV Transition Monitor — MarketCheck Apps">
-  <meta property="og:description" content="OEM-focused EV dashboard that tracks your brand's EV vs ICE sales mix, compares EV penetration to competitors, maps state-level EV adoption to guide production allocation, and monitors EV pricing pari">
+  <meta property="og:description" content="OEM-focused EV dashboard that tracks how your brand's electrification stacks up against the market. The report decomposes brand performance into four lenses: (1) your EV vs ICE sales mix versus the ma">
   <meta property="og:url" content="https://apps.marketcheck.com/app/ev-transition-monitor/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/ev-transition-monitor.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: EV Transition Monitor">
-  <meta name="twitter:description" content="OEM-focused EV dashboard that tracks your brand's EV vs ICE sales mix, compares EV penetration to competitors, maps state-level EV adoption to guide production allocation, and monitors EV pricing pari">
+  <meta name="twitter:description" content="OEM-focused EV dashboard that tracks how your brand's electrification stacks up against the market. The report decomposes brand performance into four lenses: (1) your EV vs ICE sales mix versus the ma">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/ev-transition-monitor.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: EV Transition Monitor","description":"OEM-focused EV dashboard that tracks your brand's EV vs ICE sales mix, compares EV penetration to competitors, maps state-level EV adoption to guide production allocation, and monitors EV pricing parity. Unlike the cross-segment EV Market Monitor, this is brand-centric: 'How is MY electrification strategy performing?'","url":"https://apps.marketcheck.com/app/ev-transition-monitor/","image":"https://apps.marketcheck.com/assets/screenshots/ev-transition-monitor.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: EV Transition Monitor","description":"OEM-focused EV dashboard that tracks how your brand's electrification stacks up against the market. The report decomposes brand performance into four lenses: (1) your EV vs ICE sales mix versus the market average, (2) a competitor leaderboard ranking the top EV makers by sold volume, mix %, average price, and days-on-market, (3) a state-level adoption heatmap showing where your EVs sell well and where the white space sits, and (4) an EV vs ICE pricing parity chart by body type so product planners can see segment-level price premiums. A composite Electrification Score (0–100) summarises whether your brand is leading, on track, or lagging the broader transition.","url":"https://apps.marketcheck.com/app/ev-transition-monitor/","image":"https://apps.marketcheck.com/assets/screenshots/ev-transition-monitor.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -309,12 +309,55 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>OEM-focused EV dashboard that tracks your brand's EV vs ICE sales mix, compares EV penetration to competitors, maps state-level EV adoption to guide production allocation, and monitors EV pricing parity. Unlike the cross-segment EV Market Monitor, this is brand-centric: 'How is MY electrification strategy performing?'</p>
+    <p>OEM-focused EV dashboard that tracks how your brand's electrification stacks up against the market. The report decomposes brand performance into four lenses: (1) your EV vs ICE sales mix versus the market average, (2) a competitor leaderboard ranking the top EV makers by sold volume, mix %, average price, and days-on-market, (3) a state-level adoption heatmap showing where your EVs sell well and where the white space sits, and (4) an EV vs ICE pricing parity chart by body type so product planners can see segment-level price premiums. A composite Electrification Score (0–100) summarises whether your brand is leading, on track, or lagging the broader transition.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">OEM Strategy Teams</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Diagnose whether the brand's EV mix is keeping pace with the market and identify body-type segments where pricing parity has shifted enough to warrant a new EV nameplate.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">OEM Product Planners</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Compare segment-level price premiums (SUV vs sedan vs truck) to decide which body types to electrify next and what price corridor the market is actually clearing at.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">OEM Regional Managers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Use the state heatmap to allocate EV production and dealer training to the high-adoption states and avoid over-shipping to ICE-dominant regions.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">OEM Pricing Teams</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Track average sale price and days-on-market for your EVs versus competitors — early-warning signal for over- or under-priced EV inventory.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Investors / Analysts</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Quantify a manufacturer's electrification progress with one score combining mix %, growth slope, and turn velocity.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (Enterprise subscription required for sold-summary)</td></tr><tr><td><code>myBrand</code></td><td>Your OEM brand — auto-fills the form and triggers analysis (e.g., Ford, Hyundai, BMW)</td></tr><tr><td><code>competitors</code></td><td>Comma-separated competitor brands to highlight on the leaderboard (e.g., Tesla,Hyundai,Kia)</td></tr><tr><td><code>embed</code></td><td>Set to 'true' for embedded mode (hides settings gear)</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/ev-transition-monitor/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/ev-transition-monitor/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/ev-transition-monitor/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/ev-transition-monitor/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -339,7 +382,7 @@ pre.code-block {
             <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
             <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
             <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
-          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Fetch EV sold rankings by make (top 15) and your brand's EV volume by state — in parallel</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Price Parity + Segment Mix</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
+          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Fetch EV sold rankings by make+fuel_type_category and your brand's EV volume by state+fuel_type_category — in parallel</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Price Parity + Brand Totals</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
           <div class="flow-api-card enterprise">
             <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
             <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
@@ -349,7 +392,7 @@ pre.code-block {
             <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
             <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
             <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
-          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Fetch EV vs ICE price comparison by body_type+fuel_type_category and total brand volume for mix % — in parallel</div></div>
+          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Fetch EV vs ICE price comparison by body_type+fuel_type_category and total sold-count by make for ICE backfill — in parallel</div></div>
     </div>
   </div>
 

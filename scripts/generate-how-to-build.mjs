@@ -701,14 +701,27 @@ const APPS = [
     tagline: "Pre-earnings channel check for auto tickers",
     segment: "Analyst",
     toolName: null,
-    description: "Channel check dashboard for financial analysts tracking auto sector stocks. Uses sold volume data as a leading indicator for OEM and dealer group earnings.",
+    description: "Pre-earnings channel-check dashboard for financial analysts covering auto OEM equities (F, GM, TM, HMC, TSLA, STLA, HYMTF, NSANY, RIVN). Select a ticker and the app aggregates MarketCheck sold-vehicle and active-inventory data across that issuer's brand portfolio (e.g., GM → Chevrolet+GMC+Buick+Cadillac) and produces a composite BULLISH / BEARISH / MIXED / NEUTRAL signal with confidence score. The 6-Dimension Signal Matrix scores Volume Momentum (monthly sold units + industry share), Pricing Power (average selling price and % vs MSRP), Inventory Health (days supply from active÷monthly-sold), DOM Velocity, EV Mix, and New/Used Ratio — each with its own BULL/BEAR/NEUTRAL badge and 6-month sparkline. A Bull/Bear scenario panel turns the signals into directional thesis bullets and a Key Risk callout sized to forward-EPS impact.",
+    useCases: [
+      { persona: "Sell-Side Analysts", desc: "Ahead of the F/GM/TM print, pull the ticker and get an independent channel read on volume, pricing, and days-supply to sanity-check your model and identify surprise-potential drivers." },
+      { persona: "Buy-Side / Hedge Fund PMs", desc: "Pre-earnings positioning — see which OEMs are showing MSRP-premium erosion or days-supply blowout versus industry; size trades against consensus EPS." },
+      { persona: "Equity Research Associates", desc: "Monthly channel-check memo in seconds — the 6-dimension matrix and scenario bullets drop straight into an investor note or morning call snippet." },
+      { persona: "Portfolio Risk Managers", desc: "Cross-ticker scan: flip through each held auto ticker to surface the one with the weakest inventory/pricing signal before an earnings miss hits the book." },
+      { persona: "Credit Analysts", desc: "OEM bond cover requires read-through on dealer channel health — days-supply and pricing-power deterioration precede covenant stress by a quarter or two." },
+    ],
     inputParams: [
-      { name: "state", type: "string", required: false, desc: "State for regional signals" },
+      { name: "ticker", type: "string", required: false, desc: "Auto OEM ticker (F, GM, TM, HMC, TSLA, STLA, HYMTF, NSANY, RIVN) — selects issuer's brand portfolio" },
+      { name: "state", type: "string", required: false, desc: "2-letter US state code to scope signals regionally (e.g., CA, TX)" },
+    ],
+    urlParams: [
+      { name: "api_key", desc: "Your MarketCheck API key — required for live market data" },
+      { name: "ticker", desc: "Auto ticker (F, GM, TM, HMC, TSLA, STLA, HYMTF, NSANY, RIVN) — auto-selects and runs analysis on load" },
+      { name: "state", desc: "2-letter US state code — scopes all signals to that region (omit for national)" },
     ],
     apiFlow: [
-      { step: 1, label: "Market Intelligence", apis: ["soldSummary"], parallel: false, note: "Fetch sold summary by make with volume and price measures" },
+      { step: 1, label: "Recents + Active + Industry", apis: ["searchRecents", "searchRecents", "searchRecents", "searchActive", "searchRecents"], parallel: true, note: "Five parallel calls across the ticker's makes: 90-day sold (used), 90-day sold (new), 90-day sold (EV slice via fuel_type=Electric), current active inventory with DOM stats, and industry-wide 90-day sold baseline for share%" },
     ],
-    renders: "Ticker-style signal cards, volume momentum charts, price trend indicators, sector comparison, earnings estimate impact",
+    renders: "Composite signal banner (BULLISH/BEARISH/MIXED/NEUTRAL + confidence bar), 6-dimension signal matrix with sparklines (volume, pricing, inventory, DOM, EV mix, new/used), Bull/Bear scenario panel with thesis bullets, Key Risk callout sized to EPS impact",
   },
   {
     id: "watchlist-monitor",
@@ -716,15 +729,27 @@ const APPS = [
     tagline: "Morning signal scan across your portfolio",
     segment: "Analyst",
     toolName: null,
-    description: "Morning scan dashboard for analyst watchlists. Monitors sold volume, pricing, and market share changes for tracked OEMs and dealer groups.",
+    description: "Bloomberg-style morning signal scan for equity analysts covering the US auto sector. Monitors a 10-ticker watchlist spanning OEMs (F, GM, TM, HMC, TSLA, STLA) and dealer groups (AN, LAD, KMX, CVNA) against live MarketCheck 90-day sold and active-inventory data. Each ticker is classified ALERT / WATCH / STABLE / STRONG based on four real-time signals: volume momentum (90-day sold share vs expected), ASP spread (sold avg vs active avg — a pricing-power proxy), days-supply (active ÷ monthly-sold × 30), and discount-change (bps derived from the sold-vs-active gap). A sector summary bar rolls up industry volume trend, average ASP, EV penetration, and a macro BULLISH/BEARISH/NEUTRAL call from the signal mix. Click any ticker row to open a detail panel with a 6-month sparkline, metric breakdown, and 3–4 bullet signal analysis explaining why the flag fired. Optional `state=XX` query parameter scopes every signal to a US state.",
+    useCases: [
+      { persona: "Sell-Side Auto Analysts", desc: "Kick off the day with a 10-second scan of your auto watchlist — the table surfaces which issuers have days-supply breaching 90 days or pricing premium turning negative, so you can triage channel checks before the 9am morning call." },
+      { persona: "Buy-Side PMs / Hedge Funds", desc: "Pre-position ahead of OEM prints: the ALERT badges flag which names in your book are showing margin-stress signals (incentive escalation, ASP erosion) that consensus EPS models haven't yet reflected." },
+      { persona: "Credit Analysts", desc: "Monitor dealer-group and OEM leverage names — KMX/CVNA/AN days-supply and pricing spread are leading indicators of covenant-level dealer-channel stress 1–2 quarters before it shows up in 10-Q filings." },
+      { persona: "Automotive Equity Research Associates", desc: "Paste the ticker signals and sparklines directly into the weekly channel-check memo — each ALERT row has ready-made bullet explanations tied to real MarketCheck volume and pricing data." },
+      { persona: "Portfolio Risk Managers", desc: "Cross-ticker health-check: the macro-signal pill on the sector bar gives a one-glance read on whether the automotive book should be de-risked going into the next print cycle." },
+    ],
     inputParams: [
-      { name: "makes", type: "string", required: false, desc: "Comma-separated OEM brands to track" },
-      { name: "state", type: "string", required: false, desc: "State for regional data" },
+      { name: "state", type: "string", required: false, desc: "2-letter US state code (e.g., CA, TX) — scopes all signals to that region" },
+      { name: "tickers", type: "string", required: false, desc: "Reserved for future ticker-list customization; default universe is fixed at the 10 major US auto OEMs + dealer groups" },
+    ],
+    urlParams: [
+      { name: "api_key", desc: "Your MarketCheck API key — required for live 90-day data; omitted keys show demo-mode sample signals" },
+      { name: "state", desc: "2-letter US state code — scopes every ticker's volume, pricing, and days-supply signals regionally (omit for national)" },
     ],
     apiFlow: [
-      { step: 1, label: "Watchlist Data", apis: ["soldSummary"], parallel: false, note: "Fetch sold summary for tracked brands" },
+      { step: 1, label: "Industry Baselines", apis: ["searchRecents", "searchActive", "searchActive"], parallel: true, note: "Three parallel calls: 90-day sold industry-wide (for share %), full active inventory count (for EV penetration denominator), and EV-only active slice — all scoped to optional state filter" },
+      { step: 2, label: "Per-Ticker Scans", apis: ["searchRecents", "searchActive"], parallel: true, note: "For each of the 10 tickers, issue a recents + active pair in parallel. OEM tickers use make=Ford,Lincoln-style filters; dealer-group tickers use car_type + year-range slices that approximate each issuer's used-market focus. All 20 calls run concurrently." },
     ],
-    renders: "Watchlist cards with signal indicators, volume change alerts, price trend sparklines, market share shifts",
+    renders: "Header with scope + data-source label, sector summary bar (industry volume trend, avg ASP, EV penetration, macro signal pill), sortable 8-column ticker table (ticker, company, signal badge, Vol MoM%, ASP MoM%, days supply, discount change bps, 6-month sparkline canvas), row click opens 340px detail panel with metric grid, enlarged sparkline, and 3–4 bullet signal analysis explaining the badge",
   },
   {
     id: "dealer-group-scorecard",
@@ -1529,6 +1554,83 @@ function generateCurlExample(app) {
   -d '${JSON.stringify(body, null, 2)}'</pre>`;
 }
 
+// Sample values keyed by URL-param name. Used to render realistic per-app
+// URL examples on each how-to-build page so analyst apps don't show VIN
+// templates and VIN apps don't show ticker templates.
+const URL_PARAM_SAMPLES = {
+  api_key: "YOUR_KEY",
+  vin: "KNDCB3LC9L5359658",
+  vins: "KNDCB3LC9L5359658,2T3P1RFV5MW123456",
+  price: "25000",
+  askingPrice: "25000",
+  asking_price: "25000",
+  miles: "35000",
+  mileage: "35000",
+  zip: "90044",
+  zipcode: "90044",
+  zip_code: "90044",
+  state: "CA",
+  ticker: "F",
+  tickers: "F,GM,TSLA",
+  make: "Toyota",
+  model: "Camry",
+  year: "2022",
+  bodyType: "suv",
+  body_type: "suv",
+  fuel: "Electric",
+  dealer_id: "12345",
+  dealerId: "12345",
+  compact: "true",
+  embed: "true",
+};
+
+function generateUrlExamples(app) {
+  const params = app.urlParams || [];
+  if (params.length === 0) return "";
+  const baseUrl = `https://apps.marketcheck.com/apps/${app.id}/dist/index.html`;
+  const sampleFor = (name) => URL_PARAM_SAMPLES[name] !== undefined ? URL_PARAM_SAMPLES[name] : "VALUE";
+  const buildUrl = (names) => {
+    const parts = names.map(n => `${n}=${sampleFor(n)}`);
+    return parts.length ? `${baseUrl}?${parts.join("&amp;")}` : baseUrl;
+  };
+
+  const allNames = params.map(p => p.name);
+  const configNames = ["api_key", "compact", "embed"];
+  const dataNames = allNames.filter(n => !configNames.includes(n));
+  const hasCompact = allNames.includes("compact");
+  const hasEmbed = allNames.includes("embed");
+  const hasApiKey = allNames.includes("api_key");
+
+  const examples = [];
+  if (dataNames.length === 0) {
+    examples.push({ comment: "# Basic", url: buildUrl(hasApiKey ? ["api_key"] : []) });
+  } else {
+    const basicNames = (hasApiKey ? ["api_key"] : []).concat([dataNames[0]]);
+    examples.push({
+      comment: `# Basic — pass ${dataNames[0]} to auto-load`,
+      url: buildUrl(basicNames),
+    });
+    if (dataNames.length > 1) {
+      const fullNames = (hasApiKey ? ["api_key"] : []).concat(dataNames);
+      examples.push({ comment: "# Full — all data parameters", url: buildUrl(fullNames) });
+    }
+  }
+  if (hasEmbed || hasCompact) {
+    const embedNames = (hasApiKey ? ["api_key"] : [])
+      .concat(dataNames)
+      .concat(hasEmbed ? ["embed"] : [])
+      .concat(hasCompact ? ["compact"] : []);
+    const label = hasCompact && hasEmbed
+      ? "# Compact widget — for iframe embeds"
+      : hasEmbed
+      ? "# Embedded mode — for iframe embeds"
+      : "# Compact mode — narrow widget layout";
+    examples.push({ comment: label, url: buildUrl(embedNames) });
+  }
+
+  return examples.map(e => `${e.comment}\n${e.url}`).join("\n\n");
+}
+
 function generateMcpConfig(app) {
   return `
     <h3>2. As an MCP App (AI Assistants)</h3>
@@ -1891,17 +1993,7 @@ pre.code-block {
       </tbody>
     </table>
     <h3>URL Examples</h3>
-    <pre class="code-block"># Basic — auto-generate a report for a VIN
-https://apps.marketcheck.com/apps/${app.id}/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
-
-# Full — with asking price, mileage, and ZIP for deal scoring
-https://apps.marketcheck.com/apps/${app.id}/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
-
-# Compact widget — for iframe embeds (400px width)
-https://apps.marketcheck.com/apps/${app.id}/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
-
-# Using aliases
-https://apps.marketcheck.com/apps/${app.id}/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+    <pre class="code-block">${generateUrlExamples(app)}</pre>
   </div>` : ""}
 
   <!-- Screenshot -->

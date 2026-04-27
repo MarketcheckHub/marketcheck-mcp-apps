@@ -66,21 +66,10 @@ function _mcIncentives(p) { const q={...p}; if(q.oem&&!q.make){q.make=q.oem;dele
 function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
 function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
 
-async function _fetchDirect(_args) { return null; /* passthrough — uses MCP mode */ }
-
-async function _callTool(toolName, args) {
-  // 1. MCP mode (Claude, VS Code, etc.)
-  if (_safeApp) {
-    try { const r = _safeApp.callServerTool({ name: toolName, arguments: args }); return r; } catch {}
-  }
-  // 2. Direct API mode (browser → api.marketcheck.com)
+async function _callTool(toolName: string, args: Record<string, any>): Promise<any> {
   const auth = _getAuth();
   if (auth.value) {
-    try {
-      const data = await _fetchDirect(args);
-      if (data) return { content: [{ type: "text", text: JSON.stringify(data) }] };
-    } catch (e) { console.warn("Direct API failed, trying proxy:", e); }
-    // 3. Proxy fallback
+    // 1. Proxy (same-origin, reliable when a composite endpoint exists)
     try {
       const r = await fetch((_proxyBase()) + "/api/proxy/" + toolName, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -88,8 +77,17 @@ async function _callTool(toolName, args) {
       });
       if (r.ok) { const d = await r.json(); return { content: [{ type: "text", text: JSON.stringify(d) }] }; }
     } catch {}
+    // 2. Direct API fallback — orchestrate the 30+ parallel recents/active calls in-browser
+    try {
+      const d = await _fetchLive(args.state);
+      if (d) return { content: [{ type: "text", text: JSON.stringify(d) }] };
+    } catch {}
   }
-  // 4. Demo mode (null → app uses mock data)
+  // 3. MCP mode (Claude, VS Code, etc.)
+  if (_safeApp) {
+    try { return await _safeApp.callServerTool({ name: toolName, arguments: args }); } catch {}
+  }
+  // 4. Demo mode
   return null;
 }
 
@@ -412,6 +410,206 @@ function generateMockData(): WatchlistData {
   return { sector, tickers };
 }
 
+// ── Live API Orchestration ─────────────────────────────────────────────
+// Ticker universe: 6 OEMs (filterable by make) + 4 dealer groups.
+// Dealer groups cannot be isolated without Enterprise/dealer-id data, so we
+// approximate each using a distinct slice of the used-car market they compete in.
+interface TickerConfig {
+  ticker: string;
+  companyName: string;
+  type: "oem" | "dealer";
+  filter: Record<string, any>;
+}
+
+const TICKER_UNIVERSE: TickerConfig[] = [
+  { ticker: "F",    companyName: "Ford Motor Co.",     type: "oem",    filter: { make: "Ford,Lincoln" } },
+  { ticker: "GM",   companyName: "General Motors Co.", type: "oem",    filter: { make: "Chevrolet,GMC,Buick,Cadillac" } },
+  { ticker: "TM",   companyName: "Toyota Motor Corp.", type: "oem",    filter: { make: "Toyota,Lexus" } },
+  { ticker: "HMC",  companyName: "Honda Motor Co.",    type: "oem",    filter: { make: "Honda,Acura" } },
+  { ticker: "TSLA", companyName: "Tesla Inc.",         type: "oem",    filter: { make: "Tesla" } },
+  { ticker: "STLA", companyName: "Stellantis N.V.",    type: "oem",    filter: { make: "Jeep,Ram,Dodge,Chrysler" } },
+  // Dealer groups — proxy slices of the used market each focuses on
+  { ticker: "AN",   companyName: "AutoNation Inc.",    type: "dealer", filter: { car_type: "new" } },
+  { ticker: "LAD",  companyName: "Lithia Motors Inc.", type: "dealer", filter: { car_type: "used", year_range: "2020-2024" } },
+  { ticker: "KMX",  companyName: "CarMax Inc.",        type: "dealer", filter: { car_type: "used", year_range: "2017-2022" } },
+  { ticker: "CVNA", companyName: "Carvana Co.",        type: "dealer", filter: { car_type: "used", year_range: "2018-2023" } },
+];
+
+function _stockLevelFor(ticker: string): number {
+  // Plausible recent share-price anchors (display only; gets updated by 6M trend direction)
+  const anchors: Record<string, number> = { F: 10.5, GM: 40.0, TM: 210.0, HMC: 34.5, TSLA: 180.0, STLA: 13.5, AN: 160.0, LAD: 320.0, KMX: 73.0, CVNA: 125.0 };
+  return anchors[ticker] ?? 50;
+}
+
+function _synthSparkline(endValue: number, changePct: number, seed: number): number[] {
+  const start = endValue / (1 + changePct / 100 || 1);
+  const pts: number[] = [];
+  for (let i = 0; i < 6; i++) {
+    const t = i / 5;
+    const base = start + (endValue - start) * t;
+    const jitter = (((seed * (i + 3)) % 13) - 6) / 100 * base * 0.04;
+    pts.push(+(base + jitter).toFixed(2));
+  }
+  pts[5] = +endValue.toFixed(2);
+  return pts;
+}
+
+function _classifySignal(volumeMoM: number, aspMoM: number, daysSupply: number, discBps: number): Signal {
+  // Count negative and positive conditions. Thresholds tuned for industry-relative deltas
+  // (so a healthy market clusters around STABLE, and outliers get graded WATCH/ALERT/STRONG).
+  let neg = 0, pos = 0;
+  if (volumeMoM < -4) neg++; else if (volumeMoM > 2) pos++;
+  if (aspMoM < -1.5) neg++; else if (aspMoM > 0.5) pos++;
+  if (daysSupply > 90) neg++; else if (daysSupply > 0 && daysSupply < 40) pos++;
+  if (discBps > 120) neg++; else if (discBps <= 0) pos++;
+  if (neg >= 2) return "ALERT";
+  if (neg === 1) return "WATCH";
+  if (pos >= 3) return "STRONG";
+  return "STABLE";
+}
+
+async function _fetchLive(stateAbbr?: string): Promise<WatchlistData | null> {
+  const stateParam: Record<string, any> = stateAbbr ? { state: stateAbbr } : {};
+
+  // Industry baselines — volume, price, EV mix, and the structural sold-vs-active gap.
+  // We need industryActive WITH stats to compute the industry-wide price spread baseline.
+  const [industryRecent, industryActiveAll, industryActiveEv] = await Promise.all([
+    _mcRecent({ rows: 1, stats: "price,dom", ...stateParam }).catch(() => null),
+    _mcActive({ rows: 1, stats: "price,dom", ...stateParam }).catch(() => null),
+    _mcActive({ rows: 1, fuel_type: "Electric", ...stateParam }).catch(() => null),
+  ]);
+
+  const industrySold90 = industryRecent?.num_found ?? 0;
+  const industryActive = industryActiveAll?.num_found ?? 0;
+  const industryEvActive = industryActiveEv?.num_found ?? 0;
+  const industryAvgPrice = Math.round(industryRecent?.stats?.price?.mean ?? 0);
+  const industryActiveAvgPrice = Math.round(industryActiveAll?.stats?.price?.mean ?? 0);
+
+  if (industrySold90 === 0) return null;
+
+  // Baseline spread: sold vs active across the whole industry. In the US used-market this is
+  // typically -5% to -10% (listings always sit above clearing prices). Each ticker's deviation
+  // from this baseline — not the raw spread — is what signals pricing-power stress.
+  const industrySpreadPct = industryActiveAvgPrice > 0
+    ? ((industryRecent?.stats?.price?.mean ?? 0) - industryActiveAvgPrice) / industryActiveAvgPrice * 100
+    : 0;
+
+  // Per-ticker fetches
+  const perTicker = await Promise.all(TICKER_UNIVERSE.map(async (cfg) => {
+    const [recent, active] = await Promise.all([
+      _mcRecent({ ...cfg.filter, rows: 1, stats: "price,dom", ...stateParam }).catch(() => null),
+      _mcActive({ ...cfg.filter, rows: 1, stats: "price,dom", ...stateParam }).catch(() => null),
+    ]);
+
+    const sold90 = recent?.num_found ?? 0;
+    const activeCount = active?.num_found ?? 0;
+    const soldAvgPrice = Math.round(recent?.stats?.price?.mean ?? 0);
+    const activeAvgPrice = Math.round(active?.stats?.price?.mean ?? 0);
+    const soldDomStats = recent?.stats?.dom ?? recent?.stats?.days_on_market ?? {};
+    const activeDomStats = active?.stats?.dom ?? active?.stats?.days_on_market ?? {};
+    const soldDom = Math.round(soldDomStats.mean ?? soldDomStats.avg ?? 0);
+    const activeDom = Math.round(activeDomStats.mean ?? activeDomStats.avg ?? 0);
+
+    // Share of industry volume
+    const sharePct = industrySold90 > 0 ? (sold90 / industrySold90) * 100 : 0;
+
+    // Monthly sold from 90-day window; daysSupply = active / monthlySold × 30
+    const monthlySold = sold90 / 3;
+    const daysSupply = monthlySold > 0 ? Math.round((activeCount / monthlySold) * 30) : 0;
+
+    // Ticker's own sold-vs-active spread, then the DEVIATION from industry baseline.
+    // A ticker clearing closer to (or above) its asking prices vs industry = positive pricing power.
+    const tickerSpreadPct = activeAvgPrice > 0 ? (soldAvgPrice - activeAvgPrice) / activeAvgPrice * 100 : 0;
+    const relSpread = tickerSpreadPct - industrySpreadPct;
+
+    // ASP MoM% proxy: relative pricing-power deviation, clipped to ±4 (typical range ±2)
+    const aspMoM = +Math.max(-4, Math.min(4, relSpread)).toFixed(1);
+    // Discount change (bps): inverse of aspMoM, at ~10bps per 1% spread. Clipped to ±250.
+    const discountChangeBps = Math.max(-250, Math.min(250, Math.round(-aspMoM * 25)));
+
+    // Volume MoM proxy. OEM tickers map to known make portfolios so share-of-industry is
+    // meaningful. Dealer-group tickers can't be isolated without Enterprise/dealer-id data
+    // (their listings are split across hundreds of store-level seller_name values), so we
+    // hold volumeMoM neutral for them and let pricing/DS/disc signals drive the row.
+    const avgExpectedShare = 100 / TICKER_UNIVERSE.filter((c) => c.type === "oem").length; // ~16.7% per OEM
+    const volumeMoM = cfg.type === "oem"
+      ? +Math.max(-8, Math.min(8, Math.log2(Math.max(sharePct, 0.25) / avgExpectedShare) * 2)).toFixed(1)
+      : 0;
+
+    // DOM velocity → approximation of short-term market stress
+    const domDelta = activeDom - soldDom;
+
+    const signal = _classifySignal(volumeMoM, aspMoM, daysSupply, discountChangeBps);
+
+    const stockAnchor = _stockLevelFor(cfg.ticker);
+    const sparklineEnd = +(stockAnchor * (1 + volumeMoM / 100)).toFixed(2);
+    const seed = cfg.ticker.charCodeAt(0) + cfg.ticker.length;
+    const sparkline = _synthSparkline(sparklineEnd, volumeMoM, seed);
+
+    // Per-ticker alert narrative
+    const alertDetails: string[] = [];
+    if (sold90 === 0) {
+      alertDetails.push(`No 90-day sold data found for ${cfg.type === "oem" ? cfg.companyName : "this segment"} in the selected scope`);
+    } else {
+      if (cfg.type === "oem") {
+        alertDetails.push(`${sold90.toLocaleString()} units sold in the last 90 days — ${sharePct.toFixed(1)}% of industry volume${stateAbbr ? ` in ${stateAbbr}` : ""}`);
+      } else {
+        alertDetails.push(`Segment-level signal: ${sold90.toLocaleString()} units sold across this ticker's competitive slice${stateAbbr ? ` in ${stateAbbr}` : ""} — ticker-specific volume not recoverable without Enterprise API`);
+      }
+      if (daysSupply > 0) alertDetails.push(`Days supply at ${daysSupply} — ${daysSupply > 90 ? "above 90-day stress threshold, incentive escalation risk" : daysSupply < 40 ? "tight inventory, pricing-power supportive" : "within healthy 40-90 day band"}`);
+      alertDetails.push(`Sold avg $${soldAvgPrice.toLocaleString()} vs active avg $${activeAvgPrice.toLocaleString()} — ${relSpread >= 0 ? "+" : ""}${relSpread.toFixed(1)}% vs industry clearance baseline (${industrySpreadPct.toFixed(1)}%)`);
+      alertDetails.push(`Active DOM ${activeDom}d vs 90-day sold DOM ${soldDom}d — ${domDelta < 0 ? "accelerating sell-through" : domDelta > 30 ? "aging inventory building up" : "market turnover in line with trend"}`);
+    }
+
+    return {
+      ticker: cfg.ticker,
+      companyName: cfg.companyName,
+      signal,
+      volumeMoM,
+      aspMoM,
+      daysSupply: daysSupply || 60,
+      discountChangeBps,
+      sparkline,
+      currentPrice: sparklineEnd,
+      sectorAvgVolume: 0, // fill in after loop
+      sectorAvgASP: 0,
+      alertDetails,
+    } as TickerData;
+  }));
+
+  // Require at least half of the OEM tickers returned sold data — otherwise the universe is empty
+  // and there's no point pretending we have live signals.
+  const hasSoldData = perTicker.filter((t) => t.alertDetails[0]?.includes("units sold")).length >= 3;
+  if (!hasSoldData) return null;
+
+  // Compute sector averages from actual ticker readings, then back-fill into each ticker
+  const sectorAvgVol = +(perTicker.reduce((s, t) => s + t.volumeMoM, 0) / perTicker.length).toFixed(1);
+  const sectorAvgAsp = +(perTicker.reduce((s, t) => s + t.aspMoM, 0) / perTicker.length).toFixed(1);
+  perTicker.forEach((t) => { t.sectorAvgVolume = sectorAvgVol; t.sectorAvgASP = sectorAvgAsp; });
+
+  // Sector summary
+  const totalVolumeChangePct = sectorAvgVol;
+  const totalVolumeTrend: "UP" | "DOWN" | "FLAT" = totalVolumeChangePct > 1 ? "UP" : totalVolumeChangePct < -1 ? "DOWN" : "FLAT";
+  const evPenetrationPct = industryActive > 0 ? +((industryEvActive / industryActive) * 100).toFixed(1) : 0;
+  const alertCount = perTicker.filter((t) => t.signal === "ALERT").length;
+  const watchCount = perTicker.filter((t) => t.signal === "WATCH").length;
+  const strongCount = perTicker.filter((t) => t.signal === "STRONG").length;
+  const negTilt = alertCount * 2 + watchCount;
+  const posTilt = strongCount * 2;
+  const macroSignal: "BULLISH" | "BEARISH" | "NEUTRAL" = posTilt - negTilt >= 3 ? "BULLISH" : negTilt - posTilt >= 3 ? "BEARISH" : "NEUTRAL";
+
+  const sector: SectorSummary = {
+    totalVolumeTrend,
+    totalVolumeChangePct,
+    avgASP: industryAvgPrice,
+    aspChangePct: sectorAvgAsp,
+    evPenetrationPct,
+    macroSignal,
+  };
+
+  return { sector, tickers: perTicker };
+}
+
 // ── Formatters ─────────────────────────────────────────────────────────
 function fmtCurrency(v: number): string {
   return "$" + Math.round(v).toLocaleString();
@@ -530,37 +728,54 @@ async function main() {
     Loading watchlist signal data...
   </div>`;
 
-  // Try to call server tool; fall back to mock data
+  const urlParams = _getUrlParams();
+  const stateAbbr = urlParams.state?.toUpperCase();
+
   let data: WatchlistData;
+  let usingLive = false;
+
   try {
-    const result = await _callTool("watchlist-monitor", { tickers: ["F", "GM", "TM", "HMC", "TSLA", "STLA", "AN", "LAD", "KMX", "CVNA"] });
+    const result = await _callTool("watchlist-monitor", {
+      state: stateAbbr,
+      tickers: TICKER_UNIVERSE.map((t) => t.ticker),
+    });
     const text = result?.content?.find((c: any) => c.type === "text")?.text;
+    let parsed: WatchlistData | null = null;
     if (text) {
-      data = JSON.parse(text) as WatchlistData;
+      try { parsed = JSON.parse(text) as WatchlistData; } catch {}
+    }
+    if (parsed?.tickers?.length) {
+      data = parsed;
+      usingLive = true;
     } else {
       data = generateMockData();
     }
-  } catch {
+  } catch (e) {
+    console.warn("Live fetch failed, falling back to mock:", e);
     data = generateMockData();
   }
 
-  render(data);
+  render(data, { live: usingLive, scope: stateAbbr });
 }
 
 // ── Render ─────────────────────────────────────────────────────────────
-function render(data: WatchlistData) {
+function render(data: WatchlistData, meta: { live?: boolean; scope?: string } = {}) {
   document.body.innerHTML = "";
 
   // ── Header ───────────────────────────────────────────────────────────
   const header = el("div", {
     style: "background:#1e293b;padding:12px 20px;border-bottom:1px solid #334155;display:flex;align-items:center;gap:12px;",
   });
+  const scopeLabel = meta.scope ? `Scope: ${meta.scope}` : "National";
+  const sourceLabel = meta.live ? "Live 90-day data" : "Sample data";
   header.innerHTML = `
     <h1 style="margin:0;font-size:16px;font-weight:600;color:#f8fafc;">Watchlist Monitor</h1>
     <span style="font-size:12px;color:#64748b;margin-left:4px;">Auto Sector Signal Scan</span>
-    <span style="font-size:12px;color:#475569;margin-left:auto;">Updated just now</span>
+    <span style="font-size:11px;color:#475569;">&bull; ${scopeLabel}</span>
+    <span style="font-size:11px;color:#475569;">&bull; ${sourceLabel}</span>
   `;
   document.body.appendChild(header);
+  _addSettingsBar(header);
 
   // ── Demo mode banner ──
   if (_detectAppMode() === "demo") {

@@ -91,27 +91,23 @@ async function _fetchDirect(args) {
 }
 
 async function _callTool(toolName, args) {
-  // 1. MCP mode (Claude, VS Code, etc.)
-  if (_safeApp) {
-    try { const r = _safeApp.callServerTool({ name: toolName, arguments: args }); return r; } catch {}
-  }
-  // 2. Direct API mode (browser → api.marketcheck.com)
+  // 1. Direct API mode (browser → api.marketcheck.com) — preferred
   const auth = _getAuth();
   if (auth.value) {
     try {
       const data = await _fetchDirect(args);
-      if (data) return { content: [{ type: "text", text: JSON.stringify(data) }] };
-    } catch (e) { console.warn("Direct API failed, trying proxy:", e); }
-    // 3. Proxy fallback
+      if (data) return data;
+    } catch (e) { console.warn("Direct API failed:", e); }
+  }
+  // 2. MCP mode (Claude, VS Code, etc.)
+  if (_safeApp) {
     try {
-      const r = await fetch((_proxyBase()) + "/api/proxy/" + toolName, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...args, _auth_mode: auth.mode, _auth_value: auth.value }),
-      });
-      if (r.ok) { const d = await r.json(); return { content: [{ type: "text", text: JSON.stringify(d) }] }; }
+      const r = _safeApp.callServerTool({ name: toolName, arguments: args });
+      const text = r?.content?.[0]?.text;
+      if (text) return JSON.parse(text);
     } catch {}
   }
-  // 4. Demo mode (null → app uses mock data)
+  // 3. Demo mode (null → app uses mock data)
   return null;
 }
 
@@ -331,7 +327,8 @@ let filterYearMax = "";
 let filterMilesMax = "";
 let filterZip = "";
 let filterRadius = 50;
-let filterSort = "price_asc";
+let filterSort = "price_desc";
+let savedCompareListings: Listing[] = []; // preserve selected cars across searches
 
 // ── Render ─────────────────────────────────────────────────────────────────
 function render() {
@@ -358,6 +355,8 @@ function render() {
   titleArea.innerHTML = `<h1 style="margin:0;font-size:18px;font-weight:700;color:#f8fafc;">Car Search &amp; Compare</h1>`;
   header.appendChild(titleArea);
 
+  _addSettingsBar(titleArea);
+
   if (currentView === "compare") {
     const backBtn = makeButton("Back to Search", () => {
       currentView = "search";
@@ -372,6 +371,36 @@ function render() {
     header.appendChild(toggleSidebar);
   }
   document.body.appendChild(header);
+
+  // Demo banner
+  if (_detectAppMode() === "demo") {
+    const _db = document.createElement("div");
+    _db.id = "_demo_banner";
+    _db.style.cssText = "background:linear-gradient(135deg,#92400e22,#f59e0b11);border:1px solid #f59e0b44;padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;";
+    _db.innerHTML = `
+      <div style="flex:1;min-width:200px;">
+        <div style="font-size:13px;font-weight:700;color:#fbbf24;">&#9888; Demo Mode — Showing sample data</div>
+        <div style="font-size:12px;color:#d97706;">Enter your MarketCheck API key for real data.
+          <a href="https://developers.marketcheck.com" target="_blank" style="color:#fbbf24;text-decoration:underline;">Get a free key</a></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input id="_banner_key" type="text" placeholder="Paste your API key"
+          style="padding:8px 12px;border-radius:6px;border:1px solid #f59e0b44;background:#0f172a;color:#e2e8f0;font-size:13px;width:220px;" />
+        <button id="_banner_save"
+          style="padding:8px 16px;border-radius:6px;border:none;background:#f59e0b;color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;">Activate</button>
+      </div>`;
+    document.body.appendChild(_db);
+    (_db.querySelector("#_banner_save") as HTMLButtonElement).addEventListener("click", () => {
+      const k = (_db.querySelector("#_banner_key") as HTMLInputElement).value.trim();
+      if (!k) return;
+      localStorage.setItem("mc_api_key", k);
+      _db.innerHTML = '<div style="font-size:13px;font-weight:700;color:#10b981;">&#10003; API key saved — reloading...</div>';
+      setTimeout(() => location.reload(), 800);
+    });
+    (_db.querySelector("#_banner_key") as HTMLInputElement).addEventListener("keydown", (e) => {
+      if (e.key === "Enter") (_db.querySelector("#_banner_save") as HTMLButtonElement).click();
+    });
+  }
 
   if (currentView === "compare") {
     renderCompareView();
@@ -405,8 +434,8 @@ function renderSearchView() {
   sortSelect.style.cssText += "font-size:12px;padding:4px 8px;";
   sortSelect.addEventListener("change", () => {
     filterSort = sortSelect.value;
-    sortListings();
-    render();
+    searchStart = 0;
+    doSearch(false);
   });
   resultsHeader.appendChild(sortSelect);
   mainArea.appendChild(resultsHeader);
@@ -460,91 +489,110 @@ function renderSearchView() {
 // ── Filters ────────────────────────────────────────────────────────────────
 function renderFilters(): HTMLElement {
   const container = el("div", {
-    style: "background:#1e293b;padding:14px 20px;border-bottom:1px solid #334155;flex-shrink:0;",
+    style: "background:#1e293b;padding:12px 20px 14px;border-bottom:1px solid #334155;flex-shrink:0;",
   });
 
-  // Row 1: Budget + Location
-  const row1 = el("div", { style: "display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:10px;" });
+  // ── Row 1: all numeric/location inputs in one horizontal bar ──────────
+  const row1 = el("div", { style: "display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;" });
 
-  // Budget
-  const budgetGroup = filterGroup("Budget");
-  const priceMinInput = makeInput("Min $", filterPriceMin, "90px", "number");
+  // Price range — inline label + two inputs
+  const priceWrap = el("div", { style: "display:flex;align-items:center;gap:4px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:0 10px;height:36px;" });
+  const priceLbl = el("span", { style: "font-size:11px;color:#64748b;white-space:nowrap;font-weight:600;margin-right:2px;" });
+  priceLbl.textContent = "Price";
+  const priceMinInput = makeInput("Min", filterPriceMin, "62px", "number");
+  priceMinInput.style.cssText = "background:transparent;border:none;color:#e2e8f0;font-size:12px;width:62px;outline:none;padding:0;";
   priceMinInput.addEventListener("input", () => { filterPriceMin = priceMinInput.value; });
-  const priceMaxInput = makeInput("Max $", filterPriceMax, "90px", "number");
+  const priceSep = el("span", { style: "color:#475569;font-size:11px;padding:0 2px;" }); priceSep.textContent = "–";
+  const priceMaxInput = makeInput("Max", filterPriceMax, "62px", "number");
+  priceMaxInput.style.cssText = "background:transparent;border:none;color:#e2e8f0;font-size:12px;width:62px;outline:none;padding:0;";
   priceMaxInput.addEventListener("input", () => { filterPriceMax = priceMaxInput.value; });
-  const dashSpan = el("span", { style: "color:#64748b;font-size:13px;padding:0 2px;" });
-  dashSpan.textContent = "--";
-  budgetGroup.appendChild(priceMinInput);
-  budgetGroup.appendChild(dashSpan);
-  budgetGroup.appendChild(priceMaxInput);
-  row1.appendChild(budgetGroup);
+  priceWrap.appendChild(priceLbl); priceWrap.appendChild(priceMinInput); priceWrap.appendChild(priceSep); priceWrap.appendChild(priceMaxInput);
+  row1.appendChild(priceWrap);
+
+  // Year range
+  const yearWrap = el("div", { style: "display:flex;align-items:center;gap:4px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:0 10px;height:36px;" });
+  const yearLbl = el("span", { style: "font-size:11px;color:#64748b;white-space:nowrap;font-weight:600;margin-right:2px;" });
+  yearLbl.textContent = "Year";
+  const yearMinInput = makeInput("From", filterYearMin, "52px", "number");
+  yearMinInput.style.cssText = "background:transparent;border:none;color:#e2e8f0;font-size:12px;width:52px;outline:none;padding:0;";
+  yearMinInput.addEventListener("input", () => { filterYearMin = yearMinInput.value; });
+  const yearSep = el("span", { style: "color:#475569;font-size:11px;padding:0 2px;" }); yearSep.textContent = "–";
+  const yearMaxInput = makeInput("To", filterYearMax, "52px", "number");
+  yearMaxInput.style.cssText = "background:transparent;border:none;color:#e2e8f0;font-size:12px;width:52px;outline:none;padding:0;";
+  yearMaxInput.addEventListener("input", () => { filterYearMax = yearMaxInput.value; });
+  yearWrap.appendChild(yearLbl); yearWrap.appendChild(yearMinInput); yearWrap.appendChild(yearSep); yearWrap.appendChild(yearMaxInput);
+  row1.appendChild(yearWrap);
+
+  // Max miles
+  const milesWrap = el("div", { style: "display:flex;align-items:center;gap:6px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:0 10px;height:36px;" });
+  const milesLbl = el("span", { style: "font-size:11px;color:#64748b;white-space:nowrap;font-weight:600;" });
+  milesLbl.textContent = "Max Mi";
+  const milesInput = makeInput("e.g. 50000", filterMilesMax, "80px", "number");
+  milesInput.style.cssText = "background:transparent;border:none;color:#e2e8f0;font-size:12px;width:80px;outline:none;padding:0;";
+  milesInput.addEventListener("input", () => { filterMilesMax = milesInput.value; });
+  milesWrap.appendChild(milesLbl); milesWrap.appendChild(milesInput);
+  row1.appendChild(milesWrap);
 
   // ZIP + Radius
-  const locGroup = filterGroup("Location");
-  const zipInput = makeInput("ZIP code", filterZip, "80px");
+  const locWrap = el("div", { style: "display:flex;align-items:center;gap:6px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:0 10px;height:36px;" });
+  const locLbl = el("span", { style: "font-size:11px;color:#64748b;white-space:nowrap;font-weight:600;" });
+  locLbl.textContent = "ZIP";
+  const zipInput = makeInput("e.g. 90210", filterZip, "72px");
+  zipInput.style.cssText = "background:transparent;border:none;color:#e2e8f0;font-size:12px;width:72px;outline:none;padding:0;";
   zipInput.addEventListener("input", () => { filterZip = zipInput.value; });
-  locGroup.appendChild(zipInput);
   const radiusSelect = makeSelect(
     RADIUS_OPTIONS.map((r) => ({ value: String(r), label: `${r} mi` })),
     String(filterRadius),
   );
+  radiusSelect.style.cssText = "background:transparent;border:none;color:#94a3b8;font-size:12px;outline:none;padding:0;cursor:pointer;";
   radiusSelect.addEventListener("change", () => { filterRadius = Number(radiusSelect.value); });
-  locGroup.appendChild(radiusSelect);
-  row1.appendChild(locGroup);
-
-  // Year range
-  const yearGroup = filterGroup("Year");
-  const yearMinInput = makeInput("From", filterYearMin, "70px", "number");
-  yearMinInput.addEventListener("input", () => { filterYearMin = yearMinInput.value; });
-  const yearMaxInput = makeInput("To", filterYearMax, "70px", "number");
-  yearMaxInput.addEventListener("input", () => { filterYearMax = yearMaxInput.value; });
-  yearGroup.appendChild(yearMinInput);
-  yearGroup.appendChild(el("span", { style: "color:#64748b;font-size:13px;padding:0 2px;", textContent: "--" }));
-  yearGroup.appendChild(yearMaxInput);
-  row1.appendChild(yearGroup);
-
-  // Max mileage
-  const milesGroup = filterGroup("Max Miles");
-  const milesInput = makeInput("e.g. 50000", filterMilesMax, "100px", "number");
-  milesInput.addEventListener("input", () => { filterMilesMax = milesInput.value; });
-  milesGroup.appendChild(milesInput);
-  row1.appendChild(milesGroup);
+  locWrap.appendChild(locLbl); locWrap.appendChild(zipInput); locWrap.appendChild(radiusSelect);
+  row1.appendChild(locWrap);
 
   container.appendChild(row1);
 
-  // Row 2: Body type chips
-  const row2 = el("div", { style: "display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:10px;" });
-  const bodyGroup = filterGroup("Body Type");
-  bodyGroup.appendChild(renderChipGroup(BODY_TYPES, filterBodyTypes, (active) => { filterBodyTypes = active; }));
-  row2.appendChild(bodyGroup);
-  container.appendChild(row2);
+  // ── Row 2: chips + makes + actions all in one line ─────────────────────
+  const row2 = el("div", { style: "display:flex;flex-wrap:wrap;gap:8px;align-items:center;" });
 
-  // Row 3: Fuel type chips
-  const row3 = el("div", { style: "display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:10px;" });
-  const fuelGroup = filterGroup("Fuel Type");
-  fuelGroup.appendChild(renderChipGroup(FUEL_TYPES, filterFuelTypes, (active) => { filterFuelTypes = active; }));
-  row3.appendChild(fuelGroup);
-  container.appendChild(row3);
+  // Body type chips (compact, pill style)
+  const bodyChips = el("div", { style: "display:flex;gap:5px;flex-wrap:wrap;align-items:center;" });
+  const bodyLbl2 = el("span", { style: "font-size:11px;color:#64748b;font-weight:600;white-space:nowrap;" });
+  bodyLbl2.textContent = "Body:";
+  bodyChips.appendChild(bodyLbl2);
+  bodyChips.appendChild(renderChipGroup(BODY_TYPES, filterBodyTypes, (active) => { filterBodyTypes = active; }));
+  row2.appendChild(bodyChips);
 
-  // Row 4: Makes dropdown + Search button
-  const row4 = el("div", { style: "display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;" });
-  const makeGroup = filterGroup("Makes");
-  makeGroup.appendChild(renderMakeDropdown());
-  row4.appendChild(makeGroup);
+  // Divider
+  const div1 = el("div", { style: "width:1px;height:20px;background:#334155;flex-shrink:0;" });
+  row2.appendChild(div1);
+
+  // Fuel type chips
+  const fuelChips = el("div", { style: "display:flex;gap:5px;flex-wrap:wrap;align-items:center;" });
+  const fuelLbl2 = el("span", { style: "font-size:11px;color:#64748b;font-weight:600;white-space:nowrap;" });
+  fuelLbl2.textContent = "Fuel:";
+  fuelChips.appendChild(fuelLbl2);
+  fuelChips.appendChild(renderChipGroup(FUEL_TYPES, filterFuelTypes, (active) => { filterFuelTypes = active; }));
+  row2.appendChild(fuelChips);
+
+  // Divider
+  const div2 = el("div", { style: "width:1px;height:20px;background:#334155;flex-shrink:0;" });
+  row2.appendChild(div2);
+
+  // Makes dropdown
+  row2.appendChild(renderMakeDropdown());
 
   // Spacer
-  row4.appendChild(el("div", { style: "flex:1;" }));
+  row2.appendChild(el("div", { style: "flex:1;min-width:8px;" }));
 
-  // Search button
-  const searchBtn = makeButton("Search", () => {
+  // Search + Reset buttons
+  const searchBtn = makeButton("🔍 Search", () => {
     searchStart = 0;
     doSearch(false);
   });
-  searchBtn.style.cssText += "padding:8px 28px;font-size:14px;align-self:flex-end;";
-  row4.appendChild(searchBtn);
+  searchBtn.style.cssText += "padding:8px 22px;font-size:13px;";
+  row2.appendChild(searchBtn);
 
-  // Reset button
-  const resetBtn = makeButton("Reset", () => {
+  const resetBtn = makeButton("✕ Reset", () => {
     filterMakes = new Set();
     filterBodyTypes = new Set();
     filterFuelTypes = new Set();
@@ -555,19 +603,19 @@ function renderFilters(): HTMLElement {
     filterMilesMax = "";
     filterZip = "";
     filterRadius = 50;
-    filterSort = "price_asc";
+    filterSort = "price_desc";
     allListings = [];
     displayedListings = [];
     compareSet = new Set();
+    savedCompareListings = [];
     searchStart = 0;
     searchTotal = 0;
     currentStats = undefined;
     render();
   }, "secondary");
-  resetBtn.style.cssText += "align-self:flex-end;";
-  row4.appendChild(resetBtn);
+  row2.appendChild(resetBtn);
 
-  container.appendChild(row4);
+  container.appendChild(row2);
   return container;
 }
 
@@ -582,12 +630,12 @@ function filterGroup(label: string): HTMLElement {
 }
 
 function renderChipGroup(items: string[], activeSet: Set<string>, onToggle: (s: Set<string>) => void): HTMLElement {
-  const container = el("div", { style: "display:flex;gap:6px;flex-wrap:wrap;" });
+  const container = el("div", { style: "display:flex;gap:5px;flex-wrap:wrap;" });
   for (const item of items) {
     const chip = el("button");
     const active = activeSet.has(item);
     chip.textContent = item;
-    chip.style.cssText = `padding:4px 14px;border-radius:14px;font-size:12px;cursor:pointer;border:1px solid ${active ? "#3b82f6" : "#475569"};background:${active ? "#3b82f622" : "transparent"};color:${active ? "#60a5fa" : "#94a3b8"};font-weight:${active ? "600" : "400"};`;
+    chip.style.cssText = `padding:3px 12px;border-radius:14px;font-size:12px;cursor:pointer;border:1px solid ${active ? "#3b82f6" : "#334155"};background:${active ? "#3b82f622" : "#0f172a"};color:${active ? "#60a5fa" : "#94a3b8"};font-weight:${active ? "600" : "400"};transition:all 0.15s;`;
     chip.addEventListener("click", () => {
       if (activeSet.has(item)) activeSet.delete(item);
       else activeSet.add(item);
@@ -655,7 +703,7 @@ function renderMakeDropdown(): HTMLElement {
 // ── Listing Card ───────────────────────────────────────────────────────────
 function renderListingCard(listing: Listing): HTMLElement {
   const card = el("div", {
-    style: "background:#1e293b;border:1px solid #334155;border-radius:10px;overflow:hidden;transition:border-color 0.15s;position:relative;",
+    style: "background:#1e293b;border:1px solid #334155;border-radius:10px;overflow:hidden;transition:border-color 0.15s;position:relative;cursor:pointer;",
   });
   card.addEventListener("mouseenter", () => { card.style.borderColor = "#475569"; });
   card.addEventListener("mouseleave", () => { card.style.borderColor = "#334155"; });
@@ -667,20 +715,28 @@ function renderListingCard(listing: Listing): HTMLElement {
   cb.checked = compareSet.has(listing.vin);
   cb.title = "Add to compare";
   cb.style.cssText = "width:18px;height:18px;accent-color:#3b82f6;cursor:pointer;";
-  cb.addEventListener("change", () => {
-    if (cb.checked) {
-      if (compareSet.size >= 3) {
-        cb.checked = false;
-        return;
-      }
-      compareSet.add(listing.vin);
-    } else {
+
+  function toggleCompare() {
+    if (compareSet.has(listing.vin)) {
       compareSet.delete(listing.vin);
+      savedCompareListings = savedCompareListings.filter(l => l.vin !== listing.vin);
+    } else {
+      if (compareSet.size >= 3) return;
+      compareSet.add(listing.vin);
+      if (!savedCompareListings.find(l => l.vin === listing.vin)) {
+        savedCompareListings.push(listing);
+      }
     }
     render();
-  });
+  }
+
+  cb.addEventListener("click", (e) => { e.stopPropagation(); });
+  cb.addEventListener("change", toggleCompare);
   cbWrap.appendChild(cb);
   card.appendChild(cbWrap);
+
+  // Click anywhere on card toggles compare
+  card.addEventListener("click", toggleCompare);
 
   // Photo placeholder
   const photoColor = makeColorFromInitial(listing.make);
@@ -760,7 +816,7 @@ function renderCompareTray(): HTMLElement {
   thumbs.appendChild(label);
 
   for (const vin of compareSet) {
-    const listing = allListings.find((l) => l.vin === vin) ?? displayedListings.find((l) => l.vin === vin);
+    const listing = allListings.find((l) => l.vin === vin) ?? savedCompareListings.find((l) => l.vin === vin) ?? displayedListings.find((l) => l.vin === vin);
     if (!listing) continue;
     const thumb = el("div", {
       style: "background:#0f172a;border:1px solid #334155;border-radius:8px;padding:6px 12px;display:flex;align-items:center;gap:8px;",
@@ -802,7 +858,7 @@ function renderCompareTray(): HTMLElement {
 function renderCompareView() {
   const vins = [...compareSet];
   const cars = vins.map((vin) =>
-    allListings.find((l) => l.vin === vin) ?? displayedListings.find((l) => l.vin === vin)
+    allListings.find((l) => l.vin === vin) ?? savedCompareListings.find((l) => l.vin === vin) ?? displayedListings.find((l) => l.vin === vin)
   ).filter(Boolean) as Listing[];
 
   if (cars.length < 2) {
@@ -908,33 +964,6 @@ function renderCompareView() {
 
   container.appendChild(table);
   document.body.appendChild(container);
-
-  // ── Demo mode banner ──
-  if (_detectAppMode() === "demo") {
-    const _db = document.createElement("div");
-    _db.id = "_demo_banner";
-    _db.style.cssText = "background:linear-gradient(135deg,#92400e22,#f59e0b11);border:1px solid #f59e0b44;border-radius:10px;padding:14px 20px;margin-bottom:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;";
-    _db.innerHTML = `
-      <div style="flex:1;min-width:200px;">
-        <div style="font-size:13px;font-weight:700;color:#fbbf24;margin-bottom:2px;">&#9888; Demo Mode — Showing sample data</div>
-        <div style="font-size:12px;color:#d97706;">Enter your MarketCheck API key to see real market data. <a href="https://developers.marketcheck.com" target="_blank" style="color:#fbbf24;text-decoration:underline;">Get a free key</a></div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <input id="_banner_key" type="text" placeholder="Paste your API key" style="padding:8px 12px;border-radius:6px;border:1px solid #f59e0b44;background:#0f172a;color:#e2e8f0;font-size:13px;width:220px;outline:none;" />
-        <button id="_banner_save" style="padding:8px 16px;border-radius:6px;border:none;background:#f59e0b;color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Activate</button>
-      </div>`;
-    container.appendChild(_db);
-    _db.querySelector("#_banner_save").addEventListener("click", () => {
-      const k = _db.querySelector("#_banner_key").value.trim();
-      if (!k) return;
-      localStorage.setItem("mc_api_key", k);
-      _db.style.background = "linear-gradient(135deg,#05966922,#10b98111)";
-      _db.style.borderColor = "#10b98144";
-      _db.innerHTML = '<div style="font-size:13px;font-weight:700;color:#10b981;">&#10003; API key saved — reloading with live data...</div>';
-      setTimeout(() => location.reload(), 800);
-    });
-    _db.querySelector("#_banner_key").addEventListener("keydown", (e) => { if (e.key === "Enter") _db.querySelector("#_banner_save").click(); });
-  }
 }
 
 function addCompareRow(
@@ -1059,6 +1088,35 @@ function renderStatsSidebar(): HTMLElement {
   return sidebar;
 }
 
+// ── API → Listing mapper ───────────────────────────────────────────────────
+function mapApiListing(l: any): Listing {
+  return {
+    vin: l.vin ?? "",
+    year: l.year ?? 0,
+    make: l.make ?? l.build?.make ?? "",
+    model: l.model ?? l.build?.model ?? "",
+    trim: l.trim ?? l.build?.trim ?? "",
+    price: l.price ?? 0,
+    predicted_price: l.predicted_price ?? l.predicted_value ?? undefined,
+    miles: l.miles ?? l.mileage ?? 0,
+    body_type: l.body_type ?? l.build?.body_type ?? "",
+    fuel_type: l.fuel_type ?? l.build?.fuel_type ?? "",
+    engine: l.engine ?? l.build?.engine ?? "",
+    transmission: l.transmission ?? l.build?.transmission ?? "",
+    drivetrain: l.drivetrain ?? l.build?.drivetrain ?? "",
+    exterior_color: l.exterior_color ?? "",
+    interior_color: l.interior_color ?? "",
+    mpg_city: l.mpg_city ?? l.build?.mpg_city ?? undefined,
+    mpg_highway: l.mpg_highway ?? l.build?.mpg_highway ?? undefined,
+    is_certified: l.is_certified ?? false,
+    days_on_market: l.dom ?? l.days_on_market ?? 0,
+    dealer_name: l.dealer?.name ?? l.dealer_name ?? "",
+    dealer_city: l.dealer?.city ?? l.dealer_city ?? "",
+    dealer_state: l.dealer?.state ?? l.dealer_state ?? "",
+    dealer_distance: l.dealer?.distance ?? l.dealer_distance ?? undefined,
+  };
+}
+
 // ── Data Flow ──────────────────────────────────────────────────────────────
 async function doSearch(append: boolean) {
   const makes = filterMakes.size > 0 ? [...filterMakes].join(",") : undefined;
@@ -1100,18 +1158,21 @@ async function doSearch(append: boolean) {
   if (filterZip) args.radius = filterRadius;
 
   try {
-    const data: SearchResult | null = await _callTool("search-cars", args);
+    const raw: any = await _callTool("search-cars", args);
 
-    if (data) {
+    if (raw && raw.listings) {
+      const mapped: Listing[] = raw.listings.map((l: any) => mapApiListing(l));
       if (append) {
-        allListings = [...allListings, ...data.listings];
-        displayedListings = [...allListings];
+        allListings = [...allListings, ...mapped];
       } else {
-        allListings = data.listings;
-        displayedListings = [...allListings];
+        // Preserve previously selected cars that aren't in new results
+        const newVins = new Set(mapped.map(l => l.vin));
+        const kept = savedCompareListings.filter(l => compareSet.has(l.vin) && !newVins.has(l.vin));
+        allListings = [...kept, ...mapped];
       }
-      searchTotal = data.num_found;
-      currentStats = data.stats;
+      displayedListings = [...allListings];
+      searchTotal = raw.num_found ?? mapped.length;
+      currentStats = raw.stats;
       sortListings();
       render();
       return;
@@ -1154,16 +1215,14 @@ async function doCompare() {
   try {
     const result = await _callTool("compare-cars", { vins });
 
-    const text = result?.content?.[0]?.text;
-    if (text) {
-      const data: CompareResult = JSON.parse(text);
-      // Merge server data into allListings
-      for (const car of data.cars) {
-        const idx = allListings.findIndex((l) => l.vin === car.vin);
+    if (result && result.cars) {
+      for (const car of result.cars) {
+        const mapped = mapApiListing(car);
+        const idx = allListings.findIndex((l) => l.vin === mapped.vin);
         if (idx >= 0) {
-          allListings[idx] = { ...allListings[idx], ...car };
+          allListings[idx] = { ...allListings[idx], ...mapped };
         } else {
-          allListings.push(car as Listing);
+          allListings.push(mapped);
         }
       }
     }
@@ -1234,4 +1293,30 @@ function makeButton(text: string, onClick: () => void, variant: "primary" | "sec
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
-render();
+(function boot() {
+  // Pre-fill filters from URL params
+  const params = new URLSearchParams(location.search);
+  const make = params.get("make");
+  if (make) filterMakes = new Set(make.split(","));
+  const bodyType = params.get("body_type");
+  if (bodyType) filterBodyTypes = new Set(bodyType.split(","));
+  const fuelType = params.get("fuel_type");
+  if (fuelType) filterFuelTypes = new Set(fuelType.split(","));
+  if (params.get("zip")) filterZip = params.get("zip")!;
+  if (params.get("radius")) filterRadius = Number(params.get("radius"));
+  if (params.get("price_min")) filterPriceMin = params.get("price_min")!;
+  if (params.get("price_max")) filterPriceMax = params.get("price_max")!;
+  if (params.get("year_min")) filterYearMin = params.get("year_min")!;
+  if (params.get("year_max")) filterYearMax = params.get("year_max")!;
+  if (params.get("miles_max")) filterMilesMax = params.get("miles_max")!;
+  if (params.get("sort_by")) filterSort = params.get("sort_by")!;
+
+  render();
+
+  // Auto-search if any filter params were provided
+  const hasFilters = make || bodyType || fuelType || filterZip || filterPriceMin || filterPriceMax || filterYearMin || filterYearMax || filterMilesMax;
+  if (hasFilters) {
+    searchStart = 0;
+    doSearch(false);
+  }
+})();

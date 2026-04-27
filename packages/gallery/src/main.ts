@@ -134,7 +134,7 @@ const APPS: AppDef[] = [
 // Apps that are tested and ready for live demo
 const READY_APPS = new Set([
   "vin-market-report", "trade-in-estimator", "used-car-market-index",
-  "car-search-app",
+  "car-search-app", "car-search-compare",
   "chat-vercel-ai", "chat-copilotkit", "chat-assistant-ui", "chat-sdk-bot",
   "chat-chainlit", "chat-streamlit", "chat-langchain",
 ]);

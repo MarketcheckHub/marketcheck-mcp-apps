@@ -115,7 +115,7 @@ function buildDashboardData(invResp: any, soldResp: any): DashboardData {
       miles, dom,
       compCount: refPrice > 0 ? 1 : 0, // refPrice means MC has comps for this VIN
     };
-  }).filter((v: Vehicle) => v.vin && v.listedPrice > 0);
+  }).filter((v: Vehicle) => v.vin);
 
   inventory.sort((a, b) => b.gapPct - a.gapPct);
 
@@ -168,9 +168,10 @@ function buildDashboardData(invResp: any, soldResp: any): DashboardData {
 }
 
 async function _callTool(toolName, args) {
-  // 1. MCP mode (Claude, VS Code, etc.)
-  if (_safeApp) {
-    try { const r = _safeApp.callServerTool({ name: toolName, arguments: args }); return r; } catch {}
+  const mode = _detectAppMode();
+  // 1. MCP mode — only when actually iframed into an MCP host
+  if (mode === "mcp" && _safeApp) {
+    try { return await _safeApp.callServerTool({ name: toolName, arguments: args }); } catch (e) { console.warn("MCP call failed:", e); }
   }
   // 2. Direct API mode (browser → api.marketcheck.com)
   const auth = _getAuth();
@@ -513,28 +514,34 @@ async function runDashboard(args: { dealerId: string; state?: string; zip?: stri
   </div>`;
 
   let data: DashboardData | null = null;
+  let errMsg = "";
   try {
     const result = await _callTool("scan-lot-pricing", args);
     const text = result?.content?.find((c: any) => c.type === "text")?.text;
     if (text) data = JSON.parse(text) as DashboardData;
-  } catch (e) {
+  } catch (e: any) {
+    errMsg = e?.message || String(e);
     console.warn("scan-lot-pricing failed:", e);
   }
 
   if (!data || !data.inventory || data.inventory.length === 0) {
-    renderEmpty(args);
+    renderEmpty(args, errMsg);
     return;
   }
   render(data);
 }
 
-function renderEmpty(args: { dealerId: string; state?: string; zip?: string }) {
+function renderEmpty(args: { dealerId: string; state?: string; zip?: string }, errMsg = "") {
   document.body.innerHTML = "";
   const wrap = document.createElement("div");
-  wrap.style.cssText = "max-width:520px;margin:10vh auto;padding:28px;background:#1e293b;border:1px solid #334155;border-radius:12px;text-align:center;";
+  wrap.style.cssText = "max-width:560px;margin:10vh auto;padding:28px;background:#1e293b;border:1px solid #334155;border-radius:12px;text-align:center;";
+  const heading = errMsg ? "Request failed" : "No active inventory found";
+  const body = errMsg
+    ? `The API call for dealer <code style="color:#e2e8f0;">${args.dealerId}</code> failed: <code style="color:#fca5a5;">${errMsg}</code>. Check your API key, plan limits, and browser console for details.`
+    : `Dealer <code style="color:#e2e8f0;">${args.dealerId}</code> returned no listings. MarketCheck expects the numeric internal dealer ID (not the dealer domain) — confirm the ID with a direct call to <code style="color:#94a3b8;">/v2/search/car/active?dealer_id=${args.dealerId}&rows=1</code>.`;
   wrap.innerHTML = `
-    <h2 style="margin:0 0 10px;font-size:18px;color:#f8fafc;">No active inventory found</h2>
-    <p style="margin:0 0 18px;font-size:13px;color:#94a3b8;">Dealer <code style="color:#e2e8f0;">${args.dealerId}</code> returned no listings. Double-check the dealer ID — MarketCheck expects the numeric internal ID, not the dealer domain.</p>
+    <h2 style="margin:0 0 10px;font-size:18px;color:#f8fafc;">${heading}</h2>
+    <p style="margin:0 0 18px;font-size:13px;color:#94a3b8;line-height:1.5;">${body}</p>
     <button id="back" style="padding:10px 18px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:13px;cursor:pointer;">Try Again</button>`;
   document.body.appendChild(wrap);
   document.getElementById("back")!.addEventListener("click", () => renderStartScreen({ dealer_id: args.dealerId, state: args.state ?? "", zip: args.zip ?? "" }));

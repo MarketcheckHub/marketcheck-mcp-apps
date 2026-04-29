@@ -67,15 +67,111 @@ function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
 function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
 
 async function _fetchDirect(args) {
-  const inventory = await _mcActive({dealer_id:args.dealerId,rows:50,stats:"price,miles,dom",facets:"body_type,make"});
-  const hotList = await _mcSold({state:args.state,ranking_dimensions:"make,model",ranking_measure:"sold_count",ranking_order:"desc",top_n:10});
-  return {inventory,hotList};
+  const dealerId = args.dealerId || args.dealer_id;
+  if (!dealerId) throw new Error("dealer_id is required");
+  const [invResp, soldResp] = await Promise.all([
+    _mcActive({
+      dealer_id: dealerId,
+      rows: 50,
+      stats: "price,miles,dom",
+      facets: "body_type,make",
+    }),
+    args.state
+      ? _mcSold({
+          state: args.state,
+          ranking_dimensions: "make,model",
+          ranking_measure: "sold_count,average_sale_price,average_days_on_market",
+          ranking_order: "desc",
+          top_n: 10,
+        })
+      : Promise.resolve(null),
+  ]);
+  return buildDashboardData(invResp, soldResp);
+}
+
+// Transform raw MarketCheck API responses into DashboardData shape
+function buildDashboardData(invResp: any, soldResp: any): DashboardData {
+  const rawListings: any[] = invResp?.listings ?? [];
+  const inventory: Vehicle[] = rawListings.map((l: any) => {
+    const b = l.build ?? {};
+    const year = Number(b.year ?? l.year ?? 0);
+    const make = b.make ?? l.make ?? "";
+    const model = b.model ?? l.model ?? "";
+    const trim = b.trim ?? l.trim ?? "";
+    const bodyType = b.body_type ?? l.body_type ?? "Other";
+    const listedPrice = Number(l.price ?? 0);
+    // Use ref_price (MC reference) as market price when available. Fall back to listedPrice (zero gap).
+    const refPrice = Number(l.ref_price ?? 0);
+    const marketPrice = refPrice > 0 ? refPrice : listedPrice;
+    const gapDollar = listedPrice - marketPrice;
+    const gapPct = marketPrice > 0 ? (gapDollar / marketPrice) * 100 : 0;
+    const miles = Number(l.miles ?? 0);
+    const dom = Number(l.dom ?? l.days_on_market ?? 0);
+    return {
+      stock: String(l.stock_no ?? l.inventory_type ?? l.id ?? "").slice(0, 10) || "—",
+      vin: String(l.vin ?? "").toUpperCase(),
+      year, make, model, trim, bodyType,
+      listedPrice, marketPrice, gapDollar, gapPct,
+      miles, dom,
+      compCount: refPrice > 0 ? 1 : 0, // refPrice means MC has comps for this VIN
+    };
+  }).filter((v: Vehicle) => v.vin);
+
+  inventory.sort((a, b) => b.gapPct - a.gapPct);
+
+  const agingBuckets: AgingBucket[] = [
+    { label: "0-30",  min: 0,  max: 30,   count: 0, color: "#10b981" },
+    { label: "31-60", min: 31, max: 60,   count: 0, color: "#f59e0b" },
+    { label: "61-90", min: 61, max: 90,   count: 0, color: "#f97316" },
+    { label: "90+",   min: 91, max: 9999, count: 0, color: "#ef4444" },
+  ];
+  for (const v of inventory) {
+    for (const b of agingBuckets) {
+      if (v.dom >= b.min && v.dom <= b.max) { b.count++; break; }
+    }
+  }
+
+  const totalUnits = inventory.length;
+  const avgDom = totalUnits > 0 ? Math.round(inventory.reduce((s, v) => s + v.dom, 0) / totalUnits) : 0;
+  const agedUnits = inventory.filter(v => v.dom > 60).length;
+  const floorPlanBurnPerDay = agedUnits * 35;
+  const priced = inventory.filter(v => v.marketPrice > 0 && v.compCount > 0);
+  const pricedCount = Math.max(priced.length, 1);
+  const pctOverpriced = Math.round((priced.filter(v => v.gapPct > 5).length / pricedCount) * 100);
+  const pctUnderpriced = Math.round((priced.filter(v => v.gapPct < -5).length / pricedCount) * 100);
+
+  const rankings: any[] = soldResp?.rankings ?? [];
+  const maxSold = rankings.reduce((m, r) => Math.max(m, Number(r.sold_count ?? 0)), 1);
+  const hotList: HotListItem[] = rankings.slice(0, 10).map((r: any) => {
+    const soldCount = Number(r.sold_count ?? 0);
+    const avgDomR = Math.round(Number(r.average_days_on_market ?? 0));
+    const avgPrice = Math.round(Number(r.average_sale_price ?? 0));
+    // DS ratio proxy: normalize sold velocity against the top mover (range ~0.5 to 5.0)
+    const dsRatio = Math.max(0.5, Math.min(5, (soldCount / maxSold) * 4.5 + 0.5));
+    const unitsToStock = dsRatio >= 3.0 ? 5 : dsRatio >= 2.0 ? 3 : dsRatio >= 1.5 ? 1 : 0;
+    return {
+      make: String(r.make ?? ""),
+      model: String(r.model ?? ""),
+      dsRatio,
+      avgDom: avgDomR,
+      avgPrice,
+      unitsToStock,
+    };
+  }).filter((h: HotListItem) => h.make && h.model);
+
+  return {
+    inventory,
+    aging: agingBuckets,
+    hotList,
+    kpis: { totalUnits, avgDom, agedUnits, floorPlanBurnPerDay, pctOverpriced, pctUnderpriced },
+  };
 }
 
 async function _callTool(toolName, args) {
-  // 1. MCP mode (Claude, VS Code, etc.)
-  if (_safeApp) {
-    try { const r = _safeApp.callServerTool({ name: toolName, arguments: args }); return r; } catch {}
+  const mode = _detectAppMode();
+  // 1. MCP mode — only when actually iframed into an MCP host
+  if (mode === "mcp" && _safeApp) {
+    try { return await _safeApp.callServerTool({ name: toolName, arguments: args }); } catch (e) { console.warn("MCP call failed:", e); }
   }
   // 2. Direct API mode (browser → api.marketcheck.com)
   const auth = _getAuth();
@@ -350,29 +446,105 @@ async function main() {
   document.body.style.cssText =
     "margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#e2e8f0;overflow-x:hidden;";
 
-  // Show loading
+  const mode = _detectAppMode();
+  const urlParams = _getUrlParams();
+
+  // In demo mode (no API key) we render mock data immediately so visitors
+  // get a preview without needing to fill in anything.
+  if (mode === "demo") {
+    render(generateMockData());
+    return;
+  }
+
+  // In live/MCP mode, prompt for dealer_id + state unless provided via URL.
+  if (urlParams.dealer_id && urlParams.state) {
+    await runDashboard({ dealerId: urlParams.dealer_id, state: urlParams.state, zip: urlParams.zip });
+  } else {
+    renderStartScreen(urlParams);
+  }
+}
+
+function renderStartScreen(pre: Record<string, string>) {
+  document.body.innerHTML = "";
+  const wrap = document.createElement("div");
+  wrap.style.cssText = "max-width:520px;margin:10vh auto;padding:28px;background:#1e293b;border:1px solid #334155;border-radius:12px;";
+  wrap.innerHTML = `
+    <h1 style="margin:0 0 6px;font-size:20px;color:#f8fafc;">Lot Pricing Dashboard</h1>
+    <p style="margin:0 0 20px;font-size:13px;color:#94a3b8;">Enter a MarketCheck dealer ID and state to scan the lot against live market pricing.</p>
+    <label style="display:block;font-size:11px;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Dealer ID</label>
+    <input id="f_dealer" type="text" value="${pre.dealer_id ?? ""}" placeholder="e.g. 1234567"
+      style="width:100%;padding:10px 12px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:14px;margin-bottom:14px;box-sizing:border-box;" />
+    <div style="display:flex;gap:12px;margin-bottom:18px;">
+      <div style="flex:1;">
+        <label style="display:block;font-size:11px;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">State (2-letter)</label>
+        <input id="f_state" type="text" value="${pre.state ?? ""}" placeholder="CA" maxlength="2"
+          style="width:100%;padding:10px 12px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:14px;text-transform:uppercase;box-sizing:border-box;" />
+      </div>
+      <div style="flex:1;">
+        <label style="display:block;font-size:11px;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">ZIP (optional)</label>
+        <input id="f_zip" type="text" value="${pre.zip ?? ""}" placeholder="90210" maxlength="5"
+          style="width:100%;padding:10px 12px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:14px;box-sizing:border-box;" />
+      </div>
+    </div>
+    <button id="f_go" style="width:100%;padding:12px;border-radius:6px;border:none;background:#3b82f6;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">Scan Lot</button>
+    <div id="f_err" style="font-size:12px;color:#f87171;margin-top:10px;min-height:16px;"></div>`;
+  document.body.appendChild(wrap);
+
+  const submit = () => {
+    const dealerId = (document.getElementById("f_dealer") as HTMLInputElement).value.trim();
+    const state = (document.getElementById("f_state") as HTMLInputElement).value.trim().toUpperCase();
+    const zip = (document.getElementById("f_zip") as HTMLInputElement).value.trim();
+    const err = document.getElementById("f_err")!;
+    if (!dealerId) { err.textContent = "Dealer ID is required."; return; }
+    if (state && state.length !== 2) { err.textContent = "State must be a 2-letter code."; return; }
+    err.textContent = "";
+    runDashboard({ dealerId, state, zip });
+  };
+  document.getElementById("f_go")!.addEventListener("click", submit);
+  wrap.querySelectorAll("input").forEach(inp => {
+    inp.addEventListener("keydown", (e) => { if ((e as KeyboardEvent).key === "Enter") submit(); });
+  });
+}
+
+async function runDashboard(args: { dealerId: string; state?: string; zip?: string }) {
   document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#94a3b8;">
     <div style="width:20px;height:20px;border:2px solid #334155;border-top-color:#3b82f6;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:12px;"></div>
     <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
     Loading lot pricing data...
   </div>`;
 
-  // Try to call the server tool; fall back to mock data
-  let data: DashboardData;
+  let data: DashboardData | null = null;
+  let errMsg = "";
   try {
-    const result = await _callTool("scan-lot-pricing", { dealerId: "abc123", zip: "90210", state: "CA" });
+    const result = await _callTool("scan-lot-pricing", args);
     const text = result?.content?.find((c: any) => c.type === "text")?.text;
-    if (text) {
-      const parsed = JSON.parse(text);
-      data = parsed as DashboardData;
-    } else {
-      data = generateMockData();
-    }
-  } catch {
-    data = generateMockData();
+    if (text) data = JSON.parse(text) as DashboardData;
+  } catch (e: any) {
+    errMsg = e?.message || String(e);
+    console.warn("scan-lot-pricing failed:", e);
   }
 
+  if (!data || !data.inventory || data.inventory.length === 0) {
+    renderEmpty(args, errMsg);
+    return;
+  }
   render(data);
+}
+
+function renderEmpty(args: { dealerId: string; state?: string; zip?: string }, errMsg = "") {
+  document.body.innerHTML = "";
+  const wrap = document.createElement("div");
+  wrap.style.cssText = "max-width:560px;margin:10vh auto;padding:28px;background:#1e293b;border:1px solid #334155;border-radius:12px;text-align:center;";
+  const heading = errMsg ? "Request failed" : "No active inventory found";
+  const body = errMsg
+    ? `The API call for dealer <code style="color:#e2e8f0;">${args.dealerId}</code> failed: <code style="color:#fca5a5;">${errMsg}</code>. Check your API key, plan limits, and browser console for details.`
+    : `Dealer <code style="color:#e2e8f0;">${args.dealerId}</code> returned no listings. MarketCheck expects the numeric internal dealer ID (not the dealer domain) — confirm the ID with a direct call to <code style="color:#94a3b8;">/v2/search/car/active?dealer_id=${args.dealerId}&rows=1</code>.`;
+  wrap.innerHTML = `
+    <h2 style="margin:0 0 10px;font-size:18px;color:#f8fafc;">${heading}</h2>
+    <p style="margin:0 0 18px;font-size:13px;color:#94a3b8;line-height:1.5;">${body}</p>
+    <button id="back" style="padding:10px 18px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:13px;cursor:pointer;">Try Again</button>`;
+  document.body.appendChild(wrap);
+  document.getElementById("back")!.addEventListener("click", () => renderStartScreen({ dealer_id: args.dealerId, state: args.state ?? "", zip: args.zip ?? "" }));
 }
 
 // ── State ──────────────────────────────────────────────────────────────

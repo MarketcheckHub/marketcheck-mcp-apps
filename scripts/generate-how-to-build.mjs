@@ -528,14 +528,25 @@ const APPS = [
     tagline: "See your entire lot priced against the market",
     segment: "Dealer",
     toolName: "scan-lot-pricing",
-    description: "Pulls a dealer's entire active inventory and overlays market pricing data — showing price gaps, aging alerts, and a hot seller list from sold volume data.",
+    description: "Pulls a dealer's entire active inventory in a single call and overlays MarketCheck reference pricing so inventory managers can see which units are overpriced, underpriced, or sitting too long. Each row flags a DROP / HOLD / RAISE action based on the gap to market, and a state-level hot seller list from the Sold Summary API shows what to stock next. A floor plan burn calculator surfaces the real cash cost of aged units, and the aging heatmap lets you filter the table down to the 61-90 or 90+ day danger zones with one click.",
+    useCases: [
+      { persona: "Used Car Managers", desc: "Daily scan of the lot to spot overpriced units before they age past 60 days and start burning floor plan." },
+      { persona: "Dealer Principals", desc: "Quick read on pricing discipline across the lot — what percent is overpriced, where the aged units are, and what the monthly floor plan burn looks like at the current rate." },
+      { persona: "Inventory Buyers", desc: "Hot list shows which make/model combinations are moving fastest in the state, so wholesale buys line up with real demand instead of gut." },
+    ],
+    urlParams: [
+      { name: "api_key", desc: "Your MarketCheck API key — triggers live mode" },
+      { name: "dealer_id", desc: "MarketCheck numeric dealer ID (not the dealer domain). Required for live mode." },
+      { name: "state", desc: "2-letter state code (e.g. CA, TX) — powers the stocking hot list from the Sold Summary API" },
+      { name: "zip", desc: "Optional dealer ZIP code for geo context" },
+    ],
     inputParams: [
       { name: "dealerId", type: "string", required: true, desc: "MarketCheck dealer ID" },
       { name: "zip", type: "string", required: false, desc: "Dealer ZIP code" },
       { name: "state", type: "string", required: false, desc: "2-letter state code for demand data" },
     ],
     apiFlow: [
-      { step: 1, label: "Dealer Inventory + Hot List", apis: ["searchActive", "soldSummary"], parallel: true, note: "Fetch dealer's active inventory (with stats/facets) and state-level demand rankings in parallel" },
+      { step: 1, label: "Dealer Inventory + Hot List", apis: ["searchActive", "soldSummary"], parallel: true, note: "Fetch dealer's active inventory (with stats/facets + ref_price for gap analysis) and state-level make/model demand rankings in parallel" },
     ],
     renders: "Inventory table with market price gaps, aging heatmap, DOM alerts, body type mix chart, stocking hot list, floor plan burn calculator",
   },

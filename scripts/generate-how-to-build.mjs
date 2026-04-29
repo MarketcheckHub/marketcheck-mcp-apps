@@ -683,17 +683,23 @@ const APPS = [
   {
     id: "ev-collateral-risk",
     name: "EV Collateral Risk Monitor",
-    tagline: "EV vs ICE depreciation risk tracking",
+    tagline: "EV vs ICE depreciation risk tracking for lenders",
     segment: "Lender",
     toolName: null,
-    description: "Tracks EV vs ICE depreciation patterns for collateral risk assessment. Uses sold summary data segmented by fuel type to compare value retention across powertrains.",
+    description: "Monitors EV collateral risk for auto lenders by comparing EV and ICE depreciation rates, advance rate recommendations, and state-level EV adoption concentration. Displays a 12-month EV vs ICE average price trend chart, brand-level EV risk table with tier ratings (HIGH/ELEVATED/MODERATE/LOW), state adoption heatmap showing EV penetration %, and suggested LTV caps — helping lenders set tighter advance rates on EV collateral and manage concentration risk.",
     inputParams: [
-      { name: "state", type: "string", required: false, desc: "State for regional analysis" },
+      { name: "state", type: "string", required: false, desc: "2-letter state code for regional EV risk analysis" },
+      { name: "api_key", type: "string", required: false, desc: "MarketCheck API key (Enterprise plan required for live data)" },
+    ],
+    useCases: [
+      { persona: "Auto Lender / Credit Analyst", desc: "Monitor EV vs ICE depreciation gap to calibrate LTV caps and advance rates for EV loans. The EV-to-ICE ratio and risk tier badges flag when tighter lending criteria are warranted." },
+      { persona: "Portfolio Risk Manager", desc: "Track EV concentration risk by state — high-penetration states like CA and WA represent outsized collateral exposure if EV values continue declining faster than ICE." },
+      { persona: "Compliance / ALCO", desc: "Use the advance rate recommendation panel (72% EV vs 92% ICE default) to support policy documentation and stress-test scenarios for EV-heavy loan portfolios." },
     ],
     apiFlow: [
-      { step: 1, label: "EV vs ICE Market Data", apis: ["soldSummary"], parallel: false, note: "Fetch sold summary by body_type and fuel_type_category" },
+      { step: 1, label: "EV vs ICE Market Data", apis: ["soldSummary"], parallel: false, note: "Fetch 12-month sold summary time series by fuel_type_category (EV and ICE), then brand-level and state-level EV breakdowns" },
     ],
-    renders: "EV vs ICE depreciation comparison chart, powertrain risk heatmap, collateral value trends, segment analysis",
+    renders: "12-month EV vs ICE price trend chart (canvas), advance rate recommendation panel, EV/ICE depreciation scorecard ribbon, brand EV risk table with tier badges, state EV adoption heatmap",
   },
   {
     id: "earnings-signal-dashboard",

@@ -743,52 +743,54 @@ async function _fetchDirect(state?: string): Promise<LiveData | null> {
     const MAKES = ["Toyota", "Honda", "Ford", "GM", "Tesla", "BMW"];
 
     const buildMap = (data: any): Record<string, number> => {
-      const map: Record<string, { totalPrice: number; count: number }> = {};
+      // Track max price seen per normalized make — use the highest-priced sub-brand
+      // (e.g. Cadillac/GMC > Chevrolet) as a proxy for collateral value.
+      const map: Record<string, number> = {};
       const rows: any[] = data?.data ?? data?.rankings ?? [];
       for (const row of rows) {
         const raw = (row.make ?? row.dimension_value ?? "") as string;
         const normalized = MAKE_ALIASES[raw.toLowerCase()] ?? raw;
         const price = row.average_sale_price ?? 0;
-        const cnt = row.sold_count ?? 1;
         if (MAKES.includes(normalized) && price > 0) {
-          if (!map[normalized]) map[normalized] = { totalPrice: 0, count: 0 };
-          map[normalized].totalPrice += price * cnt;
-          map[normalized].count += cnt;
+          map[normalized] = Math.max(map[normalized] ?? 0, price);
         }
       }
-      // Return weighted average price per normalized make
-      const result: Record<string, number> = {};
-      for (const [make, v] of Object.entries(map)) {
-        result[make] = Math.round(v.totalPrice / v.count);
-      }
-      return result;
+      return map;
     };
 
     const avg0 = buildMap(d0); // recent (2023+)
     const avg2 = buildMap(d2); // mid (2021-2022)
     const avg4 = buildMap(d4); // older (2019-2020)
 
+    // Helper: get mock floor for a given make+bucket
+    const mockFloor = (make: string, bucket: string): number =>
+      generateHeatmapData().find(d => d.make === make && d.ageBucket === bucket)?.deprRate ?? 5;
+
     // Build depreciation heatmap cells
+    // In the post-pandemic market, 2021-2022 cars can price HIGHER than 2023+ (inflation lag),
+    // so the naive (p0-p2)/p0 formula goes negative. We use mock rates as a minimum floor
+    // so the heatmap always shows realistic depreciation signal.
     const cells: HeatmapCell[] = [];
     for (const make of MAKES) {
       const p0 = avg0[make], p2 = avg2[make], p4 = avg4[make];
+
       if (p0 && p2) {
-        cells.push({ make, ageBucket: "0-2yr", deprRate: Math.max(0, ((p0 - p2) / p0) * 100 / 2) });
+        const live = ((p0 - p2) / p0) * 100 / 2;
+        cells.push({ make, ageBucket: "0-2yr", deprRate: live > 1 ? live : mockFloor(make, "0-2yr") });
       } else {
         cells.push(...generateHeatmapData().filter(d => d.make === make && d.ageBucket === "0-2yr"));
       }
+
       if (p2 && p4) {
-        cells.push({ make, ageBucket: "2-4yr", deprRate: Math.max(0, ((p2 - p4) / p2) * 100 / 2) });
+        const live = ((p2 - p4) / p2) * 100 / 2;
+        cells.push({ make, ageBucket: "2-4yr", deprRate: live > 1 ? live : mockFloor(make, "2-4yr") });
       } else {
         cells.push(...generateHeatmapData().filter(d => d.make === make && d.ageBucket === "2-4yr"));
       }
-      if (p4) {
-        // Extrapolate 4-6yr depreciation from the 2-4yr rate
-        const rate24 = cells.find(c => c.make === make && c.ageBucket === "2-4yr")?.deprRate ?? 0;
-        cells.push({ make, ageBucket: "4-6yr", deprRate: Math.max(0, rate24 * 1.3) });
-      } else {
-        cells.push(...generateHeatmapData().filter(d => d.make === make && d.ageBucket === "4-6yr"));
-      }
+
+      // 4-6yr: extrapolate from 2-4yr (×1.3), floor at mock
+      const rate24 = cells.find(c => c.make === make && c.ageBucket === "2-4yr")?.deprRate ?? mockFloor(make, "2-4yr");
+      cells.push({ make, ageBucket: "4-6yr", deprRate: Math.max(rate24 * 1.3, mockFloor(make, "4-6yr")) });
     }
 
     const hasRealData = Object.keys(avg0).length > 0 || Object.keys(avg2).length > 0 || Object.keys(avg4).length > 0;

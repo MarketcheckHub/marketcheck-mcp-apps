@@ -312,9 +312,49 @@ pre.code-block {
     <p>Leading indicator dashboard for automotive equity research. Maps MarketCheck data to OEM tickers (F, GM, TM, HMC, TSLA, RIVN, STLA) and dealer group tickers (AN, LAD, PAG, KMX, CVNA). Produces BULLISH/BEARISH/NEUTRAL/CAUTION signals per metric: volume momentum, pricing power, inventory health, market share, and EV transition progress.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Sell-side Auto Analysts</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Pre-earnings signal check across OEM tickers — volume momentum, pricing power, inventory health and market share converted into BULLISH/BEARISH/NEUTRAL/CAUTION read-throughs before quarterly prints.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Buy-side Portfolio Managers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Cross-ticker leading indicators for autos exposure. Compare F vs GM vs TM signals side-by-side to size positions or hedges ahead of guidance updates.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Dealer-Group Equity Research</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Track AN, LAD, PAG, KMX, CVNA fundamentals through the lens of inventory health and used-vehicle pricing power — the same data that drives floor-plan economics.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Macro / Auto-Cycle Watchers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">EV transition mix and channel inventory days-supply per OEM as inputs to a broader auto-cycle thesis (incentive risk, margin compression triggers).</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (Enterprise tier required for sold-vehicles/summary)</td></tr><tr><td><code>tickers</code></td><td>Comma-separated tickers — auto-fills the input and triggers analysis. Example: F,GM,TM,TSLA</td></tr><tr><td><code>state</code></td><td>Two-letter US state code (e.g. CA) to scope all signals regionally</td></tr><tr><td><code>embed</code></td><td>When present, hides the settings bar for iframe embedding</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/oem-stock-tracker/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/oem-stock-tracker/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/oem-stock-tracker/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/oem-stock-tracker/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">

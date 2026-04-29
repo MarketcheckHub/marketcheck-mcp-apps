@@ -759,6 +759,18 @@ const APPS = [
       { step: 2, label: "Inventory Health + Prior Month", apis: ["searchActive", "soldSummary"], parallel: true, note: "Fetch current active inventory with DOM stats and prior month volume for momentum calculation" },
     ],
     renders: "Ticker-mapped signal cards with BULLISH/BEARISH badges, volume momentum chart (MoM%), pricing power gauge, days supply indicator, market share trend, composite investment thesis per ticker",
+    useCases: [
+      { persona: "Sell-side Auto Analysts", desc: "Pre-earnings signal check across OEM tickers — volume momentum, pricing power, inventory health and market share converted into BULLISH/BEARISH/NEUTRAL/CAUTION read-throughs before quarterly prints." },
+      { persona: "Buy-side Portfolio Managers", desc: "Cross-ticker leading indicators for autos exposure. Compare F vs GM vs TM signals side-by-side to size positions or hedges ahead of guidance updates." },
+      { persona: "Dealer-Group Equity Research", desc: "Track AN, LAD, PAG, KMX, CVNA fundamentals through the lens of inventory health and used-vehicle pricing power — the same data that drives floor-plan economics." },
+      { persona: "Macro / Auto-Cycle Watchers", desc: "EV transition mix and channel inventory days-supply per OEM as inputs to a broader auto-cycle thesis (incentive risk, margin compression triggers)." },
+    ],
+    urlParams: [
+      { name: "api_key", desc: "Your MarketCheck API key (Enterprise tier required for sold-vehicles/summary)" },
+      { name: "tickers", desc: "Comma-separated tickers — auto-fills the input and triggers analysis. Example: F,GM,TM,TSLA" },
+      { name: "state", desc: "Two-letter US state code (e.g. CA) to scope all signals regionally" },
+      { name: "embed", desc: "When present, hides the settings bar for iframe embedding" },
+    ],
   },
   {
     id: "pricing-power-tracker",

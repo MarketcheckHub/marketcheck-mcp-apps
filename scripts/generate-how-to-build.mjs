@@ -636,18 +636,35 @@ const APPS = [
     tagline: "Single-loan collateral valuation with LTV forecast",
     segment: "Lender",
     toolName: "evaluate-loan-application",
-    description: "Evaluates a vehicle as loan collateral. Provides retail and wholesale valuations, listing history for depreciation trajectory, and sold comparables for market evidence — feeding into LTV calculations.",
+    description: "A complete auto loan underwriting workstation. Enter a VIN, loan amount, term, interest rate, and mileage to instantly receive a full collateral risk assessment. The app decodes the vehicle specs, fetches real-time retail and wholesale valuations from MarketCheck's ML pricing engine, pulls the VIN's full listing history to show price trajectory, and finds recently-sold comparables in the local market. From this data it calculates the current Loan-to-Value (LTV) ratio, projects LTV month-by-month through the loan life using actual depreciation curves, flags when the loan goes underwater, computes the recommended maximum advance amount, and assigns a risk rating (Low / Moderate / High / Very High). The output includes a semi-circular LTV gauge, a depreciation forecast table, a projected-LTV line chart, an advance rate recommendation card, a sold-comps evidence table, and a VIN price history timeline — giving a loan officer everything needed to approve, counter-offer, or decline in seconds.",
+    useCases: [
+      { persona: "Auto Loan Officers", desc: "Paste a borrower's VIN and requested loan amount to get instant LTV, advance-rate recommendation, and risk rating — replacing manual NADA/KBB lookups with a real-time ML valuation backed by live market comparables." },
+      { persona: "Credit Analysts", desc: "Model depreciation trajectories to understand at which month a loan goes underwater, enabling smarter term limits and LTV caps for specific vehicle segments." },
+      { persona: "Portfolio Managers", desc: "Spot-check individual loan collateral health by re-running valuations on existing VINs mid-loan to flag at-risk accounts for proactive servicing." },
+      { persona: "Dealer Finance Desk", desc: "Quickly verify whether a proposed deal structure keeps LTV within lender guidelines before submitting for approval." },
+    ],
+    urlParams: [
+      { name: "api_key", desc: "Your MarketCheck API key — enables live data mode" },
+      { name: "vin", desc: "17-character VIN — auto-fills the form and triggers evaluation" },
+      { name: "miles", desc: "Current vehicle mileage — used for pricing accuracy" },
+      { name: "zip", desc: "Borrower ZIP code — localizes comparable pricing" },
+      { name: "loan_amount", desc: "Requested loan amount in dollars (e.g. 25000)" },
+      { name: "loan_term", desc: "Loan term in months (e.g. 60)" },
+      { name: "interest_rate", desc: "Annual interest rate as a percentage (e.g. 6.9)" },
+    ],
     inputParams: [
       { name: "vin", type: "string", required: true, desc: "17-character VIN" },
       { name: "miles", type: "number", required: false, desc: "Current mileage" },
       { name: "zip", type: "string", required: false, desc: "Borrower ZIP code" },
-      { name: "loanAmount", type: "number", required: false, desc: "Requested loan amount for LTV" },
+      { name: "loan_amount", type: "number", required: false, desc: "Requested loan amount for LTV calculation" },
+      { name: "loan_term", type: "number", required: false, desc: "Loan term in months (default: 60)" },
+      { name: "interest_rate", type: "number", required: false, desc: "Annual interest rate as percent (default: 6.9)" },
     ],
     apiFlow: [
       { step: 1, label: "Decode VIN", apis: ["decode"], parallel: false, note: "Get full vehicle specs for risk assessment" },
       { step: 2, label: "Retail + Wholesale + History + Sold", apis: ["predictRetail", "predictWholesale", "carHistory", "searchRecents"], parallel: true, note: "Four parallel calls: both price tiers, listing history, and sold comps" },
     ],
-    renders: "Collateral value banner, LTV gauge, retail vs wholesale bars, depreciation trajectory chart, sold comp evidence table, risk factors",
+    renders: "Collateral value banner, LTV gauge (semi-circular canvas), KPI ribbon (current LTV, loan amount, collateral value, monthly payment), depreciation forecast table with underwater flag, projected LTV line chart with 100% threshold line, advance rate recommendation card, sold comparables evidence table, VIN price history timeline",
   },
   {
     id: "portfolio-risk-monitor",
@@ -670,15 +687,32 @@ const APPS = [
     tagline: "What-if depreciation scenarios on your loan book",
     segment: "Lender",
     toolName: "stress-test-portfolio",
-    description: "Runs depreciation stress scenarios on a batch of VINs representing a loan portfolio. Decodes and prices each VIN, then models what-if scenarios (e.g., 10% price drop, accelerated depreciation).",
+    description: "Runs depreciation stress scenarios against a batch of VINs representing an auto loan portfolio. Decodes and prices each VIN using real market data, then models what-if scenarios — EV values drop 20%, trucks drop 15%, market-wide 10% decline, or a custom percentage — to reveal which loans go underwater, by how much, and which vehicle segments carry the most concentrated risk. Outputs an LTV distribution histogram, collateral coverage waterfall, per-segment exposure table, scenario comparison matrix, and a ranked individual loan detail table with HEALTHY / AT RISK / UNDERWATER / DEEP UNDERWATER status badges.",
     inputParams: [
-      { name: "vins", type: "string", required: true, desc: "Comma-separated VINs from loan portfolio" },
-      { name: "zip", type: "string", required: false, desc: "Central ZIP for pricing" },
+      { name: "vins", type: "string", required: true, desc: "Comma-separated VINs from loan portfolio (up to 20)" },
+      { name: "zip", type: "string", required: false, desc: "Central ZIP code for market-based pricing context" },
     ],
     apiFlow: [
-      { step: 1, label: "For each VIN in parallel", apis: ["decode", "predictRetail"], parallel: true, note: "Decode and price every VIN simultaneously" },
+      { step: 1, label: "For each VIN in parallel", apis: ["decode", "predictRetail"], parallel: true, note: "Decode specs and predict current market value simultaneously for every VIN" },
     ],
-    renders: "Portfolio value waterfall, stress scenario sliders, segment breakdown, at-risk loan list, LTV distribution shift chart",
+    renders: "Portfolio KPI summary (total loans, total collateral, avg LTV, underwater count), stress impact panel (new underwater loans, total value at risk, worst-hit segments), LTV distribution histogram (current vs stressed), collateral coverage waterfall, segment exposure table, portfolio donut chart, scenario comparison matrix, individual loan detail table",
+    useCases: [
+      { persona: "Auto Lender / Credit Risk Manager", desc: "Upload a portfolio of VINs and loan balances, run stress scenarios to find which loans flip underwater, and quantify total shortfall exposure before the risk materializes." },
+      { persona: "Portfolio Risk Analyst", desc: "Compare EV vs ICE vs Truck concentration risk side by side across multiple depreciation scenarios to identify segment-level vulnerabilities." },
+      { persona: "Loan Origination Officer", desc: "Quickly test a new batch of proposed loans against market-wide downturn scenarios to set appropriate LTV limits and reserve requirements." },
+      { persona: "Bank Examiner / Auditor", desc: "Generate a stress-tested snapshot of collateral coverage across a dealer floorplan or consumer auto portfolio for regulatory reporting." },
+    ],
+    urlParams: [
+      { name: "api_key", desc: "Your MarketCheck API key — activates live VIN decode and pricing for each portfolio VIN" },
+      { name: "zip", desc: "Central ZIP code for localized market pricing context (e.g. 90210, 10001, 60601)" },
+      { name: "vins", desc: "Semicolon-separated VIN,LoanAmount pairs to pre-fill the portfolio (e.g. KNDCB3LC9L5359658,20000;1HGCV1F34LA000001,25000)" },
+      { name: "scenario", desc: "Pre-select stress scenario: ev_drop_20 | trucks_drop_15 | market_wide_10 | custom" },
+    ],
+    urlExamples: [
+      { label: "Basic — run EV stress scenario on two loans", params: "vins=KNDCB3LC9L5359658,20000;1HGCV1F34LA000001,25000&zip=90210&scenario=ev_drop_20" },
+      { label: "Market-wide decline — mixed portfolio with ZIP context", params: "vins=KNDCB3LC9L5359658,20000;1FTFW1E85MFA00001,42000;5YJSA1E26MF000001,52000&zip=10001&scenario=market_wide_10" },
+      { label: "Custom drop — trucks portfolio", params: "vins=1FTFW1E85MFA00001,42000;1FTFW1E85MFA00002,38000&zip=60601&scenario=custom" },
+    ],
   },
   {
     id: "ev-collateral-risk",
@@ -1891,17 +1925,14 @@ pre.code-block {
       </tbody>
     </table>
     <h3>URL Examples</h3>
-    <pre class="code-block"># Basic — auto-generate a report for a VIN
+    <pre class="code-block">${app.urlExamples ? app.urlExamples.map(ex => `# ${ex.label}\nhttps://apps.marketcheck.com/apps/${app.id}/dist/index.html?api_key=YOUR_KEY&amp;${ex.params}`).join("\n\n") : `# Basic — auto-generate a report for a VIN
 https://apps.marketcheck.com/apps/${app.id}/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
 
 # Full — with asking price, mileage, and ZIP for deal scoring
 https://apps.marketcheck.com/apps/${app.id}/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
 
 # Compact widget — for iframe embeds (400px width)
-https://apps.marketcheck.com/apps/${app.id}/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
-
-# Using aliases
-https://apps.marketcheck.com/apps/${app.id}/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+https://apps.marketcheck.com/apps/${app.id}/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true`}</pre>
   </div>` : ""}
 
   <!-- Screenshot -->

@@ -11,9 +11,9 @@ function _getAuth(): { mode: "api_key" | "oauth_token" | null; value: string | n
   if (key) return { mode: "api_key", value: key };
   return { mode: null, value: null };
 }
-function _detectAppMode(): "mcp" | "live" | "demo" { if (_getAuth().value) return "live"; if (_safeApp) return "mcp"; return "demo"; }
+function _detectAppMode(): "mcp" | "live" | "demo" { if (_getAuth().value) return "live"; if (_safeApp && window.parent !== window) return "mcp"; return "demo"; }
 function _isEmbedMode(): boolean { return new URLSearchParams(location.search).has("embed"); }
-function _getUrlParams(): Record<string, string> { const params = new URLSearchParams(location.search); const result: Record<string, string> = {}; for (const key of ["vin","zip","make","model","miles","state","dealer_id","ticker","price"]) { const v = params.get(key); if (v) result[key] = v; } return result; }
+function _getUrlParams(): Record<string, string> { const params = new URLSearchParams(location.search); const result: Record<string, string> = {}; for (const key of ["vin","vins","zip","make","model","miles","state","dealer_id","ticker","price","scenario"]) { const v = params.get(key); if (v) result[key] = v; } return result; }
 function _proxyBase(): string { return location.protocol.startsWith("http") ? "" : "http://localhost:3001"; }
 
 // ── Direct MarketCheck API Client (browser → api.marketcheck.com) ──────
@@ -44,12 +44,21 @@ function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
 function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
 
 async function _fetchDirect(args) {
-  const vins = (args.vins??"").split(",").map(v=>v.trim()).filter(Boolean);
-  const results = await Promise.all(vins.map(async (vin) => {
-    const [decode,prediction] = await Promise.all([_mcDecode(vin),_mcPredict({vin,dealer_type:"franchise",zip:args.zip})]);
-    return {vin,decode,prediction};
+  const vinEntries: Array<{vin: string; loanAmount: number}> = Array.isArray(args.vins)
+    ? args.vins
+    : (args.vins ?? "").split(",").map((v: string) => ({ vin: v.trim(), loanAmount: 0 })).filter((e: any) => e.vin);
+  const portfolio = await Promise.all(vinEntries.map(async (entry) => {
+    try {
+      const [decode, priceData] = await Promise.all([
+        _mcDecode(entry.vin),
+        _mcPredict({ vin: entry.vin, dealer_type: "franchise", zip: args.zip }),
+      ]);
+      return { vin: entry.vin, loanAmount: entry.loanAmount, decode, price: priceData };
+    } catch {
+      return { vin: entry.vin, loanAmount: entry.loanAmount, decode: null, price: null };
+    }
   }));
-  return {results};
+  return { portfolio: portfolio.filter(p => p.decode || p.loanAmount > 0) };
 }
 async function _callTool(toolName, args) {
   const auth = _getAuth();
@@ -90,33 +99,6 @@ function _addSettingsBar(headerEl?: HTMLElement) {
     gear.addEventListener("click", () => { panel.style.display = panel.style.display === "none" ? "block" : "none"; });
     document.addEventListener("click", (e) => { if (!panel.contains(e.target as Node) && e.target !== gear) panel.style.display = "none"; });
     document.body.appendChild(panel);
-
-  // ── Demo mode banner ──
-  if (_detectAppMode() === "demo") {
-    const _db = document.createElement("div");
-    _db.id = "_demo_banner";
-    _db.style.cssText = "background:linear-gradient(135deg,#92400e22,#f59e0b11);border:1px solid #f59e0b44;border-radius:10px;padding:14px 20px;margin-bottom:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;";
-    _db.innerHTML = `
-      <div style="flex:1;min-width:200px;">
-        <div style="font-size:13px;font-weight:700;color:#fbbf24;margin-bottom:2px;">&#9888; Demo Mode — Showing sample data</div>
-        <div style="font-size:12px;color:#d97706;">Enter your MarketCheck API key to see real market data. <a href="https://developers.marketcheck.com" target="_blank" style="color:#fbbf24;text-decoration:underline;">Get a free key</a></div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <input id="_banner_key" type="text" placeholder="Paste your API key" style="padding:8px 12px;border-radius:6px;border:1px solid #f59e0b44;background:#0f172a;color:#e2e8f0;font-size:13px;width:220px;outline:none;" />
-        <button id="_banner_save" style="padding:8px 16px;border-radius:6px;border:none;background:#f59e0b;color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Activate</button>
-      </div>`;
-    document.body.insertBefore(_db, document.body.firstChild);
-    _db.querySelector("#_banner_save").addEventListener("click", () => {
-      const k = _db.querySelector("#_banner_key").value.trim();
-      if (!k) return;
-      localStorage.setItem("mc_api_key", k);
-      _db.style.background = "linear-gradient(135deg,#05966922,#10b98111)";
-      _db.style.borderColor = "#10b98144";
-      _db.innerHTML = '<div style="font-size:13px;font-weight:700;color:#10b981;">&#10003; API key saved — reloading with live data...</div>';
-      setTimeout(() => location.reload(), 800);
-    });
-    _db.querySelector("#_banner_key").addEventListener("keydown", (e) => { if (e.key === "Enter") _db.querySelector("#_banner_save").click(); });
-  }
     setTimeout(() => { document.getElementById("_mc_save")?.addEventListener("click", () => { const k = (document.getElementById("_mc_key_inp") as HTMLInputElement)?.value?.trim(); if (k) { localStorage.setItem("mc_api_key", k); location.reload(); } }); document.getElementById("_mc_clear")?.addEventListener("click", () => { localStorage.removeItem("mc_api_key"); localStorage.removeItem("mc_access_token"); location.reload(); }); }, 0);
     bar.appendChild(gear);
   }
@@ -221,18 +203,14 @@ function getLTVBadge(ltv: number): { label: string; color: string; bg: string } 
 
 // ── Mock Data ──────────────────────────────────────────────────────────
 const MOCK_PORTFOLIO = [
-  { vin: "5YJSA1E26MF100001", loanAmount: 38000, make: "Tesla", model: "Model 3", year: 2021, segment: "EV" as Segment, fuelType: "Electric", baseValue: 32500 },
-  { vin: "1FTFW1E85MFA00002", loanAmount: 42000, make: "Ford", model: "F-150", year: 2022, segment: "Truck" as Segment, fuelType: "Gas", baseValue: 44800 },
-  { vin: "4T1BF1FK5CU000003", loanAmount: 22500, make: "Toyota", model: "Camry", year: 2023, segment: "Sedan" as Segment, fuelType: "Gas", baseValue: 27200 },
-  { vin: "5YJXCDE20HF000004", loanAmount: 52000, make: "Tesla", model: "Model Y", year: 2023, segment: "EV" as Segment, fuelType: "Electric", baseValue: 48500 },
-  { vin: "WBAJB9C51KB000005", loanAmount: 45000, make: "BMW", model: "X5", year: 2022, segment: "Luxury" as Segment, fuelType: "Gas", baseValue: 48200 },
-  { vin: "1G1ZD5ST7LF000006", loanAmount: 18000, make: "Chevrolet", model: "Malibu", year: 2021, segment: "Sedan" as Segment, fuelType: "Gas", baseValue: 16800 },
-  { vin: "2HGFC2F59MH000007", loanAmount: 23000, make: "Honda", model: "Civic", year: 2022, segment: "Sedan" as Segment, fuelType: "Gas", baseValue: 25100 },
-  { vin: "1FTEW1EP2MK000008", loanAmount: 48000, make: "Ford", model: "F-150 Lightning", year: 2023, segment: "EV" as Segment, fuelType: "Electric", baseValue: 46200 },
-  { vin: "KNDCB3LC9L5000009", loanAmount: 28000, make: "Kia", model: "Sportage", year: 2022, segment: "SUV" as Segment, fuelType: "Gas", baseValue: 30500 },
-  { vin: "1FMCU9J94MU000010", loanAmount: 33000, make: "Ford", model: "Escape", year: 2021, segment: "SUV" as Segment, fuelType: "Gas", baseValue: 28900 },
-  { vin: "3GNAXUEV5NL000011", loanAmount: 30000, make: "Chevrolet", model: "Equinox", year: 2023, segment: "SUV" as Segment, fuelType: "Gas", baseValue: 32200 },
-  { vin: "5TDJZRFH8HS000012", loanAmount: 39000, make: "Toyota", model: "Highlander", year: 2022, segment: "SUV" as Segment, fuelType: "Hybrid", baseValue: 41500 },
+  { vin: "KNDCB3LC9L5359658", loanAmount: 20000, make: "Kia", model: "Forte", year: 2020, segment: "Sedan" as Segment, fuelType: "Gas", baseValue: 18500 },
+  { vin: "1HGCV1F34LA000001", loanAmount: 25000, make: "Honda", model: "Accord", year: 2020, segment: "Sedan" as Segment, fuelType: "Gas", baseValue: 27200 },
+  { vin: "5YJSA1E26MF000001", loanAmount: 52000, make: "Tesla", model: "Model S", year: 2021, segment: "EV" as Segment, fuelType: "Electric", baseValue: 48500 },
+  { vin: "1FTFW1E85MFA00001", loanAmount: 42000, make: "Ford", model: "F-150", year: 2021, segment: "Truck" as Segment, fuelType: "Gas", baseValue: 44800 },
+  { vin: "4T1BF1FK5CU500000", loanAmount: 22000, make: "Toyota", model: "Camry", year: 2021, segment: "Sedan" as Segment, fuelType: "Gas", baseValue: 24500 },
+  { vin: "WBAJB9C51KB500000", loanAmount: 45000, make: "BMW", model: "X5", year: 2019, segment: "Luxury" as Segment, fuelType: "Gas", baseValue: 48200 },
+  { vin: "2HGFC2F59MH500000", loanAmount: 21000, make: "Honda", model: "Civic", year: 2021, segment: "Sedan" as Segment, fuelType: "Gas", baseValue: 23100 },
+  { vin: "1FMCU9J94MU500000", loanAmount: 30000, make: "Ford", model: "Escape", year: 2021, segment: "SUV" as Segment, fuelType: "Gas", baseValue: 28900 },
 ];
 
 function generateMockStressResult(scenario: Scenario, customPct: number): StressResult {
@@ -290,14 +268,18 @@ function renderHeader(): string {
 }
 
 function renderVINInput(): string {
-  const defaultVINs = MOCK_PORTFOLIO.map(p => `${p.vin},${p.loanAmount}`).join("\n");
+  const urlParams = _getUrlParams();
+  let defaultVINs = MOCK_PORTFOLIO.map(p => `${p.vin},${p.loanAmount}`).join("\n");
+  if (urlParams.vins) {
+    defaultVINs = urlParams.vins.split(";").map(s => s.trim()).filter(Boolean).join("\n");
+  }
   return `<div style="background:${SURFACE};border-radius:10px;padding:16px;margin-bottom:20px;border:1px solid ${BORDER};">
     <h3 style="color:${TEXT};font-size:14px;margin-bottom:10px;">Portfolio VIN Input</h3>
     <div style="display:flex;gap:12px;">
       <div style="flex:1;">
         <label style="font-size:11px;color:${TEXT_SEC};display:block;margin-bottom:4px;">Enter VINs with loan amounts (one per line: VIN,LoanAmount)</label>
         <textarea id="vin-input" rows="6" placeholder="5YJSA1E26MF100001,38000&#10;1FTFW1E85MFA00002,42000&#10;..." style="width:100%;background:${BG};border:1px solid ${BORDER};border-radius:6px;padding:10px;color:${TEXT};font-family:monospace;font-size:11px;resize:vertical;box-sizing:border-box;">${defaultVINs}</textarea>
-        <div style="font-size:10px;color:${TEXT_MUTED};margin-top:4px;">Up to 20 VINs supported</div>
+        <div style="font-size:10px;color:${TEXT_MUTED};margin-top:4px;">Up to 20 VINs supported. Use URL param <code style="color:${CYAN};">vins=VIN1,Loan1;VIN2,Loan2</code> to deep-link.</div>
       </div>
     </div>
   </div>`;
@@ -743,8 +725,10 @@ function parseVINInput(): Array<{ vin: string; loanAmount: number }> {
   }).filter(v => v.vin.length >= 10 && v.loanAmount > 0).slice(0, 20);
 }
 
-function categorizeSegment(bodyType: string | undefined, fuelType: string | undefined): Segment {
+const LUXURY_MAKES = ["BMW", "Mercedes", "Mercedes-Benz", "Audi", "Lexus", "Cadillac", "Lincoln", "Infiniti", "Acura", "Porsche", "Jaguar", "Land Rover", "Bentley", "Maserati", "Genesis"];
+function categorizeSegment(bodyType: string | undefined, fuelType: string | undefined, make?: string): Segment {
   if (fuelType?.toLowerCase().includes("electric")) return "EV";
+  if (make && LUXURY_MAKES.some(lm => lm.toLowerCase() === make.toLowerCase())) return "Luxury";
   const bt = (bodyType || "").toLowerCase();
   if (bt.includes("suv") || bt.includes("crossover")) return "SUV";
   if (bt.includes("truck") || bt.includes("pickup")) return "Truck";
@@ -753,26 +737,34 @@ function categorizeSegment(bodyType: string | undefined, fuelType: string | unde
 }
 
 async function loadData(scenario: Scenario, customPct: number): Promise<StressResult> {
+  if (_detectAppMode() === "demo") return generateMockStressResult(scenario, customPct);
   const vins = parseVINInput();
-  const result = await _callTool("stress-test-portfolio", { vins, scenario, customDropPct: customPct });
+  const urlZip = _getUrlParams().zip;
+  const result = await _callTool("stress-test-portfolio", { vins, scenario, customDropPct: customPct, zip: urlZip });
 
   if (result?.content?.[0]?.text) {
     try {
       const parsed = JSON.parse(result.content[0].text);
       if (parsed.portfolio && Array.isArray(parsed.portfolio)) {
         const loans: LoanEntry[] = parsed.portfolio.map((p: any) => {
-          const decode = p.decode || {};
-          const predicted = p.price?.predicted_price || p.loanAmount * 0.9;
-          const segment: Segment = categorizeSegment(decode.body_type, decode.fuel_type);
-          const multiplier = getStressMultiplier(segment, decode.fuel_type || "Gas", scenario, customPct);
-          const stressedValue = Math.round(predicted * multiplier);
+          const raw = p.decode || {};
+          // neovin /specs response — fields at top level; some API versions nest under "specs"
+          const decode = raw.specs ?? raw;
+          const make = decode.make ?? decode.Make ?? "";
+          const model = decode.model ?? decode.Model ?? "";
+          const year = decode.year ?? decode.Year ?? 2022;
+          const bodyType = decode.body_type ?? decode.bodyType ?? decode.body ?? "";
+          const fuelType = decode.fuel_type ?? decode.fuelType ?? decode.fuel ?? "Gas";
+          const predicted = Math.max(1000, p.price?.predicted_price ?? p.price?.marketcheck_price ?? p.price?.price ?? p.loanAmount * 0.9);
+          const segment: Segment = categorizeSegment(bodyType, fuelType, make);
+          const multiplier = getStressMultiplier(segment, fuelType, scenario, customPct);
+          const stressedValue = Math.max(1000, Math.round(predicted * multiplier));
           return {
-            vin: p.vin, year: decode.year || 2022, make: decode.make || "Unknown",
-            model: decode.model || "Unknown", segment,
+            vin: p.vin, year, make: make || "Unknown", model: model || "Unknown", segment,
             loanAmount: p.loanAmount, currentValue: Math.round(predicted),
             stressedValue, currentLTV: (p.loanAmount / predicted) * 100,
             stressedLTV: (p.loanAmount / stressedValue) * 100,
-            fuelType: decode.fuel_type || "Gas",
+            fuelType,
           };
         });
         return buildStressResult(loans, scenario, customPct);
@@ -832,6 +824,11 @@ function bindScenarioCards(): void {
 }
 
 function initApp(): void {
+  const urlParams = _getUrlParams();
+  if (urlParams.scenario && ["ev_drop_20","trucks_drop_15","market_wide_10","custom"].includes(urlParams.scenario)) {
+    currentScenario = urlParams.scenario as Scenario;
+  }
+
   document.body.style.cssText = `margin:0;padding:20px;background:${BG};color:${TEXT};font-family:system-ui,-apple-system,sans-serif;min-height:100vh;`;
 
   document.body.innerHTML = `
@@ -843,6 +840,33 @@ function initApp(): void {
 
   const header = document.getElementById("app-header");
   if (header) _addSettingsBar(header);
+
+  // ── Demo mode banner ──
+  if (_detectAppMode() === "demo") {
+    const _db = document.createElement("div");
+    _db.id = "_demo_banner";
+    _db.style.cssText = "background:linear-gradient(135deg,#92400e22,#f59e0b11);border:1px solid #f59e0b44;border-radius:10px;padding:14px 20px;margin-bottom:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;";
+    _db.innerHTML = `
+      <div style="flex:1;min-width:200px;">
+        <div style="font-size:13px;font-weight:700;color:#fbbf24;margin-bottom:2px;">&#9888; Demo Mode — Showing sample data</div>
+        <div style="font-size:12px;color:#d97706;">Enter your MarketCheck API key to see real market data. <a href="https://developers.marketcheck.com" target="_blank" style="color:#fbbf24;text-decoration:underline;">Get a free key</a></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input id="_banner_key" type="text" placeholder="Paste your API key" style="padding:8px 12px;border-radius:6px;border:1px solid #f59e0b44;background:#0f172a;color:#e2e8f0;font-size:13px;width:220px;outline:none;" />
+        <button id="_banner_save" style="padding:8px 16px;border-radius:6px;border:none;background:#f59e0b;color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Activate</button>
+      </div>`;
+    document.body.insertBefore(_db, document.body.firstChild);
+    _db.querySelector("#_banner_save")!.addEventListener("click", () => {
+      const k = (_db.querySelector("#_banner_key") as HTMLInputElement).value.trim();
+      if (!k) return;
+      localStorage.setItem("mc_api_key", k);
+      _db.style.background = "linear-gradient(135deg,#05966922,#10b98111)";
+      _db.style.borderColor = "#10b98144";
+      _db.innerHTML = '<div style="font-size:13px;font-weight:700;color:#10b981;">&#10003; API key saved — reloading with live data...</div>';
+      setTimeout(() => location.reload(), 800);
+    });
+    (_db.querySelector("#_banner_key") as HTMLInputElement).addEventListener("keydown", (e) => { if (e.key === "Enter") (_db.querySelector("#_banner_save") as HTMLButtonElement).click(); });
+  }
 
   bindScenarioCards();
 

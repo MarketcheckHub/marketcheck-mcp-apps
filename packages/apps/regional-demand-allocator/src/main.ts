@@ -72,15 +72,17 @@ function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
 function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
 
 async function _fetchDirect(args: Record<string, any>) {
-  const [stateVolume, segmentVolume] = await Promise.all([
-    _mcSold({ ranking_dimensions: "state", ranking_measure: "sold_count", make: args.make, model: args.model, top_n: 25, inventory_type: "used" }),
-    _mcSold({ ranking_dimensions: "body_type", ranking_measure: "sold_count", make: args.make, model: args.model, top_n: 10, inventory_type: "used" }),
+  // ranking_dimensions only supports: make, model, body_type, dealership_group_name
+  // The API returns state in each row, so make-level query gives us state breakdowns
+  const [makeVolume, segmentVolume] = await Promise.all([
+    _mcSold({ ranking_dimensions: "make", ranking_measure: "sold_count", make: args.make, model: args.model, top_n: 25, inventory_type: "Used" }),
+    _mcSold({ ranking_dimensions: "body_type", ranking_measure: "sold_count", make: args.make, model: args.model, top_n: 10, inventory_type: "Used" }),
   ]);
   let activeByState = null;
   try {
-    activeByState = await _mcActive({ make: args.make, model: args.model, rows: 0, stats: "state", facets: "state" });
+    activeByState = await _mcActive({ make: args.make, model: args.model, rows: 0, stats: "price,miles,dom" });
   } catch {}
-  return { stateVolume, segmentVolume, activeByState };
+  return { makeVolume, segmentVolume, activeByState };
 }
 
 async function _callTool(toolName, args) {

@@ -847,15 +847,27 @@ const APPS = [
     tagline: "Allocate inventory where demand is hottest",
     segment: "Manufacturer",
     toolName: null,
-    description: "State-level demand allocation tool for OEMs. Shows where demand is hottest by state and segment, helping guide inventory allocation decisions.",
+    description: "State-level demand and supply analysis tool for OEMs. Computes demand-to-supply (D/S) ratios across 25 US states, color-coded as Undersupplied (green, D/S >= 1.5), Balanced (yellow), or Oversupplied (red, D/S < 0.7). Includes a sortable state demand table with sold volume, active supply, avg sale price, avg DOM, and price/MSRP percentage. Features a segment mix comparison panel showing demand vs inventory split by body type (SUV, Sedan, Truck, etc.) for the top 5 states with mismatch indicators. Generates allocation recommendations showing which units to shift from oversupplied to undersupplied states, ranked by estimated revenue impact.",
     inputParams: [
-      { name: "make", type: "string", required: false, desc: "Your brand" },
+      { name: "make", type: "string", required: false, desc: "Your brand (e.g., Toyota)" },
+      { name: "model", type: "string", required: false, desc: "Specific model (e.g., RAV4)" },
     ],
     apiFlow: [
       { step: 1, label: "State-Level Demand", apis: ["soldSummary"], parallel: false, note: "Fetch sold summary by state with volume rankings" },
       { step: 2, label: "Segment Demand", apis: ["soldSummary"], parallel: false, note: "Fetch sold summary by body type for segment mix" },
     ],
     renders: "Geographic demand heatmap, state ranking table, segment allocation recommendations, supply vs demand indicators",
+    useCases: [
+      { persona: "OEM Distribution Planners", desc: "Identify which states have excess demand (undersupplied) and which are overstocked. Use the allocation recommendations to decide how many units of each segment to shift between regions for maximum revenue impact." },
+      { persona: "Regional Sales Directors", desc: "Sort the state demand table by D/S ratio, avg DOM, or price/MSRP to find the best-performing and worst-performing territories. States with high D/S and above-MSRP pricing are strong markets; states with low D/S and high DOM need attention." },
+      { persona: "Inventory Analysts", desc: "Use the segment mix comparison to spot body-type mismatches. If a state has 38% SUV demand but only 28% SUV inventory, that gap represents lost sales and an opportunity to reallocate." },
+      { persona: "Fleet & Logistics Teams", desc: "The allocation recommendations table quantifies how many units to move, from where, to where, and the estimated revenue impact — directly actionable for transport planning." },
+    ],
+    urlParams: [
+      { name: "api_key", desc: "Your MarketCheck API key (or set via localStorage)" },
+      { name: "make", desc: "Pre-select a make for analysis (e.g., Toyota, Honda)" },
+      { name: "model", desc: "Pre-select a model (e.g., RAV4, Civic)" },
+    ],
   },
   {
     id: "oem-depreciation-tracker",

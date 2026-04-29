@@ -6,7 +6,7 @@
 import { App } from "@modelcontextprotocol/ext-apps";
 
 let _safeApp: any = null;
-try { _safeApp = new App({ name: "regional-demand-allocator" }); } catch {}
+if (window.parent !== window) { try { _safeApp = new App({ name: "regional-demand-allocator" }); } catch {} }
 
 // ── Dual-Mode Data Provider ────────────────────────────────────────────
 function _getAuth(): { mode: "api_key" | "oauth_token" | null; value: string | null } {
@@ -71,7 +71,17 @@ function _mcIncentives(p) { const q={...p}; if(q.oem&&!q.make){q.make=q.oem;dele
 function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
 function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
 
-async function _fetchDirect(_args) { return null; /* passthrough — uses MCP mode */ }
+async function _fetchDirect(args: Record<string, any>) {
+  const [stateVolume, segmentVolume] = await Promise.all([
+    _mcSold({ ranking_dimensions: "state", ranking_measure: "sold_count", make: args.make, model: args.model, top_n: 25, inventory_type: "used" }),
+    _mcSold({ ranking_dimensions: "body_type", ranking_measure: "sold_count", make: args.make, model: args.model, top_n: 10, inventory_type: "used" }),
+  ]);
+  let activeByState = null;
+  try {
+    activeByState = await _mcActive({ make: args.make, model: args.model, rows: 0, stats: "state", facets: "state" });
+  } catch {}
+  return { stateVolume, segmentVolume, activeByState };
+}
 
 async function _callTool(toolName, args) {
   // 1. MCP mode (Claude, VS Code, etc.)
@@ -645,8 +655,6 @@ function renderAllocationTable(allocations: AllocationRec[]): string {
 // ── Main ───────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const app = new App();
-
   const root = document.createElement("div");
   root.id = "app-root";
   root.style.cssText = `
@@ -687,9 +695,12 @@ async function main() {
     _db.querySelector("#_banner_key").addEventListener("keydown", (e) => { if (e.key === "Enter") _db.querySelector("#_banner_save").click(); });
   }
 
+  // Apply URL params for deep-linking
+  const urlParams = _getUrlParams();
+
   // State
-  let selectedMake = "Toyota";
-  let selectedModel = "RAV4";
+  let selectedMake = urlParams.make || "Toyota";
+  let selectedModel = urlParams.model || "RAV4";
   let selectedBody = "";
   let sortCol = "dsRatio";
   let sortAsc = false;
@@ -771,6 +782,10 @@ async function main() {
   }
 
   function wireEvents() {
+    // Settings bar (mode badge + gear icon)
+    const headerEl = root.querySelector("h1")?.parentElement?.parentElement as HTMLElement | null;
+    if (headerEl) _addSettingsBar(headerEl);
+
     // Make dropdown
     const makeSelect = document.getElementById("make-select") as HTMLSelectElement | null;
     makeSelect?.addEventListener("change", () => {

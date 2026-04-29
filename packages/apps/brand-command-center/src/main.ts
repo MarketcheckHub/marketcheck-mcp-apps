@@ -122,15 +122,12 @@ function _mcSold(p: Record<string, any>) { return _mcApi("/api/v1/sold-vehicles/
 function _mcActive(p: Record<string, any>) { return _mcApi("/search/car/active", p); }
 
 async function _fetchDirect(args: Record<string, any>) {
-  const [brandVolume, stateVolume] = await Promise.all([
-    _mcSold({ ranking_dimensions: "make", ranking_measure: "sold_count", top_n: 20, inventory_type: "used" }),
-    _mcSold({ ranking_dimensions: "state", ranking_measure: "sold_count", make: args.make, top_n: 15, inventory_type: "used" }),
+  // ranking_dimensions only supports: make, model, body_type, dealership_group_name
+  const [brandVolume, modelVolume] = await Promise.all([
+    _mcSold({ ranking_dimensions: "make", ranking_measure: "sold_count", top_n: 20, inventory_type: "Used" }),
+    _mcSold({ ranking_dimensions: "make,model", ranking_measure: "sold_count", make: args.make, top_n: 10, inventory_type: "Used" }),
   ]);
-  let modelVolume = null;
-  try {
-    modelVolume = await _mcSold({ ranking_dimensions: "make,model", ranking_measure: "sold_count", make: args.make, top_n: 10, inventory_type: "used" });
-  } catch {}
-  return { brandVolume, stateVolume, modelVolume };
+  return { brandVolume, modelVolume };
 }
 
 // ── Responsive CSS Injection ───────────────────────────────────────────

@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: EV Collateral Risk Monitor — MarketCheck Apps">
-  <meta property="og:description" content="Tracks EV vs ICE depreciation patterns for collateral risk assessment. Uses sold summary data segmented by fuel type to compare value retention across powertrains.">
+  <meta property="og:description" content="Monitors EV collateral risk for auto lenders by comparing EV and ICE depreciation rates, advance rate recommendations, and state-level EV adoption concentration. Displays a 12-month EV vs ICE average ">
   <meta property="og:url" content="https://apps.marketcheck.com/app/ev-collateral-risk/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/ev-collateral-risk.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: EV Collateral Risk Monitor">
-  <meta name="twitter:description" content="Tracks EV vs ICE depreciation patterns for collateral risk assessment. Uses sold summary data segmented by fuel type to compare value retention across powertrains.">
+  <meta name="twitter:description" content="Monitors EV collateral risk for auto lenders by comparing EV and ICE depreciation rates, advance rate recommendations, and state-level EV adoption concentration. Displays a 12-month EV vs ICE average ">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/ev-collateral-risk.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: EV Collateral Risk Monitor","description":"Tracks EV vs ICE depreciation patterns for collateral risk assessment. Uses sold summary data segmented by fuel type to compare value retention across powertrains.","url":"https://apps.marketcheck.com/app/ev-collateral-risk/","image":"https://apps.marketcheck.com/assets/screenshots/ev-collateral-risk.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: EV Collateral Risk Monitor","description":"Monitors EV collateral risk for auto lenders by comparing EV and ICE depreciation rates, advance rate recommendations, and state-level EV adoption concentration. Displays a 12-month EV vs ICE average price trend chart, brand-level EV risk table with tier ratings (HIGH/ELEVATED/MODERATE/LOW), state adoption heatmap showing EV penetration %, and suggested LTV caps — helping lenders set tighter advance rates on EV collateral and manage concentration risk.","url":"https://apps.marketcheck.com/app/ev-collateral-risk/","image":"https://apps.marketcheck.com/assets/screenshots/ev-collateral-risk.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -289,7 +289,7 @@ pre.code-block {
   <div class="breadcrumb"><a href="/">Gallery</a> / <a href="/#lender">Lender</a> / EV Collateral Risk Monitor</div>
   <div class="subtitle">How to Build</div>
   <h1>EV Collateral Risk Monitor</h1>
-  <p class="tagline">EV vs ICE depreciation risk tracking</p>
+  <p class="tagline">EV vs ICE depreciation risk tracking for lenders</p>
   <span class="segment-badge" style="background:#06b6d422;color:#06b6d4;border:1px solid #06b6d433;">
     Lender
   </span>
@@ -309,10 +309,25 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Tracks EV vs ICE depreciation patterns for collateral risk assessment. Uses sold summary data segmented by fuel type to compare value retention across powertrains.</p>
+    <p>Monitors EV collateral risk for auto lenders by comparing EV and ICE depreciation rates, advance rate recommendations, and state-level EV adoption concentration. Displays a 12-month EV vs ICE average price trend chart, brand-level EV risk table with tier ratings (HIGH/ELEVATED/MODERATE/LOW), state adoption heatmap showing EV penetration %, and suggested LTV caps — helping lenders set tighter advance rates on EV collateral and manage concentration risk.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Auto Lender / Credit Analyst</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Monitor EV vs ICE depreciation gap to calibrate LTV caps and advance rates for EV loans. The EV-to-ICE ratio and risk tier badges flag when tighter lending criteria are warranted.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Portfolio Risk Manager</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Track EV concentration risk by state — high-penetration states like CA and WA represent outsized collateral exposure if EV values continue declining faster than ICE.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Compliance / ALCO</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Use the advance rate recommendation panel (72% EV vs 92% ICE default) to support policy documentation and stress-test scenarios for EV-heavy loan portfolios.</div>
+      </div>
+    </div>
+  </div>
 
   
 
@@ -334,7 +349,7 @@ pre.code-block {
             <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
             <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
             <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
-          </div></div><div class="flow-note">Fetch sold summary by body_type and fuel_type_category</div></div>
+          </div></div><div class="flow-note">Fetch 12-month sold summary time series by fuel_type_category (EV and ICE), then brand-level and state-level EV breakdowns</div></div>
     </div>
   </div>
 
@@ -346,7 +361,7 @@ pre.code-block {
     <table class="param-table">
       <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>state</code></td><td>string</td><td>No</td><td>State for regional analysis</td></tr>
+        <tr><td><code>state</code></td><td>string</td><td>No</td><td>2-letter state code for regional EV risk analysis</td></tr><tr><td><code>api_key</code></td><td>string</td><td>No</td><td>MarketCheck API key (Enterprise plan required for live data)</td></tr>
       </tbody>
     </table>
   </div>
@@ -380,7 +395,7 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>EV vs ICE depreciation comparison chart</div><div class="render-item"><div class="render-dot"></div>powertrain risk heatmap</div><div class="render-item"><div class="render-dot"></div>collateral value trends</div><div class="render-item"><div class="render-dot"></div>segment analysis</div>
+      <div class="render-item"><div class="render-dot"></div>12-month EV vs ICE price trend chart (canvas)</div><div class="render-item"><div class="render-dot"></div>advance rate recommendation panel</div><div class="render-item"><div class="render-dot"></div>EV/ICE depreciation scorecard ribbon</div><div class="render-item"><div class="render-dot"></div>brand EV risk table with tier badges</div><div class="render-item"><div class="render-dot"></div>state EV adoption heatmap</div>
     </div>
   </div>
 
@@ -403,7 +418,7 @@ pre.code-block {
     }
   }
 }</pre>
-    <p>Then ask the AI: <em>"Use the ev-collateral-risk tool to ev vs ice depreciation risk tracking"</em></p>
+    <p>Then ask the AI: <em>"Use the ev-collateral-risk tool to ev vs ice depreciation risk tracking for lenders"</em></p>
 
     <h3>3. Embed as an iFrame</h3>
     <pre class="code-block">&lt;iframe

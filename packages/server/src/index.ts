@@ -3,6 +3,8 @@ console.log("Starting MarketCheck MCP Apps server...");
 import cors from "cors";
 import express from "express";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { registerProxy } from "./proxy.js";
 import { setMcApiKeyOverride } from "@mcp-apps/shared";
 
@@ -101,7 +103,7 @@ try {
 }
 
 // ── Static file serving for gallery + apps + assets ─────────────────────
-const rootDir = path.join(import.meta.dirname, "..", "..", "..");
+const rootDir = path.join(__dirname, "..", "..", "..");
 app.use("/assets", express.static(path.join(rootDir, "static")));
 app.use("/apps", express.static(path.join(rootDir, "packages", "apps")));
 app.use("/app", express.static(path.join(rootDir, "public", "app")));

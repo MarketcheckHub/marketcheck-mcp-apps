@@ -721,10 +721,10 @@ async function _fetchDirect(state?: string): Promise<LiveData | null> {
   try {
     const baseParams = {
       ranking_dimensions: "make",
-      ranking_measure: "average_sale_price",
+      ranking_measure: "sold_count",
       ranking_order: "desc",
-      top_n: "10",
-      inventory_type: "used",
+      top_n: 25,
+      inventory_type: "Used",
       ...(state ? { state } : {}),
     };
 
@@ -735,17 +735,33 @@ async function _fetchDirect(state?: string): Promise<LiveData | null> {
       _mcApi("/api/v1/sold-vehicles/summary", { ...baseParams, year_min: 2019, year_max: 2020 }),
     ]);
 
+    // Normalize API make names → our display names
+    const MAKE_ALIASES: Record<string, string> = {
+      chevrolet: "GM", chevy: "GM", gmc: "GM", cadillac: "GM", buick: "GM",
+      toyota: "Toyota", honda: "Honda", ford: "Ford", tesla: "Tesla", bmw: "BMW",
+    };
     const MAKES = ["Toyota", "Honda", "Ford", "GM", "Tesla", "BMW"];
+
     const buildMap = (data: any): Record<string, number> => {
-      const map: Record<string, number> = {};
-      const rows = data?.rankings ?? data?.data ?? [];
+      const map: Record<string, { totalPrice: number; count: number }> = {};
+      const rows: any[] = data?.data ?? data?.rankings ?? [];
       for (const row of rows) {
-        const m = row.make ?? row.dimension_value ?? "";
-        if (MAKES.includes(m) && row.average_sale_price > 0) {
-          map[m] = row.average_sale_price;
+        const raw = (row.make ?? row.dimension_value ?? "") as string;
+        const normalized = MAKE_ALIASES[raw.toLowerCase()] ?? raw;
+        const price = row.average_sale_price ?? 0;
+        const cnt = row.sold_count ?? 1;
+        if (MAKES.includes(normalized) && price > 0) {
+          if (!map[normalized]) map[normalized] = { totalPrice: 0, count: 0 };
+          map[normalized].totalPrice += price * cnt;
+          map[normalized].count += cnt;
         }
       }
-      return map;
+      // Return weighted average price per normalized make
+      const result: Record<string, number> = {};
+      for (const [make, v] of Object.entries(map)) {
+        result[make] = Math.round(v.totalPrice / v.count);
+      }
+      return result;
     };
 
     const avg0 = buildMap(d0); // recent (2023+)
@@ -775,7 +791,8 @@ async function _fetchDirect(state?: string): Promise<LiveData | null> {
       }
     }
 
-    return cells.length > 0
+    const hasRealData = Object.keys(avg0).length > 0 || Object.keys(avg2).length > 0 || Object.keys(avg4).length > 0;
+    return hasRealData
       ? { heatmapData: cells, priceByMake: { recent: avg0, mid: avg2, older: avg4 } }
       : null;
   } catch {

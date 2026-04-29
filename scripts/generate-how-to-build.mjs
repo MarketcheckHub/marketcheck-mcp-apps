@@ -774,6 +774,17 @@ const APPS = [
       { step: 1, label: "Pricing Power Data", apis: ["soldSummary", "soldSummary"], parallel: true, note: "Fetch price_over_msrp_percentage by make (top 25) and by body_type segment — in parallel" },
     ],
     renders: "Brand pricing power scatter plot (x=volume, y=MSRP premium), above/at/below sticker distribution, segment pricing power bars, trend arrows vs prior period, margin health badges",
+    useCases: [
+      { persona: "Auto Equity Analysts", desc: "Identify which OEMs are commanding sticker premiums vs giving up margin through discounts — a leading indicator of gross profit per unit and warranty/incentive accruals before the print." },
+      { persona: "Dealer Group Strategists", desc: "Spot segments where retail demand is strong enough to clear inventory above MSRP, and where channel weakness is forcing discounts — directly informs floor-plan and contenting decisions." },
+      { persona: "OEM Pricing Teams", desc: "Benchmark your brand's price-over-MSRP against peers within the same body-type segment to flag pricing-power gaps before they show up in earnings guidance." },
+      { persona: "Wholesale / Auction Operators", desc: "Above-sticker brands signal tight retail supply and strong wholesale prints; below-sticker brands signal demand softness and likely auction price compression." },
+    ],
+    urlParams: [
+      { name: "api_key", desc: "Your MarketCheck API key (Enterprise tier required for sold-vehicles/summary)" },
+      { name: "state", desc: "Two-letter US state code (e.g. CA) to scope all signals regionally; omit for national" },
+      { name: "embed", desc: "When present, hides the settings bar for iframe embedding" },
+    ],
   },
   {
     id: "market-share-analyzer",

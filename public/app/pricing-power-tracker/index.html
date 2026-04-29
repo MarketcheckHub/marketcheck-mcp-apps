@@ -312,9 +312,49 @@ pre.code-block {
     <p>Tracks discount-to-MSRP trends across OEMs as a proxy for pricing power and dealer margin health. Shows which brands are selling above, at, or below sticker — a leading indicator for OEM profitability and dealer earnings.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Auto Equity Analysts</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Identify which OEMs are commanding sticker premiums vs giving up margin through discounts — a leading indicator of gross profit per unit and warranty/incentive accruals before the print.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Dealer Group Strategists</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Spot segments where retail demand is strong enough to clear inventory above MSRP, and where channel weakness is forcing discounts — directly informs floor-plan and contenting decisions.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">OEM Pricing Teams</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Benchmark your brand's price-over-MSRP against peers within the same body-type segment to flag pricing-power gaps before they show up in earnings guidance.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Wholesale / Auction Operators</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Above-sticker brands signal tight retail supply and strong wholesale prints; below-sticker brands signal demand softness and likely auction price compression.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (Enterprise tier required for sold-vehicles/summary)</td></tr><tr><td><code>state</code></td><td>Two-letter US state code (e.g. CA) to scope all signals regionally; omit for national</td></tr><tr><td><code>embed</code></td><td>When present, hides the settings bar for iframe embedding</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/pricing-power-tracker/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/pricing-power-tracker/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/pricing-power-tracker/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/pricing-power-tracker/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">

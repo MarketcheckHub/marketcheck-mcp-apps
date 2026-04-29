@@ -121,12 +121,12 @@ async function _fetchDirect(args): Promise<EvalResult | null> {
     state: l.dealer?.state ?? "",
   }));
 
-  // Map VIN price history
-  const histListings = history?.listings ?? [];
+  // Map VIN price history — history API returns array directly, not { listings: [] }
+  const histListings: any[] = Array.isArray(history) ? history : (history?.listings ?? []);
   const priceHistory: PriceHistoryEntry[] = histListings.slice(0, 6).map((l: any, i: number) => ({
-    date: l.first_seen_at_date ?? l.scraped_at ?? "",
+    date: l.first_seen_at_date ?? l.scraped_at_date ?? l.scraped_at ?? "",
     price: l.price ?? 0,
-    dealer: l.dealer?.name ?? "Unknown Dealer",
+    dealer: l.dealer?.name ?? l.seller_name ?? "Unknown Dealer",
     event: i === 0 ? "Listed" : "Price Change",
   }));
 
@@ -215,7 +215,7 @@ function _addSettingsBar(headerEl?: HTMLElement) {
     panel.style.cssText = "display:none;position:fixed;top:50px;right:16px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px;z-index:1000;min-width:300px;box-shadow:0 8px 32px rgba(0,0,0,0.5);";
     panel.innerHTML = `<div style="font-size:13px;font-weight:600;color:#f8fafc;margin-bottom:12px;">API Configuration</div>
       <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:4px;">MarketCheck API Key</label>
-      <input id="_mc_key_inp" type="password" placeholder="Enter your API key" value="${_getAuth().mode === 'api_key' ? _getAuth().value ?? '' : ''}"
+      <input id="_mc_key_inp" type="text" autocomplete="off" placeholder="Enter your API key" value="${_getAuth().mode === 'api_key' ? _getAuth().value ?? '' : ''}"
         style="width:100%;padding:8px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:13px;margin-bottom:8px;box-sizing:border-box;" />
       <div style="font-size:10px;color:#64748b;margin-bottom:12px;">Get a free key at <a href="https://developers.marketcheck.com" target="_blank" style="color:#60a5fa;">developers.marketcheck.com</a></div>
       <div style="display:flex;gap:8px;">
@@ -1206,7 +1206,7 @@ if (urlParams.loan_amount) loanInput.loan_amount = parseInt(urlParams.loan_amoun
 if (urlParams.loan_term) loanInput.loan_term = parseInt(urlParams.loan_term);
 if (urlParams.interest_rate) loanInput.interest_rate = parseFloat(urlParams.interest_rate);
 
-if (loanInput.vin) {
+if (loanInput.vin || _detectAppMode() === "demo") {
   evaluateLoan();
 } else {
   render();

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+  
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-QGPPMDJ4N6"></script>
   <script>
@@ -12,27 +12,27 @@
     gtag('js', new Date());
     gtag('config', 'G-QGPPMDJ4N6');
   </script>
-  <title>How to Build: Lender Portfolio Stress Test — MarketCheck Apps</title>
-  <meta name="description" content="Step-by-step guide to build Lender Portfolio Stress Test using MarketCheck APIs. Learn the API calls, sequencing, and parameters needed.">
+  <title>Lender Portfolio Stress Test — MarketCheck Apps</title>
+  <meta name="description" content="Stress test a portfolio of VINs against depreciation scenarios. Decodes each VIN and predicts current market value, then models impact of 10%, 20%, and 30% valu">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://apps.marketcheck.com/app/lender-portfolio-stress-test/">
 
   <!-- Open Graph -->
-  <meta property="og:type" content="article">
-  <meta property="og:title" content="How to Build: Lender Portfolio Stress Test — MarketCheck Apps">
-  <meta property="og:description" content="Runs depreciation stress scenarios against a batch of VINs representing an auto loan portfolio. Decodes and prices each VIN using real market data, then models what-if scenarios — EV values drop 20%, ">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Lender Portfolio Stress Test — MarketCheck Apps">
+  <meta property="og:description" content="Stress test a portfolio of VINs against depreciation scenarios. Decodes each VIN and predicts current market value, then models impact of 10%, 20%, and 30% valu">
   <meta property="og:url" content="https://apps.marketcheck.com/app/lender-portfolio-stress-test/">
-  <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/lender-portfolio-stress-test.png">
+  <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/lender-portfolio-stress-test-full.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="How to Build: Lender Portfolio Stress Test">
-  <meta name="twitter:description" content="Runs depreciation stress scenarios against a batch of VINs representing an auto loan portfolio. Decodes and prices each VIN using real market data, then models what-if scenarios — EV values drop 20%, ">
-  <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/lender-portfolio-stress-test.png">
+  <meta name="twitter:title" content="Lender Portfolio Stress Test — MarketCheck Apps">
+  <meta name="twitter:description" content="Stress test a portfolio of VINs against depreciation scenarios. Decodes each VIN and predicts current market value, then models impact of 10%, 20%, and 30% valu">
+  <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/lender-portfolio-stress-test-full.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Lender Portfolio Stress Test","description":"Runs depreciation stress scenarios against a batch of VINs representing an auto loan portfolio. Decodes and prices each VIN using real market data, then models what-if scenarios — EV values drop 20%, trucks drop 15%, market-wide 10% decline, or a custom percentage — to reveal which loans go underwater, by how much, and which vehicle segments carry the most concentrated risk. Outputs an LTV distribution histogram, collateral coverage waterfall, per-segment exposure table, scenario comparison matrix, and a ranked individual loan detail table with HEALTHY / AT RISK / UNDERWATER / DEEP UNDERWATER status badges.","url":"https://apps.marketcheck.com/app/lender-portfolio-stress-test/","image":"https://apps.marketcheck.com/assets/screenshots/lender-portfolio-stress-test.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Lender Portfolio Stress Test","description":"Stress test a portfolio of VINs against depreciation scenarios. Decodes each VIN and predicts current market value, then models impact of 10%, 20%, and 30% value drops on portfolio LTV and loss exposure.","applicationCategory":"BusinessApplication","operatingSystem":"Web","url":"https://apps.marketcheck.com/app/lender-portfolio-stress-test/","image":"https://apps.marketcheck.com/assets/screenshots/lender-portfolio-stress-test-full.png","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -66,6 +66,8 @@ img { max-width:100%; height:auto; }
 }
 .nav-links a:hover { background:#f1f5f9; color:#0f172a; text-decoration:none; }
 .nav-links a.active { background:#066aab11; color:#066aab; }
+
+/* Mobile nav */
 .nav-toggle { display:none; background:none; border:none; font-size:24px; cursor:pointer; color:#64748b; }
 @media (max-width:768px) {
   .nav-toggle { display:block; margin-left:auto; }
@@ -80,12 +82,11 @@ img { max-width:100%; height:auto; }
 
 /* Hero */
 .page-hero {
-  padding:48px 24px 32px; max-width:960px; margin:0 auto; position:relative;
+  padding:48px 24px 32px; max-width:900px; margin:0 auto;
 }
 .page-hero .breadcrumb { font-size:13px; color:#64748b; margin-bottom:16px; }
 .page-hero .breadcrumb a { color:#066aab; }
-.page-hero h1 { font-size:clamp(24px,3.5vw,36px); font-weight:700; color:#0f172a; line-height:1.15; margin-bottom:4px; }
-.page-hero .subtitle { font-size:15px; font-weight:600; color:#066aab; margin-bottom:8px; text-transform:uppercase; letter-spacing:1px; }
+.page-hero h1 { font-size:clamp(28px,4vw,42px); font-weight:700; color:#0f172a; line-height:1.15; margin-bottom:8px; }
 .page-hero .tagline { font-size:18px; color:#64748b; margin-bottom:20px; }
 .page-hero .segment-badge {
   display:inline-block; padding:4px 12px; border-radius:20px;
@@ -101,31 +102,12 @@ img { max-width:100%; height:auto; }
 .btn-primary:hover { background:#055a91; text-decoration:none; }
 .btn-secondary { background:#f1f5f9; color:#1e293b; border:1px solid #e2e8f0; }
 .btn-secondary:hover { background:#e2e8f0; text-decoration:none; }
-.btn-copy {
-  position:absolute; top:48px; right:24px;
-  background:#fff; color:#066aab;
-  padding:10px 20px; border-radius:10px;
-  font-size:13px; font-weight:600;
-  border:1.5px solid #066aab;
-  cursor:pointer; display:flex; align-items:center; gap:7px;
-  transition:all 0.25s; z-index:10;
-  box-shadow:0 2px 8px rgba(6,106,171,0.10);
-}
-.btn-copy:hover {
-  background:#066aab; color:#fff;
-  box-shadow:0 4px 16px rgba(6,106,171,0.22);
-  transform:translateY(-2px);
-}
-.btn-copy.copied {
-  background:#059669; color:#fff; border-color:#059669;
-  box-shadow:0 4px 16px rgba(5,150,105,0.22);
-}
 
 /* Content */
-.content { max-width:960px; margin:0 auto; padding:0 24px 64px; }
+.content { max-width:900px; margin:0 auto; padding:0 24px 64px; }
 .section { margin-bottom:48px; }
 .section h2 { font-size:22px; font-weight:700; color:#0f172a; margin-bottom:16px; padding-bottom:8px; border-bottom:2px solid #e2e8f0; }
-.section h3 { font-size:16px; font-weight:600; color:#0f172a; margin:20px 0 8px; }
+.section h3 { font-size:16px; font-weight:600; color:#0f172a; margin:16px 0 8px; }
 .section p { margin-bottom:12px; color:#475569; }
 
 /* Screenshots */
@@ -133,96 +115,15 @@ img { max-width:100%; height:auto; }
 .screenshot { border-radius:12px; overflow:hidden; border:1px solid #e2e8f0; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
 .screenshot img { width:100%; display:block; }
 
-/* Flow Diagram */
-.flow-diagram { padding:24px 0; }
-.flow-step {
+/* API endpoint cards */
+.api-card {
   background:#fff; border:1px solid #e2e8f0; border-radius:12px;
-  padding:20px; margin-bottom:0; box-shadow:0 1px 3px rgba(0,0,0,0.04);
+  padding:20px; margin-bottom:16px; box-shadow:0 1px 3px rgba(0,0,0,0.04);
 }
-.flow-step-header {
-  display:flex; align-items:center; gap:12px; margin-bottom:12px;
-}
-.flow-step-num {
-  width:32px; height:32px; border-radius:50%;
-  background:#066aab; color:#fff; font-weight:700; font-size:14px;
-  display:flex; align-items:center; justify-content:center; flex-shrink:0;
-}
-.flow-step-label { font-weight:700; font-size:16px; color:#0f172a; }
-.flow-parallel-badge {
-  padding:3px 10px; border-radius:12px; font-size:10px; font-weight:700;
-  background:#dcfce7; color:#166534; letter-spacing:0.5px;
-}
-.flow-sequential-badge {
-  padding:3px 10px; border-radius:12px; font-size:10px; font-weight:700;
-  background:#fef3c7; color:#92400e; letter-spacing:0.5px;
-}
-.flow-api-cards {
-  display:flex; gap:12px; flex-wrap:wrap; margin:8px 0;
-}
-.flow-api-cards.flow-parallel {
-  border-left:3px solid #22c55e; padding-left:16px;
-  position:relative;
-}
-.flow-api-cards.flow-parallel::before {
-  content:"runs simultaneously"; position:absolute; top:-14px; left:20px;
-  font-size:10px; color:#16a34a; font-weight:600; letter-spacing:0.5px;
-}
-.flow-api-cards.flow-sequential {
-  border-left:3px solid #f59e0b; padding-left:16px;
-}
-.flow-api-card {
-  background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px;
-  padding:10px 14px; min-width:200px; flex:1;
-}
-.flow-api-method {
-  display:inline-block; padding:2px 6px; border-radius:3px;
-  font-size:10px; font-weight:700; background:#dcfce7; color:#166534;
-  letter-spacing:0.5px; margin-bottom:4px;
-}
-.flow-api-path {
-  display:block; font-size:11px; color:#0369a1; margin:4px 0;
-  word-break:break-all;
-}
-.flow-api-name { font-weight:600; font-size:13px; color:#0f172a; }
-.flow-note { font-size:13px; color:#64748b; margin-top:8px; font-style:italic; }
-.flow-arrow {
-  text-align:center; font-size:24px; color:#cbd5e1;
-  padding:8px 0; line-height:1;
-}
-
-/* API Detail Cards */
-.api-detail-card {
-  background:#fff; border:1px solid #e2e8f0; border-radius:12px;
-  padding:20px; margin-bottom:20px; box-shadow:0 1px 3px rgba(0,0,0,0.04);
-}
-.api-detail-header {
-  display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap;
-}
-.api-method-badge {
-  padding:3px 8px; border-radius:4px; font-size:11px; font-weight:700;
-  background:#dcfce7; color:#166534; letter-spacing:0.5px;
-}
-.api-detail-card h4 { font-size:16px; font-weight:700; color:#0f172a; margin:8px 0; }
-.api-detail-card p { font-size:14px; color:#475569; margin-bottom:12px; }
-.api-returns { font-size:13px; color:#475569; margin:12px 0; padding:10px; background:#f8fafc; border-radius:6px; border:1px solid #e2e8f0; }
-.api-doc-link { font-size:13px; font-weight:600; }
-
-/* Enterprise API badge */
-.enterprise-badge {
-  display:inline-flex; align-items:center; gap:4px;
-  padding:3px 10px; border-radius:12px; font-size:10px; font-weight:700;
-  background:#fef3c7; color:#92400e; border:1px solid #fde68a;
-  letter-spacing:0.5px; white-space:nowrap;
-}
-.flow-api-card.enterprise { border-color:#fde68a; background:#fffbeb; }
-.api-detail-card.enterprise { border-color:#fde68a; }
-.enterprise-notice {
-  background:#fffbeb; border:1px solid #fde68a; border-radius:10px;
-  padding:14px 20px; margin-bottom:32px; display:flex; align-items:center; gap:10px;
-  font-size:13px; color:#92400e; line-height:1.5;
-}
-.enterprise-notice strong { font-weight:700; }
-.enterprise-notice a { color:#92400e; font-weight:600; text-decoration:underline; }
+.api-card .method { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700; letter-spacing:0.5px; background:#dcfce7; color:#166534; }
+.api-card .path { font-family:'JetBrains Mono',monospace; font-size:13px; color:#0f172a; margin-left:8px; }
+.api-card .api-name { font-weight:600; color:#0f172a; margin-top:8px; }
+.api-card a { font-size:13px; }
 
 /* Param table */
 .param-table { width:100%; border-collapse:collapse; font-size:14px; margin:12px 0; }
@@ -234,18 +135,30 @@ img { max-width:100%; height:auto; }
 pre.code-block {
   background:#0f172a; color:#e2e8f0; padding:16px; border-radius:8px;
   overflow-x:auto; font-size:13px; line-height:1.5; margin:12px 0;
-  position:relative;
 }
 
-/* Renders section */
-.renders-list {
-  display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:12px; margin:16px 0;
+/* Derivative API page */
+.api-endpoint {
+  background:#fff; border:1px solid #e2e8f0; border-radius:12px;
+  margin-bottom:24px; overflow:hidden;
 }
-.render-item {
-  background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:12px 16px;
-  font-size:13px; color:#334155; display:flex; align-items:center; gap:8px;
+.api-endpoint-header {
+  padding:16px 20px; border-bottom:1px solid #e2e8f0;
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
 }
-.render-dot { width:8px; height:8px; border-radius:50%; background:#06b6d4; flex-shrink:0; }
+.api-endpoint-header .method-badge {
+  padding:4px 10px; border-radius:4px; font-size:12px; font-weight:700;
+  background:#dbeafe; color:#1e40af;
+}
+.api-endpoint-header .endpoint-path {
+  font-family:'JetBrains Mono',monospace; font-size:14px; color:#0f172a;
+}
+.api-endpoint-body { padding:20px; }
+.api-endpoint-body .underlying { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0; }
+.api-endpoint-body .underlying span {
+  padding:3px 10px; border-radius:12px; font-size:11px; font-weight:500;
+  background:#f0f9ff; color:#0369a1; border:1px solid #bae6fd;
+}
 
 /* Footer */
 .footer {
@@ -254,18 +167,6 @@ pre.code-block {
 }
 .footer a { color:#60a5fa; }
 .footer .footer-links { display:flex; gap:24px; justify-content:center; margin-bottom:16px; flex-wrap:wrap; }
-
-/* Toast */
-.toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(100px); background:#0f172a; color:#fff; padding:12px 24px; border-radius:8px; font-size:14px; font-weight:500; transition:transform 0.3s; z-index:999; pointer-events:none; }
-.toast.show { transform:translateX(-50%) translateY(0); }
-
-@media (max-width:768px) {
-  .btn-copy { position:static; margin-top:16px; width:100%; justify-content:center; border-radius:10px; }
-  .page-hero { padding:32px 16px 24px; }
-  .content { padding:0 16px 48px; }
-  .flow-api-cards { flex-direction:column; }
-  .renders-list { grid-template-columns:1fr; }
-}
 </style>
 </head>
 <body>
@@ -275,209 +176,103 @@ pre.code-block {
     <img src="https://34682200.delivery.rocketcdn.me/wp-content/uploads/2024/05/cropped-MC-Icon.png.webp" alt="MC" width="24" height="24" />
     MarketCheck Apps
   </a>
-  <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')">&#9776;</button>
+  <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')">☰</button>
   <div class="nav-links">
     <a href="/">Gallery</a>
     <a href="/docs/derivative-apis/">Derivative APIs</a>
-    <a href="https://apidocs.marketcheck.com" target="_blank">API Docs &#8599;</a>
-    <a href="https://developers.marketcheck.com" target="_blank">Get API Key &#8599;</a>
+    <a href="https://apidocs.marketcheck.com" target="_blank">API Docs ↗</a>
+    <a href="https://developers.marketcheck.com" target="_blank">Get API Key ↗</a>
   </div>
 </nav>
 
 <div class="page-hero">
-  <button class="btn-copy" id="copy-page-btn" title="Copy this guide to clipboard">&#128203; Copy Page</button>
   <div class="breadcrumb"><a href="/">Gallery</a> / <a href="/#lender">Lender</a> / Lender Portfolio Stress Test</div>
-  <div class="subtitle">How to Build</div>
   <h1>Lender Portfolio Stress Test</h1>
   <p class="tagline">What-if depreciation scenarios on your loan book</p>
   <span class="segment-badge" style="background:#06b6d422;color:#06b6d4;border:1px solid #06b6d433;">
     Lender
   </span>
   <div class="ctas">
-    <a href="/apps/lender-portfolio-stress-test/dist/index.html" class="btn btn-primary">See Demo &#8594;</a>
+    <a href="/apps/lender-portfolio-stress-test/dist/index.html" class="btn btn-primary">Launch App →</a>
     <a href="https://developers.marketcheck.com" target="_blank" class="btn btn-secondary">Get Free API Key</a>
-    <a href="https://apidocs.marketcheck.com" target="_blank" class="btn btn-secondary">API Docs &#8599;</a>
+    <a href="https://apidocs.marketcheck.com" target="_blank" class="btn btn-secondary">API Docs ↗</a>
   </div>
 </div>
 
-<div class="content" id="guide-content">
+<div class="content">
+  <!-- Description -->
+  <div class="section">
+    <h2>About This App</h2>
+    <p>Stress test a portfolio of VINs against depreciation scenarios. Decodes each VIN and predicts current market value, then models impact of 10%, 20%, and 30% value drops on portfolio LTV and loss exposure.</p>
+  </div>
+
+  <!-- Screenshots -->
   
-
-  <!-- What This App Does -->
   <div class="section">
-    <h2>What This App Does</h2>
-    <p>Runs depreciation stress scenarios against a batch of VINs representing an auto loan portfolio. Decodes and prices each VIN using real market data, then models what-if scenarios — EV values drop 20%, trucks drop 15%, market-wide 10% decline, or a custom percentage — to reveal which loans go underwater, by how much, and which vehicle segments carry the most concentrated risk. Outputs an LTV distribution histogram, collateral coverage waterfall, per-segment exposure table, scenario comparison matrix, and a ranked individual loan detail table with HEALTHY / AT RISK / UNDERWATER / DEEP UNDERWATER status badges.</p>
-  </div>
-
-  <!-- Who Can Use This -->
-  <div class="section">
-    <h2>Who Can Use This</h2>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
-      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
-        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Auto Lender / Credit Risk Manager</div>
-        <div style="font-size:13px;color:#475569;line-height:1.5;">Upload a portfolio of VINs and loan balances, run stress scenarios to find which loans flip underwater, and quantify total shortfall exposure before the risk materializes.</div>
-      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
-        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Portfolio Risk Analyst</div>
-        <div style="font-size:13px;color:#475569;line-height:1.5;">Compare EV vs ICE vs Truck concentration risk side by side across multiple depreciation scenarios to identify segment-level vulnerabilities.</div>
-      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
-        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Loan Origination Officer</div>
-        <div style="font-size:13px;color:#475569;line-height:1.5;">Quickly test a new batch of proposed loans against market-wide downturn scenarios to set appropriate LTV limits and reserve requirements.</div>
-      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
-        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Bank Examiner / Auditor</div>
-        <div style="font-size:13px;color:#475569;line-height:1.5;">Generate a stress-tested snapshot of collateral coverage across a dealer floorplan or consumer auto portfolio for regulatory reporting.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- URL Parameters -->
-  <div class="section">
-    <h2>URL Parameters</h2>
-    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
-    <table class="param-table">
-      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
-      <tbody>
-        <tr><td><code>api_key</code></td><td>Your MarketCheck API key — activates live VIN decode and pricing for each portfolio VIN</td></tr><tr><td><code>zip</code></td><td>Central ZIP code for localized market pricing context (e.g. 90210, 10001, 60601)</td></tr><tr><td><code>vins</code></td><td>Semicolon-separated VIN,LoanAmount pairs to pre-fill the portfolio (e.g. 5YJSA1E26MF100001,38000;1FTFW1E85MFA00002,42000)</td></tr><tr><td><code>scenario</code></td><td>Pre-select stress scenario: ev_drop_20 | trucks_drop_15 | market_wide_10 | custom</td></tr>
-      </tbody>
-    </table>
-    <h3>URL Examples</h3>
-    <pre class="code-block"># Basic — auto-generate a report for a VIN
-https://apps.marketcheck.com/apps/lender-portfolio-stress-test/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
-
-# Full — with asking price, mileage, and ZIP for deal scoring
-https://apps.marketcheck.com/apps/lender-portfolio-stress-test/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
-
-# Compact widget — for iframe embeds (400px width)
-https://apps.marketcheck.com/apps/lender-portfolio-stress-test/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
-
-# Using aliases
-https://apps.marketcheck.com/apps/lender-portfolio-stress-test/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
-  </div>
-
-  <!-- Screenshot -->
-  <div class="section">
-    <h2>Preview</h2>
+    <h2>Screenshots</h2>
     <div class="screenshots">
-      <div class="screenshot"><img src="/assets/screenshots/lender-portfolio-stress-test.png" alt="Lender Portfolio Stress Test preview" loading="lazy" onerror="this.parentElement.style.display='none'" /></div>
+      <div class="screenshot"><img src="/assets/screenshots/lender-portfolio-stress-test-full.png" alt="Lender Portfolio Stress Test screenshot" loading="lazy" /></div>
+      <div class="screenshot"><img src="/assets/screenshots/lender-portfolio-stress-test-initial.png" alt="Lender Portfolio Stress Test screenshot" loading="lazy" /></div>
+      <div class="screenshot"><img src="/assets/screenshots/lender-portfolio-stress-test.png" alt="Lender Portfolio Stress Test screenshot" loading="lazy" /></div>
     </div>
   </div>
 
-  <!-- API Call Flow Diagram -->
+  <!-- API Endpoints Used -->
+  
   <div class="section">
-    <h2>API Call Flow</h2>
-    <p>Here's the exact sequence of MarketCheck API calls this app makes, and which ones run in parallel:</p>
-    <div class="flow-diagram">
-      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">For each VIN in parallel</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
-          <div class="flow-api-card">
-            <div class="flow-api-method">GET</div>
-            <code class="flow-api-path">/v2/decode/car/neovin/{vin}/specs</code>
-            <div class="flow-api-name">VIN Decode</div>
-          </div>
-          <div class="flow-api-card">
-            <div class="flow-api-method">GET</div>
-            <code class="flow-api-path">/v2/predict/car/us/marketcheck_price/comparables</code>
-            <div class="flow-api-name">Price Prediction (Retail / Franchise)</div>
-          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Decode specs and predict current market value simultaneously for every VIN</div></div>
+    <h2>MarketCheck API Endpoints Used</h2>
+    <p>This app calls the following MarketCheck API endpoints under the hood:</p>
+    
+    <div class="api-card">
+      <span class="method">GET</span>
+      <span class="path">GET /v2/decode/car/neovin/{vin}/specs</span>
+      <div class="api-name">VIN Decode</div>
+      <a href="https://apidocs.marketcheck.com/#decode-vin" target="_blank">View API documentation ↗</a>
+    </div>
+    <div class="api-card">
+      <span class="method">GET</span>
+      <span class="path">GET /v2/predict/car/us/marketcheck_price/comparables</span>
+      <div class="api-name">Price Prediction</div>
+      <a href="https://apidocs.marketcheck.com/#price-prediction" target="_blank">View API documentation ↗</a>
     </div>
   </div>
 
   <!-- Input Parameters -->
+  
   <div class="section">
-    <h2>Input Parameters</h2>
-    <p>Pass these parameters to build this app (or call the <code>stress-test-portfolio</code> composite endpoint):</p>
-    
+    <h2>Parameters</h2>
+    <p>Pass these parameters when calling the <code>stress-test-portfolio</code> tool or API endpoint:</p>
     <table class="param-table">
       <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>vins</code></td><td>string</td><td><span class="required">Yes</span></td><td>Comma-separated VINs from loan portfolio (up to 20)</td></tr><tr><td><code>zip</code></td><td>string</td><td>No</td><td>Central ZIP code for market-based pricing context</td></tr>
+        <tr><td><code>vins</code></td><td>string</td><td><span class="required">Yes</span></td><td>Comma-separated VINs</td></tr><tr><td><code>zip</code></td><td>string</td><td><span class="required">Yes</span></td><td>ZIP code</td></tr>
       </tbody>
     </table>
   </div>
 
-  <!-- API Endpoints — Detailed -->
-  <div class="section">
-    <h2>API Endpoints Used — Full Details</h2>
-    <p>Each API call explained with parameters, return values, and documentation links:</p>
-    
-    <div class="api-detail-card">
-      <div class="api-detail-header">
-        <span class="api-method-badge">GET</span>
-        <code>/v2/decode/car/neovin/{vin}/specs</code>
-        
-      </div>
-      <h4>VIN Decode</h4>
-      <p>Decodes a VIN into full vehicle specs — year, make, model, trim, engine, transmission, body type, drivetrain, and 100+ attributes.</p>
-      <table class="param-table">
-        <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td><code>vin</code></td><td>string</td><td><span class="required">Yes</span></td><td>17-character Vehicle Identification Number</td></tr>
-        </tbody>
-      </table>
-      <div class="api-returns"><strong>Returns:</strong> Vehicle specs object: year, make, model, trim, engine, transmission, body_type, drivetrain, fuel_type, etc.</div>
-      <a href="https://apidocs.marketcheck.com/#decode-vin" target="_blank" class="api-doc-link">View full API documentation &#8599;</a>
-    </div>
-    <div class="api-detail-card">
-      <div class="api-detail-header">
-        <span class="api-method-badge">GET</span>
-        <code>/v2/predict/car/us/marketcheck_price/comparables</code>
-        
-      </div>
-      <h4>Price Prediction (Retail / Franchise)</h4>
-      <p>Predicts the fair market price for a used vehicle from franchise dealer perspective. Returns predicted price, confidence interval, price range, and comparable vehicles used in the prediction.</p>
-      <table class="param-table">
-        <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td><code>vin</code></td><td>string</td><td><span class="required">Yes</span></td><td>17-character VIN</td></tr><tr><td><code>miles</code></td><td>number</td><td>No</td><td>Current mileage</td></tr><tr><td><code>zip</code></td><td>string</td><td>No</td><td>ZIP code for local pricing</td></tr><tr><td><code>dealer_type</code></td><td>string</td><td>No</td><td>Set to 'franchise' for retail pricing</td></tr>
-        </tbody>
-      </table>
-      <div class="api-returns"><strong>Returns:</strong> predicted_price, price_range (low/high), comparables[] with vin, price, miles, distance</div>
-      <a href="https://apidocs.marketcheck.com/#price-prediction" target="_blank" class="api-doc-link">View full API documentation &#8599;</a>
-    </div>
-  </div>
-
-  <!-- What the App Renders -->
-  <div class="section">
-    <h2>What to Render</h2>
-    <p>Once you have the API responses, build these UI components:</p>
-    <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Portfolio KPI summary (total loans</div><div class="render-item"><div class="render-dot"></div>total collateral</div><div class="render-item"><div class="render-dot"></div>avg LTV</div><div class="render-item"><div class="render-dot"></div>underwater count)</div><div class="render-item"><div class="render-dot"></div>stress impact panel (new underwater loans</div><div class="render-item"><div class="render-dot"></div>total value at risk</div><div class="render-item"><div class="render-dot"></div>worst-hit segments)</div><div class="render-item"><div class="render-dot"></div>LTV distribution histogram (current vs stressed)</div><div class="render-item"><div class="render-dot"></div>collateral coverage waterfall</div><div class="render-item"><div class="render-dot"></div>segment exposure table</div><div class="render-item"><div class="render-dot"></div>portfolio donut chart</div><div class="render-item"><div class="render-dot"></div>scenario comparison matrix</div><div class="render-item"><div class="render-dot"></div>individual loan detail table</div>
-    </div>
-  </div>
-
   
-  <!-- Composite Endpoint -->
+  <!-- Derivative API -->
   <div class="section">
-    <h2>Shortcut: Composite API Endpoint</h2>
-    <p>Instead of calling each API individually, use our composite endpoint that orchestrates all the calls for you:</p>
-    <div class="api-detail-card">
-      <div class="api-detail-header">
-        <span class="api-method-badge" style="background:#dbeafe;color:#1e40af;">POST</span>
-        <code>https://apps.marketcheck.com/api/proxy/stress-test-portfolio</code>
-      </div>
-      <p>This single endpoint runs all 2 API calls in the optimal sequence and returns the combined result.</p>
-      <p><a href="/docs/derivative-apis/#stress-test-portfolio">View full composite endpoint documentation &#8599;</a></p>
+    <h2>Derivative API Endpoint</h2>
+    <p>This app is powered by a composite API endpoint that orchestrates multiple MarketCheck API calls:</p>
+    <div class="api-card">
+      <span class="method" style="background:#dbeafe;color:#1e40af;">POST</span>
+      <span class="path">https://apps.marketcheck.com/api/proxy/stress-test-portfolio</span>
+      <p style="margin-top:8px;font-size:13px;color:#64748b;">
+        Test this endpoint with your API key. See <a href="/docs/derivative-apis/#stress-test-portfolio">full documentation</a>.
+      </p>
     </div>
-    
-    <h3>Try It — cURL Example</h3>
-    <pre class="code-block">curl -X POST https://apps.marketcheck.com/api/proxy/stress-test-portfolio \
-  -H "Content-Type: application/json" \
-  -d '{
-  "_auth_mode": "api_key",
-  "_auth_value": "YOUR_API_KEY",
-  "vins": "KNDCB3LC9L5359658,1HGCV1F34LA000001",
-  "zip": "90210"
-}'</pre>
   </div>
 
-  <!-- How to Build -->
+  <!-- How to Use -->
   <div class="section">
-    <h2>Build It Yourself</h2>
-
-    <h3>1. Get a Free API Key</h3>
-    <p>Sign up at <a href="https://developers.marketcheck.com" target="_blank">developers.marketcheck.com</a> to get a free API key.</p>
-
+    <h2>How to Use</h2>
+    <h3>1. In the Browser (Demo or Live Data)</h3>
+    <p>Click "Launch App" above. Enter your MarketCheck API key in the settings gear for live data, or explore with demo data.</p>
     
+
     <h3>2. As an MCP App (AI Assistants)</h3>
-    <p>Add the MarketCheck MCP server to Claude Desktop, VS Code, or any MCP-compatible host:</p>
+    <p>Add the MarketCheck MCP server to Claude, VS Code, or any MCP-compatible host:</p>
     <pre class="code-block">{
   "mcpServers": {
     "marketcheck-apps": {
@@ -485,27 +280,28 @@ https://apps.marketcheck.com/apps/lender-portfolio-stress-test/dist/index.html?a
     }
   }
 }</pre>
-    <p>Then ask the AI: <em>"Use the stress-test-portfolio tool to what-if depreciation scenarios on your loan book"</em></p>
+    <p>Then ask the AI to use the <code>stress-test-portfolio</code> tool.</p>
 
-    <h3>3. Embed as an iFrame</h3>
+    <h3>3. Embed in Your Portal</h3>
     <pre class="code-block">&lt;iframe
   src="https://apps.marketcheck.com/apps/lender-portfolio-stress-test/dist/index.html?api_key=YOUR_KEY&amp;embed=true"
   width="100%" height="700"
   style="border:none;border-radius:8px;"
 &gt;&lt;/iframe&gt;</pre>
 
-    <h3>4. Build from Scratch</h3>
-    <p>Use the API flow diagram above as your implementation blueprint. Call the APIs in the sequence shown, handle parallel calls with <code>Promise.all()</code>, and render the UI components listed in "What to Render".</p>
-    <p>Tip: Copy this entire page (button at top) and paste it into your favorite coding agent (Claude, Cursor, Copilot) as a specification to generate the full app.</p>
+    <h3>4. Get a Free API Key</h3>
+    <p>Sign up at <a href="https://developers.marketcheck.com" target="_blank">developers.marketcheck.com</a> to get a free API key and start testing.</p>
   </div>
 
-  <!-- Source Code -->
+  <!-- GitHub -->
   <div class="section">
     <h2>Source Code</h2>
-    <p>This app is open source:</p>
-    <p><a href="https://github.com/MarketcheckHub/marketcheck-api-mcp-apps/tree/main/packages/apps/lender-portfolio-stress-test" target="_blank">View source on GitHub &#8599;</a></p>
+    <p>This app is open source and part of the MarketCheck API & MCP Apps monorepo:</p>
+    <p><a href="https://github.com/MarketcheckHub/marketcheck-api-mcp-apps/tree/main/packages/apps/lender-portfolio-stress-test" target="_blank">View source on GitHub ↗</a></p>
+    <p>The full repository contains 52 apps across 18 segments, plus full-stack chat demo implementations.</p>
   </div>
 </div>
+
 
 <footer class="footer">
   <div class="footer-links">
@@ -517,28 +313,5 @@ https://apps.marketcheck.com/apps/lender-portfolio-stress-test/dist/index.html?a
   </div>
   <p>&copy; 2026 MarketCheck. Powered by real-time automotive data covering 95%+ of US dealer inventory.</p>
 </footer>
-
-<div class="toast" id="toast"></div>
-
-<script>
-// Copy Page button
-document.getElementById("copy-page-btn").addEventListener("click", function() {
-  const content = document.getElementById("guide-content");
-  // Build a clean text version
-  const clone = content.cloneNode(true);
-  // Remove images for text copy
-  clone.querySelectorAll("img").forEach(i => i.remove());
-  const text = "HOW TO BUILD: Lender Portfolio Stress Test\n==================================================\n\n" + clone.innerText;
-  navigator.clipboard.writeText(text).then(() => {
-    const btn = document.getElementById("copy-page-btn");
-    btn.innerHTML = "&#10003; Copied!";
-    btn.classList.add("copied");
-    setTimeout(() => {
-      btn.innerHTML = "&#128203; Copy Page";
-      btn.classList.remove("copied");
-    }, 2000);
-  });
-});
-</script>
 </body>
 </html>

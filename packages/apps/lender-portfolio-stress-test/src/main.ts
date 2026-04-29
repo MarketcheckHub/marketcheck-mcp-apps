@@ -44,19 +44,19 @@ function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
 function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
 
 async function _fetchDirect(args) {
-  const vinEntries: Array<{vin: string; loanAmount: number}> = Array.isArray(args.vins)
+  const vinEntries: Array<{vin: string; loanAmount: number; miles?: number}> = Array.isArray(args.vins)
     ? args.vins
     : (args.vins ?? "").split(",").map((v: string) => ({ vin: v.trim(), loanAmount: 0 })).filter((e: any) => e.vin);
   const portfolio = await Promise.all(vinEntries.map(async (entry) => {
-    try {
-      const [decode, priceData] = await Promise.all([
-        _mcDecode(entry.vin),
-        _mcPredict({ vin: entry.vin, dealer_type: "franchise", zip: args.zip }),
-      ]);
-      return { vin: entry.vin, loanAmount: entry.loanAmount, decode, price: priceData };
-    } catch {
-      return { vin: entry.vin, loanAmount: entry.loanAmount, decode: null, price: null };
-    }
+    // Decouple decode and predict so a failed predict doesn't discard the decode
+    const decode = await _mcDecode(entry.vin).catch(() => null);
+    const priceData = await _mcPredict({
+      vin: entry.vin,
+      miles: entry.miles ?? 50000,
+      dealer_type: "franchise",
+      zip: args.zip,
+    }).catch(() => null);
+    return { vin: entry.vin, loanAmount: entry.loanAmount, decode, price: priceData };
   }));
   return { portfolio: portfolio.filter(p => p.decode || p.loanAmount > 0) };
 }
@@ -95,7 +95,7 @@ function _addSettingsBar(headerEl?: HTMLElement) {
   if (mode !== "mcp") {
     const gear = document.createElement("button"); gear.innerHTML = "&#9881;"; gear.title = "API Settings"; gear.style.cssText = "background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:4px;";
     const panel = document.createElement("div"); panel.style.cssText = "display:none;position:fixed;top:50px;right:16px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px;z-index:1000;min-width:300px;box-shadow:0 8px 32px rgba(0,0,0,0.5);";
-    panel.innerHTML = `<div style="font-size:13px;font-weight:600;color:#f8fafc;margin-bottom:12px;">API Configuration</div><label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:4px;">MarketCheck API Key</label><input id="_mc_key_inp" type="password" placeholder="Enter your API key" value="${_getAuth().mode === 'api_key' ? _getAuth().value ?? '' : ''}" style="width:100%;padding:8px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:13px;margin-bottom:8px;box-sizing:border-box;" /><div style="font-size:10px;color:#64748b;margin-bottom:12px;">Get a free key at <a href="https://developers.marketcheck.com" target="_blank" style="color:#60a5fa;">developers.marketcheck.com</a></div><div style="display:flex;gap:8px;"><button id="_mc_save" style="flex:1;padding:8px;border-radius:6px;border:none;background:#3b82f6;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Save & Reload</button><button id="_mc_clear" style="padding:8px 12px;border-radius:6px;border:1px solid #334155;background:transparent;color:#94a3b8;font-size:13px;cursor:pointer;">Clear</button></div>`;
+    panel.innerHTML = `<div style="font-size:13px;font-weight:600;color:#f8fafc;margin-bottom:12px;">API Configuration</div><label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:4px;">MarketCheck API Key</label><input id="_mc_key_inp" type="text" autocomplete="off" placeholder="Enter your API key" value="${_getAuth().mode === 'api_key' ? _getAuth().value ?? '' : ''}" style="width:100%;padding:8px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:13px;margin-bottom:8px;box-sizing:border-box;" /><div style="font-size:10px;color:#64748b;margin-bottom:12px;">Get a free key at <a href="https://developers.marketcheck.com" target="_blank" style="color:#60a5fa;">developers.marketcheck.com</a></div><div style="display:flex;gap:8px;"><button id="_mc_save" style="flex:1;padding:8px;border-radius:6px;border:none;background:#3b82f6;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Save & Reload</button><button id="_mc_clear" style="padding:8px 12px;border-radius:6px;border:1px solid #334155;background:transparent;color:#94a3b8;font-size:13px;cursor:pointer;">Clear</button></div>`;
     gear.addEventListener("click", () => { panel.style.display = panel.style.display === "none" ? "block" : "none"; });
     document.addEventListener("click", (e) => { if (!panel.contains(e.target as Node) && e.target !== gear) panel.style.display = "none"; });
     document.body.appendChild(panel);
@@ -204,13 +204,13 @@ function getLTVBadge(ltv: number): { label: string; color: string; bg: string } 
 // ── Mock Data ──────────────────────────────────────────────────────────
 const MOCK_PORTFOLIO = [
   { vin: "KNDCB3LC9L5359658", loanAmount: 20000, make: "Kia", model: "Forte", year: 2020, segment: "Sedan" as Segment, fuelType: "Gas", baseValue: 18500 },
-  { vin: "1HGCV1F34LA000001", loanAmount: 25000, make: "Honda", model: "Accord", year: 2020, segment: "Sedan" as Segment, fuelType: "Gas", baseValue: 27200 },
+  { vin: "SHHFK7H4XLU423161", loanAmount: 22000, make: "Honda", model: "Civic Hatchback", year: 2020, segment: "Sedan" as Segment, fuelType: "Gas", baseValue: 23800 },
   { vin: "5YJSA1E26MF000001", loanAmount: 52000, make: "Tesla", model: "Model S", year: 2021, segment: "EV" as Segment, fuelType: "Electric", baseValue: 48500 },
-  { vin: "1FTFW1E85MFA00001", loanAmount: 42000, make: "Ford", model: "F-150", year: 2021, segment: "Truck" as Segment, fuelType: "Gas", baseValue: 44800 },
-  { vin: "4T1BF1FK5CU500000", loanAmount: 22000, make: "Toyota", model: "Camry", year: 2021, segment: "Sedan" as Segment, fuelType: "Gas", baseValue: 24500 },
-  { vin: "WBAJB9C51KB500000", loanAmount: 45000, make: "BMW", model: "X5", year: 2019, segment: "Luxury" as Segment, fuelType: "Gas", baseValue: 48200 },
-  { vin: "2HGFC2F59MH500000", loanAmount: 21000, make: "Honda", model: "Civic", year: 2021, segment: "Sedan" as Segment, fuelType: "Gas", baseValue: 23100 },
-  { vin: "1FMCU9J94MU500000", loanAmount: 30000, make: "Ford", model: "Escape", year: 2021, segment: "SUV" as Segment, fuelType: "Gas", baseValue: 28900 },
+  { vin: "1FTEW1C89HKC06560", loanAmount: 38000, make: "Ford", model: "F-150", year: 2017, segment: "Truck" as Segment, fuelType: "Gas", baseValue: 36200 },
+  { vin: "4T1DAACK3SU502218", loanAmount: 28000, make: "Toyota", model: "Camry", year: 2025, segment: "Sedan" as Segment, fuelType: "Gas", baseValue: 29500 },
+  { vin: "5UXKU2C5XK0Z64591", loanAmount: 48000, make: "BMW", model: "X6", year: 2019, segment: "Luxury" as Segment, fuelType: "Gas", baseValue: 51200 },
+  { vin: "5FNYF3H54DB022643", loanAmount: 18000, make: "Honda", model: "Pilot", year: 2013, segment: "SUV" as Segment, fuelType: "Gas", baseValue: 16900 },
+  { vin: "3KPF24AD6NE428800", loanAmount: 21000, make: "Kia", model: "Forte", year: 2022, segment: "Sedan" as Segment, fuelType: "Gas", baseValue: 22400 },
 ];
 
 function generateMockStressResult(scenario: Scenario, customPct: number): StressResult {

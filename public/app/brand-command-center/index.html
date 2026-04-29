@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Brand Command Center — MarketCheck Apps">
-  <meta property="og:description" content="OEM brand intelligence dashboard. Tracks your brand's market share, pricing, and sold volume against competitors using sold vehicle summary data.">
+  <meta property="og:description" content="OEM brand intelligence dashboard that tracks your brand portfolio's market share, pricing power, and volume momentum against all competitors. Features an interactive market share bar chart (top 15 bra">
   <meta property="og:url" content="https://apps.marketcheck.com/app/brand-command-center/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/brand-command-center.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Brand Command Center">
-  <meta name="twitter:description" content="OEM brand intelligence dashboard. Tracks your brand's market share, pricing, and sold volume against competitors using sold vehicle summary data.">
+  <meta name="twitter:description" content="OEM brand intelligence dashboard that tracks your brand portfolio's market share, pricing power, and volume momentum against all competitors. Features an interactive market share bar chart (top 15 bra">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/brand-command-center.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Brand Command Center","description":"OEM brand intelligence dashboard. Tracks your brand's market share, pricing, and sold volume against competitors using sold vehicle summary data.","url":"https://apps.marketcheck.com/app/brand-command-center/","image":"https://apps.marketcheck.com/assets/screenshots/brand-command-center.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Brand Command Center","description":"OEM brand intelligence dashboard that tracks your brand portfolio's market share, pricing power, and volume momentum against all competitors. Features an interactive market share bar chart (top 15 brands by sold volume with bps change indicators), a pricing power vs volume trend scatter plot with quadrant analysis, model-level drill-down tables with health indicators, state-level regional heatmaps, and conquest/defection flow analysis showing which brands you're gaining from and losing to.","url":"https://apps.marketcheck.com/app/brand-command-center/","image":"https://apps.marketcheck.com/assets/screenshots/brand-command-center.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -309,12 +309,52 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>OEM brand intelligence dashboard. Tracks your brand's market share, pricing, and sold volume against competitors using sold vehicle summary data.</p>
+    <p>OEM brand intelligence dashboard that tracks your brand portfolio's market share, pricing power, and volume momentum against all competitors. Features an interactive market share bar chart (top 15 brands by sold volume with bps change indicators), a pricing power vs volume trend scatter plot with quadrant analysis, model-level drill-down tables with health indicators, state-level regional heatmaps, and conquest/defection flow analysis showing which brands you're gaining from and losing to.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">OEM Product Planners</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Monitor your brand portfolio (e.g., Toyota + Lexus) against competitors in real time. Spot share gains/losses by brand, drill into model-level performance, and identify which competitors are conquesting your buyers.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Regional Sales Managers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Filter by state to see where your brands are strongest or weakest. Use the regional heatmap to prioritize dealer support and marketing spend across geographies.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Competitive Intelligence Teams</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Use the pricing power scatter plot to see which brands command above-MSRP pricing vs those discounting. Identify brands in the Distressed quadrant (declining volume + below-MSRP pricing) as conquest opportunities.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Dealer Group Executives</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Evaluate brand health before franchise decisions. The model drill-down shows which nameplates are HEALTHY, MIXED, or DECLINING based on volume trends and days-on-market.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (or set via localStorage)</td></tr><tr><td><code>make</code></td><td>Pre-select a brand for analysis (e.g., Toyota, Ford, Honda)</td></tr><tr><td><code>state</code></td><td>Pre-select a US state for regional filtering</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/brand-command-center/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/brand-command-center/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/brand-command-center/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/brand-command-center/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">

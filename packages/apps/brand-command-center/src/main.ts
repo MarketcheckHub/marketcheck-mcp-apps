@@ -1,7 +1,7 @@
 import { App } from "@modelcontextprotocol/ext-apps";
 
 let _safeApp: any = null;
-try { _safeApp = new App({ name: "brand-command-center" }); } catch {}
+if (window.parent !== window) { try { _safeApp = new App({ name: "brand-command-center", version: "1.0.0" }); } catch {} }
 
 // ── Dual-Mode Data Provider ────────────────────────────────────────────
 function _getAuth(): { mode: "api_key" | "oauth_token" | null; value: string | null } {
@@ -101,6 +101,35 @@ function _addSettingsBar(headerEl?: HTMLElement) {
 }
 // ── End Data Provider ──────────────────────────────────────────────────
 
+// ── Direct MarketCheck API Client (browser → api.marketcheck.com) ──────
+const _MC = "https://api.marketcheck.com";
+async function _mcApi(path: string, params: Record<string, any> = {}) {
+  const auth = _getAuth();
+  if (!auth.value) return null;
+  const prefix = path.startsWith("/api/") ? "" : "/v2";
+  const url = new URL(_MC + prefix + path);
+  if (auth.mode === "api_key") url.searchParams.set("api_key", auth.value);
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
+  }
+  const headers: Record<string, string> = {};
+  if (auth.mode === "oauth_token") headers["Authorization"] = "Bearer " + auth.value;
+  const res = await fetch(url.toString(), { headers });
+  if (!res.ok) throw new Error("MC API " + res.status);
+  return res.json();
+}
+function _mcSold(p: Record<string, any>) { return _mcApi("/api/v1/sold-vehicles/summary", p); }
+function _mcActive(p: Record<string, any>) { return _mcApi("/search/car/active", p); }
+
+async function _fetchDirect(args: Record<string, any>) {
+  // ranking_dimensions only supports: make, model, body_type, dealership_group_name
+  const [brandVolume, modelVolume] = await Promise.all([
+    _mcSold({ ranking_dimensions: "make", ranking_measure: "sold_count", top_n: 20, inventory_type: "Used" }),
+    _mcSold({ ranking_dimensions: "make,model", ranking_measure: "sold_count", make: args.make, top_n: 10, inventory_type: "Used" }),
+  ]);
+  return { brandVolume, modelVolume };
+}
+
 // ── Responsive CSS Injection ───────────────────────────────────────────
 (function injectResponsiveStyles() {
   const s = document.createElement("style");
@@ -140,7 +169,7 @@ function _addSettingsBar(headerEl?: HTMLElement) {
   document.head.appendChild(s);
 })();
 
-(_safeApp as any)?.connect?.();
+if (_safeApp && window.parent !== window) (_safeApp as any)?.connect?.();
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -187,7 +216,7 @@ interface ConquestData {
 
 // ─── Mock Data ──────────────────────────────────────────────────────────────
 
-const ALL_BRANDS: BrandData[] = [
+let ALL_BRANDS: BrandData[] = [
   { name: "Toyota", soldVolume: 48200, sharePercent: 14.8, bpsChange: 32, msrpParityIndex: 102.3, volumeTrend: 4.2, avgPrice: 38500, avgDOM: 22, isMyBrand: true },
   { name: "Lexus", soldVolume: 14800, sharePercent: 4.5, bpsChange: 18, msrpParityIndex: 105.1, volumeTrend: 2.8, avgPrice: 52400, avgDOM: 28, isMyBrand: true },
   { name: "Ford", soldVolume: 38600, sharePercent: 11.9, bpsChange: -15, msrpParityIndex: 96.2, volumeTrend: 1.5, avgPrice: 42100, avgDOM: 35, isMyBrand: false },
@@ -364,8 +393,8 @@ function render(): void {
         <button id="_banner_save" style="padding:8px 16px;border-radius:6px;border:none;background:#f59e0b;color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Activate</button>
       </div>`;
     document.body.insertBefore(_db, document.body.firstChild);
-    _db.querySelector("#_banner_save").addEventListener("click", () => {
-      const k = _db.querySelector("#_banner_key").value.trim();
+    (_db.querySelector("#_banner_save") as HTMLButtonElement)?.addEventListener("click", () => {
+      const k = (_db.querySelector("#_banner_key") as HTMLInputElement)?.value?.trim();
       if (!k) return;
       localStorage.setItem("mc_api_key", k);
       _db.style.background = "linear-gradient(135deg,#05966922,#10b98111)";
@@ -373,7 +402,7 @@ function render(): void {
       _db.innerHTML = '<div style="font-size:13px;font-weight:700;color:#10b981;">&#10003; API key saved — reloading with live data...</div>';
       setTimeout(() => location.reload(), 800);
     });
-    _db.querySelector("#_banner_key").addEventListener("keydown", (e) => { if (e.key === "Enter") _db.querySelector("#_banner_save").click(); });
+    (_db.querySelector("#_banner_key") as HTMLInputElement)?.addEventListener("keydown", (e) => { if (e.key === "Enter") (_db.querySelector("#_banner_save") as HTMLButtonElement)?.click(); });
   }
 
   root.innerHTML = `
@@ -636,6 +665,9 @@ function render(): void {
       </div>
     </div>
   `;
+
+  // Settings bar (mode badge + gear icon)
+  _addSettingsBar(root.querySelector('.header') as HTMLElement);
 
   // Bind events
   root.querySelectorAll<HTMLButtonElement>('.toggle-btn').forEach(btn => {
@@ -1067,5 +1099,45 @@ function renderConquest(): void {
 
 // ─── Init ───────────────────────────────────────────────────────────────────
 
-render();
-window.addEventListener('resize', render);
+async function main() {
+  // Apply URL params for deep-linking
+  const urlParams = _getUrlParams();
+  if (urlParams.make) {
+    const found = ALL_BRANDS.find(b => b.name.toLowerCase() === urlParams.make.toLowerCase());
+    if (found) state.selectedBrand = found.name;
+  }
+  if (urlParams.state) state.selectedState = urlParams.state;
+
+  // In live mode, try fetching real data from Enterprise Sold Summary API
+  if (_detectAppMode() === "live") {
+    try {
+      const data = await _fetchDirect({ make: state.selectedBrand });
+      if (data?.brandVolume?.data?.length) {
+        const totalVol = data.brandVolume.data.reduce((s: number, d: any) => s + (d.sold_count ?? 0), 0);
+        const myMake = state.selectedBrand.toLowerCase();
+        ALL_BRANDS = data.brandVolume.data.map((d: any) => {
+          const vol = d.sold_count ?? 0;
+          const share = totalVol > 0 ? (vol / totalVol) * 100 : 0;
+          return {
+            name: d.make ?? "Unknown",
+            soldVolume: vol,
+            sharePercent: +share.toFixed(1),
+            bpsChange: 0,
+            msrpParityIndex: 100,
+            volumeTrend: 0,
+            avgPrice: d.average_sale_price ?? d.avg_price ?? 35000,
+            avgDOM: d.average_dom ?? d.avg_dom ?? 30,
+            isMyBrand: (d.make ?? "").toLowerCase() === myMake,
+          } as BrandData;
+        });
+      }
+    } catch (e) {
+      console.warn("Enterprise API unavailable, using demo data:", e);
+    }
+  }
+
+  render();
+  window.addEventListener('resize', render);
+}
+
+main();

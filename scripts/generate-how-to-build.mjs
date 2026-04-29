@@ -831,7 +831,7 @@ const APPS = [
     tagline: "Your brands vs the competition",
     segment: "Manufacturer",
     toolName: null,
-    description: "OEM brand intelligence dashboard. Tracks your brand's market share, pricing, and sold volume against competitors using sold vehicle summary data.",
+    description: "OEM brand intelligence dashboard that tracks your brand portfolio's market share, pricing power, and volume momentum against all competitors. Features an interactive market share bar chart (top 15 brands by sold volume with bps change indicators), a pricing power vs volume trend scatter plot with quadrant analysis, model-level drill-down tables with health indicators, state-level regional heatmaps, and conquest/defection flow analysis showing which brands you're gaining from and losing to.",
     inputParams: [
       { name: "make", type: "string", required: true, desc: "Your brand (e.g., Toyota)" },
       { name: "state", type: "string", required: false, desc: "State for regional analysis" },
@@ -840,6 +840,17 @@ const APPS = [
       { step: 1, label: "Brand + Market Data", apis: ["soldSummary"], parallel: false, note: "Fetch sold summary by make with volume and price measures" },
     ],
     renders: "Brand vs competitor cards, market share bars, price position chart, volume momentum, segment share breakdown",
+    useCases: [
+      { persona: "OEM Product Planners", desc: "Monitor your brand portfolio (e.g., Toyota + Lexus) against competitors in real time. Spot share gains/losses by brand, drill into model-level performance, and identify which competitors are conquesting your buyers." },
+      { persona: "Regional Sales Managers", desc: "Filter by state to see where your brands are strongest or weakest. Use the regional heatmap to prioritize dealer support and marketing spend across geographies." },
+      { persona: "Competitive Intelligence Teams", desc: "Use the pricing power scatter plot to see which brands command above-MSRP pricing vs those discounting. Identify brands in the Distressed quadrant (declining volume + below-MSRP pricing) as conquest opportunities." },
+      { persona: "Dealer Group Executives", desc: "Evaluate brand health before franchise decisions. The model drill-down shows which nameplates are HEALTHY, MIXED, or DECLINING based on volume trends and days-on-market." },
+    ],
+    urlParams: [
+      { name: "api_key", desc: "Your MarketCheck API key (or set via localStorage)" },
+      { name: "make", desc: "Pre-select a brand for analysis (e.g., Toyota, Ford, Honda)" },
+      { name: "state", desc: "Pre-select a US state for regional filtering" },
+    ],
   },
   {
     id: "regional-demand-allocator",

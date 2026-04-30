@@ -66,7 +66,165 @@ function _mcIncentives(p) { const q={...p}; if(q.oem&&!q.make){q.make=q.oem;dele
 function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
 function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
 
-async function _fetchDirect(_args) { return null; /* passthrough — uses MCP mode */ }
+// Build a depreciation result from sold-vehicles/summary by pivoting on model_year.
+// Newest model_year row = newest car (~0 months from new); each year delta ≈ 12 months.
+async function _fetchDirect(args: {
+  models: ModelSelector[];
+  timeRange: TimeRange;
+  state: string;
+}): Promise<AnalyzerResult | null> {
+  const months = args.timeRange === "3M" ? 3 : args.timeRange === "6M" ? 6 : args.timeRange === "1Y" ? 12 : 24;
+  const stateParam = args.state && args.state !== "National" ? { state: args.state } : {};
+
+  const modelPromises = args.models.map((m) =>
+    _mcSold({
+      ranking_dimensions: "make,model,model_year",
+      ranking_measure: "sold_count",
+      inventory_type: "Used",
+      make: m.make,
+      model: m.model,
+      top_n: 25,
+      ...stateParam,
+    }).catch(() => null)
+  );
+
+  const segmentPromise = _mcSold({
+    ranking_dimensions: "body_type,model_year",
+    ranking_measure: "sold_count",
+    inventory_type: "Used",
+    top_n: 60,
+    ...stateParam,
+  }).catch(() => null);
+
+  const firstModel = args.models[0];
+  const geoPromise = firstModel
+    ? _mcSold({
+        ranking_dimensions: "state,make,model",
+        ranking_measure: "sold_count",
+        inventory_type: "Used",
+        make: firstModel.make,
+        model: firstModel.model,
+        top_n: 50,
+      }).catch(() => null)
+    : Promise.resolve(null);
+
+  const [modelResults, segmentResp, geoResp] = await Promise.all([
+    Promise.all(modelPromises),
+    segmentPromise,
+    geoPromise,
+  ]);
+
+  // Build per-model depreciation curves
+  const segmentByMakeModel: Record<string, string> = {};
+  const modelData: DepreciationData[] = args.models.map((m, idx) => {
+    const resp = modelResults[idx];
+    const rows = (resp?.data ?? []).filter((r: any) => r.model_year && r.average_sale_price);
+    if (rows.length === 0) {
+      return { model: m, msrp: 0, monthlyData: [], segment: "SUV" };
+    }
+    rows.sort((a: any, b: any) => (b.model_year ?? 0) - (a.model_year ?? 0));
+    const newestYear = rows[0].model_year;
+    const newestPrice = rows[0].average_sale_price;
+    // Use the newest avg sold price as anchor; treat as ~95% of MSRP for retention math
+    const msrp = Math.round(newestPrice / 0.95);
+    const segment = rows[0].body_type ?? "SUV";
+    segmentByMakeModel[`${m.make}|${m.model}`] = segment;
+
+    // year → avg price map
+    const yearPrice: Record<number, number> = {};
+    const yearVolume: Record<number, number> = {};
+    for (const r of rows) {
+      yearPrice[r.model_year] = r.average_sale_price;
+      yearVolume[r.model_year] = (yearVolume[r.model_year] ?? 0) + (r.sold_count ?? 0);
+    }
+    // Interpolate monthly points 1..months. Month i corresponds to year (newestYear - i/12).
+    const monthlyData: MonthlyDataPoint[] = [];
+    for (let i = 1; i <= months; i++) {
+      const yrFloat = newestYear - i / 12;
+      const yLo = Math.floor(yrFloat);
+      const yHi = Math.ceil(yrFloat);
+      const pLo = yearPrice[yLo];
+      const pHi = yearPrice[yHi];
+      let price = pLo ?? pHi ?? newestPrice;
+      if (pLo != null && pHi != null && yHi !== yLo) {
+        const t = yrFloat - yLo;
+        price = pLo + (pHi - pLo) * t;
+      }
+      const volume = yearVolume[Math.round(yrFloat)] ?? 0;
+      monthlyData.push({
+        month: i,
+        avgPrice: Math.round(price),
+        pctOfMsrp: Math.round((price / msrp) * 1000) / 10,
+        volume,
+      });
+    }
+    return { model: m, msrp, monthlyData, segment };
+  });
+
+  // Segment depreciation rates from body_type×model_year
+  const segRows: any[] = segmentResp?.data ?? [];
+  const segByType: Record<string, { yr: number; price: number; vol: number }[]> = {};
+  for (const r of segRows) {
+    const bt = r.body_type;
+    if (!bt || !r.model_year || !r.average_sale_price) continue;
+    if (!segByType[bt]) segByType[bt] = [];
+    segByType[bt].push({ yr: r.model_year, price: r.average_sale_price, vol: r.sold_count ?? 0 });
+  }
+  const segmentComparisons: SegmentDepreciation[] = Object.entries(segByType)
+    .map(([bodyType, pts]) => {
+      pts.sort((a, b) => b.yr - a.yr);
+      if (pts.length < 2) return { bodyType, monthlyDepreciationPct: 1.0 };
+      const newest = pts[0];
+      const older = pts[pts.length - 1];
+      const yearSpan = Math.max(newest.yr - older.yr, 1);
+      const totalDrop = (newest.price - older.price) / newest.price;
+      const annualDrop = totalDrop / yearSpan;
+      const monthly = Math.max(0.1, (annualDrop / 12) * 100);
+      return { bodyType, monthlyDepreciationPct: +monthly.toFixed(2) };
+    })
+    .filter((s) => s.monthlyDepreciationPct > 0)
+    .sort((a, b) => a.monthlyDepreciationPct - b.monthlyDepreciationPct)
+    .slice(0, 8);
+
+  // Geographic variance for first model
+  const geoRows: any[] = geoResp?.data ?? [];
+  const stateMap: Record<string, { totalPrice: number; count: number; vol: number }> = {};
+  for (const r of geoRows) {
+    const st = r.state;
+    if (!st || !r.average_sale_price) continue;
+    if (!stateMap[st]) stateMap[st] = { totalPrice: 0, count: 0, vol: 0 };
+    stateMap[st].totalPrice += r.average_sale_price * (r.sold_count ?? 1);
+    stateMap[st].count += r.sold_count ?? 1;
+    stateMap[st].vol += r.sold_count ?? 0;
+  }
+  const stateAverages = Object.entries(stateMap).map(([st, v]) => ({
+    state: st,
+    avgPrice: v.count > 0 ? Math.round(v.totalPrice / v.count) : 0,
+    volume: v.vol,
+  }));
+  const grandAvg =
+    stateAverages.reduce((s, x) => s + x.avgPrice * x.volume, 0) /
+    Math.max(1, stateAverages.reduce((s, x) => s + x.volume, 0));
+  const stateVariance: StateVariance[] = stateAverages
+    .map((s) => ({
+      ...s,
+      priceIndex: grandAvg > 0 ? Math.round((s.avgPrice / grandAvg) * 100) : 100,
+    }))
+    .sort((a, b) => b.volume - a.volume)
+    .slice(0, 20);
+
+  if (modelData.every((md) => md.monthlyData.length === 0)) return null;
+
+  return {
+    models: modelData,
+    segmentComparisons: segmentComparisons.length ? segmentComparisons : [
+      { bodyType: "SUV", monthlyDepreciationPct: 0.92 },
+      { bodyType: "Sedan", monthlyDepreciationPct: 1.15 },
+      { bodyType: "Truck", monthlyDepreciationPct: 0.85 },
+    ],
+    stateVariance: stateVariance.length ? stateVariance : [],
+  };
+}
 
 async function _callTool(toolName, args) {
   // 1. MCP mode (Claude, VS Code, etc.)
@@ -343,7 +501,6 @@ function generateMockData(
 }
 
 // ── App State ──────────────────────────────────────────────────────────────
-let app: InstanceType<typeof App>;
 let compareMode = true;
 let modelSelectors: ModelSelector[] = [
   { make: "Toyota", model: "RAV4" },
@@ -361,9 +518,32 @@ let hoveredMonth: number | null = null;
 let curveCanvas: HTMLCanvasElement;
 let segmentCanvas: HTMLCanvasElement;
 
+// ── URL Params → State ─────────────────────────────────────────────────────
+function applyUrlParams() {
+  const params = _getUrlParams();
+  if (params.make) {
+    const matchedMake = Object.keys(MAKES_MODELS).find(
+      (k) => k.toLowerCase() === params.make.toLowerCase()
+    );
+    if (matchedMake) {
+      const requestedModel = params.model;
+      const models = MAKES_MODELS[matchedMake];
+      const matchedModel = requestedModel
+        ? models.find((m) => m.toLowerCase() === requestedModel.toLowerCase()) ?? models[0]
+        : models[0];
+      modelSelectors[0] = { make: matchedMake, model: matchedModel };
+      compareMode = false;
+    }
+  }
+  if (params.state) {
+    const upper = params.state.toUpperCase();
+    if (US_STATES.includes(upper)) selectedState = upper;
+  }
+}
+
 // ── Initialize ─────────────────────────────────────────────────────────────
 async function init() {
-  app = new App({ name: "depreciation-analyzer", version: "1.0.0" });
+  applyUrlParams();
   buildUI();
   await fetchData();
 }
@@ -373,21 +553,21 @@ async function fetchData() {
   const models = compareMode ? modelSelectors.filter((m) => m.make && m.model) : [modelSelectors[0]];
   if (models.length === 0) return;
 
-  try {
-    const result = await _callTool("depreciation-analyzer", {
-        models: models.map((m) => ({ make: m.make, model: m.model })),
-        timeRange,
-        state: selectedState,
-      });
-    if (result && typeof result === "object") {
-      currentData = result as unknown as AnalyzerResult;
-    } else {
-      currentData = generateMockData(models, timeRange, selectedState);
-    }
-  } catch {
-    currentData = generateMockData(models, timeRange, selectedState);
-  }
+  const args = {
+    models: models.map((m) => ({ make: m.make, model: m.model })),
+    timeRange,
+    state: selectedState,
+  };
 
+  let result: AnalyzerResult | null = null;
+  if (_getAuth().value) {
+    try {
+      result = await _fetchDirect(args);
+    } catch (e) {
+      console.warn("Direct sold-summary fetch failed, falling back to mock:", e);
+    }
+  }
+  currentData = result ?? generateMockData(models, timeRange, selectedState);
   renderAll();
 }
 
@@ -478,6 +658,9 @@ function buildUI() {
     },
   });
   controlBar.appendChild(maToggle);
+
+  // Mode badge + settings gear (pushed to far right via margin-left:auto)
+  _addSettingsBar(controlBar);
 
   // Main content area
   const mainArea = el("div", {

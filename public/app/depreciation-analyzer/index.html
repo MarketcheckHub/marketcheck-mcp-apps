@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Depreciation Analyzer — MarketCheck Apps">
-  <meta property="og:description" content="Analyzes depreciation patterns using sold vehicle summary data. Shows how average prices vary by make, model, and age — revealing which vehicles hold value and which depreciate fastest.">
+  <meta property="og:description" content="A depreciation studio for appraisers and analysts. Compare up to four make/model combinations side by side and see how their used-market sale prices fall as the cars age. The app pivots Marketcheck's ">
   <meta property="og:url" content="https://apps.marketcheck.com/app/depreciation-analyzer/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/depreciation-analyzer.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Depreciation Analyzer">
-  <meta name="twitter:description" content="Analyzes depreciation patterns using sold vehicle summary data. Shows how average prices vary by make, model, and age — revealing which vehicles hold value and which depreciate fastest.">
+  <meta name="twitter:description" content="A depreciation studio for appraisers and analysts. Compare up to four make/model combinations side by side and see how their used-market sale prices fall as the cars age. The app pivots Marketcheck's ">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/depreciation-analyzer.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Depreciation Analyzer","description":"Analyzes depreciation patterns using sold vehicle summary data. Shows how average prices vary by make, model, and age — revealing which vehicles hold value and which depreciate fastest.","url":"https://apps.marketcheck.com/app/depreciation-analyzer/","image":"https://apps.marketcheck.com/assets/screenshots/depreciation-analyzer.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Depreciation Analyzer","description":"A depreciation studio for appraisers and analysts. Compare up to four make/model combinations side by side and see how their used-market sale prices fall as the cars age. The app pivots Marketcheck's Sold Vehicles Summary on model_year to derive a month-by-month depreciation curve, then layers in segment depreciation rates (SUV vs Sedan vs Truck etc.) and a state-by-state price index so you can spot regional pricing strength. Toggles for $ Price vs % of MSRP and a 3-month moving average let you cut the curve the way you want, and a hover crosshair surfaces per-model values at any point on the timeline.","url":"https://apps.marketcheck.com/app/depreciation-analyzer/","image":"https://apps.marketcheck.com/assets/screenshots/depreciation-analyzer.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -309,12 +309,55 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Analyzes depreciation patterns using sold vehicle summary data. Shows how average prices vary by make, model, and age — revealing which vehicles hold value and which depreciate fastest.</p>
+    <p>A depreciation studio for appraisers and analysts. Compare up to four make/model combinations side by side and see how their used-market sale prices fall as the cars age. The app pivots Marketcheck's Sold Vehicles Summary on model_year to derive a month-by-month depreciation curve, then layers in segment depreciation rates (SUV vs Sedan vs Truck etc.) and a state-by-state price index so you can spot regional pricing strength. Toggles for $ Price vs % of MSRP and a 3-month moving average let you cut the curve the way you want, and a hover crosshair surfaces per-model values at any point on the timeline.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Appraisers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Quickly answer 'which 3-year-old SUV holds value best?' with a real used-market depreciation curve sourced from Marketcheck's sold vehicle summary.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Lenders & Underwriters</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Stress-test collateral assumptions — overlay multiple make/models to see whose curve flattens fastest and use the state index to adjust LTV by geography.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Dealership Buyers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Pick stock that ages well — compare segment depreciation rates and avoid body styles that depreciate fastest in your state.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">OEM Pricing Teams</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Benchmark your nameplate's residual against direct competitors in the same segment, with state-level price index showing where your model commands a premium.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Auto Journalists</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Generate quotable retained-value stats — '% of MSRP at 12 months' is built directly into the chart for any model.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your Marketcheck API key — required for live data; without it the app runs in Demo Mode</td></tr><tr><td><code>make</code></td><td>Pre-selects the first model selector's make (e.g. 'Toyota'); switches the app into Single Model view</td></tr><tr><td><code>model</code></td><td>Pre-selects the model — paired with make (e.g. make=Toyota&model=RAV4)</td></tr><tr><td><code>state</code></td><td>Two-letter state code (e.g. 'CA', 'TX') — filters all data to that state</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/depreciation-analyzer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/depreciation-analyzer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/depreciation-analyzer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/depreciation-analyzer/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -329,17 +372,22 @@ pre.code-block {
     <h2>API Call Flow</h2>
     <p>Here's the exact sequence of MarketCheck API calls this app makes, and which ones run in parallel:</p>
     <div class="flow-diagram">
-      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">Sold Summary by Make</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
+      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">Sold Summary by make/model/year</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
           <div class="flow-api-card enterprise">
             <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
             <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
             <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
-          </div></div><div class="flow-note">Fetch average sale prices and sold counts by make</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Sold Summary by Body Type</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
+          </div></div><div class="flow-note">For each selected model, fetch sold-vehicles/summary pivoted on make,model,model_year — multiple model years per call power the depreciation curve</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Sold Summary by body_type/year</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
           <div class="flow-api-card enterprise">
             <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
             <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
             <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
-          </div></div><div class="flow-note">Fetch segment-level depreciation data</div></div>
+          </div></div><div class="flow-note">Fetch segment-level data pivoted on body_type,model_year — used to compute monthly depreciation rate per segment</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">3</div><div class="flow-step-label">Sold Summary by state</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
+          <div class="flow-api-card enterprise">
+            <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
+            <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
+            <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
+          </div></div><div class="flow-note">For the first selected model, fetch state-level breakdown for the geographic price index table</div></div>
     </div>
   </div>
 
@@ -351,7 +399,7 @@ pre.code-block {
     <table class="param-table">
       <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>make</code></td><td>string</td><td>No</td><td>Vehicle make to analyze</td></tr><tr><td><code>state</code></td><td>string</td><td>No</td><td>State for regional analysis</td></tr>
+        <tr><td><code>make</code></td><td>string</td><td>No</td><td>Vehicle make to analyze (URL deep-link)</td></tr><tr><td><code>model</code></td><td>string</td><td>No</td><td>Vehicle model to pre-select (paired with make)</td></tr><tr><td><code>state</code></td><td>string</td><td>No</td><td>Two-letter US state code for regional analysis</td></tr>
       </tbody>
     </table>
   </div>
@@ -385,7 +433,7 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Depreciation curves by make</div><div class="render-item"><div class="render-dot"></div>value retention rankings</div><div class="render-item"><div class="render-dot"></div>segment comparison charts</div><div class="render-item"><div class="render-dot"></div>annual depreciation rates</div>
+      <div class="render-item"><div class="render-dot"></div>Depreciation curves overlay (up to 4 models</div><div class="render-item"><div class="render-dot"></div>$ price or % of MSRP)</div><div class="render-item"><div class="render-dot"></div>3M moving average toggle</div><div class="render-item"><div class="render-dot"></div>hover crosshair tooltip with per-model values</div><div class="render-item"><div class="render-dot"></div>segment depreciation rate bars (highlighted for selected model's segment)</div><div class="render-item"><div class="render-dot"></div>state-by-state price index table with hot/cold color coding</div><div class="render-item"><div class="render-dot"></div>insights ticker with retained-value rankings</div>
     </div>
   </div>
 

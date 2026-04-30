@@ -66,7 +66,162 @@ function _mcIncentives(p) { const q={...p}; if(q.oem&&!q.make){q.make=q.oem;dele
 function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
 function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
 
-async function _fetchDirect(_args) { return null; /* passthrough — uses MCP mode */ }
+// ── Date helpers (timezone-safe — avoid toISOString shifts) ────────────
+function _fmtYMD(y: number, m: number, d: number): string {
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+function _firstOfMonth(d: Date): string {
+  return _fmtYMD(d.getFullYear(), d.getMonth() + 1, 1);
+}
+function _lastOfMonth(d: Date): string {
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  return _fmtYMD(d.getFullYear(), d.getMonth() + 1, last);
+}
+function _shiftMonths(d: Date, n: number): Date {
+  const r = new Date(d); r.setMonth(r.getMonth() + n); return r;
+}
+function _periodMonths(p: string): number {
+  return p === "30d" ? 1 : p === "60d" ? 2 : p === "90d" ? 3 : p === "6M" ? 6 : 12;
+}
+function _periodWindow(p: string): { from: string; to: string; priorFrom: string; priorTo: string } {
+  const months = _periodMonths(p);
+  const end = _shiftMonths(new Date(), -1);
+  const start = _shiftMonths(end, -(months - 1));
+  const priorEnd = _shiftMonths(start, -1);
+  const priorStart = _shiftMonths(priorEnd, -(months - 1));
+  return {
+    from: _firstOfMonth(start), to: _lastOfMonth(end),
+    priorFrom: _firstOfMonth(priorStart), priorTo: _lastOfMonth(priorEnd),
+  };
+}
+
+async function _fetchDirect(): Promise<any> {
+  if (!_getAuth().value) return null;
+  const win = _periodWindow(filters.period);
+  const stateP: any = filters.geography && filters.geography !== "National" ? { state: filters.geography } : {};
+  const inv = filters.inventoryType === "Both" ? undefined : filters.inventoryType;
+  const baseCurr: any = { date_from: win.from, date_to: win.to, inventory_type: inv, ...stateP };
+  const basePrior: any = { date_from: win.priorFrom, date_to: win.priorTo, inventory_type: inv, ...stateP };
+
+  const [byModelCurr, byModelPrior, byBody, byMakeCurr, byState] = await Promise.all([
+    _mcSold({ ...baseCurr, ranking_dimensions: "make,model", ranking_measure: "sold_count", ranking_order: "desc", top_n: 50 }).catch(() => null),
+    _mcSold({ ...basePrior, ranking_dimensions: "make,model", ranking_measure: "sold_count", ranking_order: "desc", top_n: 50 }).catch(() => null),
+    _mcSold({ ...baseCurr, ranking_dimensions: "body_type", ranking_measure: "sold_count", ranking_order: "desc", top_n: 20 }).catch(() => null),
+    _mcSold({ ...baseCurr, ranking_dimensions: "make", ranking_measure: "sold_count", ranking_order: "desc", top_n: 30 }).catch(() => null),
+    _mcSold({ ...baseCurr, summary_by: "state", ranking_measure: "sold_count", ranking_order: "desc", top_n: 60 }).catch(() => null),
+  ]);
+
+  const modelRowsCurr: any[] = byModelCurr?.data ?? [];
+  if (!modelRowsCurr.length) return null;
+  const modelRowsPrior: any[] = byModelPrior?.data ?? [];
+  const bodyRows: any[] = byBody?.data ?? [];
+  const makeRows: any[] = byMakeCurr?.data ?? [];
+  const stateRows: any[] = byState?.data ?? [];
+
+  const totalSold = modelRowsCurr.reduce((s, r) => s + (r.sold_count ?? 0), 0);
+  const wPrice = modelRowsCurr.reduce((s, r) => s + (r.average_sale_price ?? 0) * (r.sold_count ?? 0), 0);
+  const avgPrice = totalSold > 0 ? wPrice / totalSold : 0;
+  const wDom = modelRowsCurr.reduce((s, r) => s + (r.average_days_on_market ?? 0) * (r.sold_count ?? 0), 0);
+  const avgDom = totalSold > 0 ? wDom / totalSold : 0;
+  const totalMakeSold = makeRows.reduce((s, r) => s + (r.sold_count ?? 0), 0);
+  const wOverMsrp = makeRows.reduce((s, r) => s + (r.price_over_msrp_percentage ?? 0) * (r.sold_count ?? 0), 0);
+  const overMsrpPct = totalMakeSold > 0 ? wOverMsrp / totalMakeSold : 0;
+  const totalSoldPrior = modelRowsPrior.reduce((s, r) => s + (r.sold_count ?? 0), 0);
+  const soldMomPct = totalSoldPrior > 0 ? ((totalSold - totalSoldPrior) / totalSoldPrior) * 100 : 0;
+  const wPricePrior = modelRowsPrior.reduce((s, r) => s + (r.average_sale_price ?? 0) * (r.sold_count ?? 0), 0);
+  const priorAvg = totalSoldPrior > 0 ? wPricePrior / totalSoldPrior : avgPrice;
+  const priceDelta = avgPrice - priorAvg;
+
+  const findPrior = (mk: string, md: string) => modelRowsPrior.find((p) => p.make === mk && p.model === md);
+  const toMover = (r: any, i: number): any => {
+    const pri = findPrior(r.make, r.model);
+    const priorCount = pri?.sold_count ?? 0;
+    const mom = priorCount > 0 ? ((r.sold_count - priorCount) / priorCount) * 100 : 0;
+    return {
+      rank: i + 1, make: r.make, model: r.model,
+      soldCount: r.sold_count ?? 0,
+      avgPrice: Math.round(r.average_sale_price ?? 0),
+      avgDom: Math.round(r.average_days_on_market ?? 0),
+      momChangePct: +mom.toFixed(1),
+    };
+  };
+  const sortedByVol = modelRowsCurr.filter((r) => r.make && r.model).sort((a, b) => (b.sold_count ?? 0) - (a.sold_count ?? 0));
+  const fastest = sortedByVol.slice(0, 10).map(toMover);
+  const sortedByDom = modelRowsCurr.filter((r) => r.make && r.model && (r.average_days_on_market ?? 0) > 0).sort((a, b) => (b.average_days_on_market ?? 0) - (a.average_days_on_market ?? 0));
+  const slowest = sortedByDom.slice(0, 10).map(toMover);
+
+  const priceMoversAll: any[] = [];
+  for (const r of modelRowsCurr) {
+    if (!r.make || !r.model || (r.sold_count ?? 0) < 50) continue;
+    const pri = findPrior(r.make, r.model);
+    const prior = pri?.average_sale_price ?? 0;
+    const curr = r.average_sale_price ?? 0;
+    if (prior === 0 || curr === 0) continue;
+    const dollar = curr - prior;
+    const pct = (dollar / prior) * 100;
+    priceMoversAll.push({
+      make: r.make, model: r.model,
+      currentAvgPrice: Math.round(curr), priorAvgPrice: Math.round(prior),
+      changeDollar: Math.round(dollar), changePct: +pct.toFixed(1),
+    });
+  }
+  priceMoversAll.sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct));
+  const priceMovers = priceMoversAll.slice(0, 10);
+
+  const segColors = ["#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444", "#10b981", "#6b7280", "#06b6d4", "#a855f7"];
+  const totalBody = bodyRows.reduce((s, r) => s + (r.sold_count ?? 0), 0);
+  const segmentMix = bodyRows
+    .filter((r) => r.body_type)
+    .sort((a, b) => (b.sold_count ?? 0) - (a.sold_count ?? 0))
+    .slice(0, 6)
+    .map((r, i) => ({
+      label: r.body_type, count: r.sold_count ?? 0,
+      pct: totalBody > 0 ? +((r.sold_count / totalBody) * 100).toFixed(1) : 0,
+      color: segColors[i % segColors.length],
+    }));
+
+  let brandResiduals = makeRows
+    .filter((r) => r.make && r.price_over_msrp_percentage !== undefined)
+    .slice(0, 15)
+    .map((r) => ({
+      brand: r.make,
+      pctMsrpRetained: +(100 + (r.price_over_msrp_percentage ?? 0)).toFixed(1),
+    }))
+    .sort((a, b) => b.pctMsrpRetained - a.pctMsrpRetained);
+
+  const stateRanking = stateRows
+    .filter((r) => r.state)
+    .sort((a, b) => (b.sold_count ?? 0) - (a.sold_count ?? 0))
+    .slice(0, 15)
+    .map((r) => ({
+      state: r.state,
+      avgPrice: Math.round(r.average_sale_price ?? 0),
+      volume: r.sold_count ?? 0,
+      avgDom: Math.round(r.average_days_on_market ?? 0),
+    }));
+
+  const fallback = getMockCache();
+  return {
+    kpis: {
+      totalSoldCount: totalSold,
+      soldMomPct: +soldMomPct.toFixed(1),
+      avgSalePrice: Math.round(avgPrice),
+      avgSalePriceDelta: Math.round(priceDelta),
+      avgDom: Math.round(avgDom),
+      avgDomTrend: 0,
+      priceOverMsrpPct: +overMsrpPct.toFixed(1),
+      priceOverMsrpTrend: 0,
+      evSharePct: fallback.kpis.evSharePct,
+      evShareTrend: fallback.kpis.evShareTrend,
+    },
+    fastestMovers: fastest.length ? fastest : fallback.fastestMovers,
+    slowestMovers: slowest.length ? slowest : fallback.slowestMovers,
+    priceMovers: priceMovers.length ? priceMovers : fallback.priceMovers,
+    segmentMix: segmentMix.length ? segmentMix : fallback.segmentMix,
+    brandResiduals: brandResiduals.length ? brandResiduals : fallback.brandResiduals,
+    stateRanking: stateRanking.length ? stateRanking : fallback.stateRanking,
+  };
+}
 
 async function _callTool(toolName, args) {
   // 1. MCP mode (Claude, VS Code, etc.)
@@ -77,8 +232,8 @@ async function _callTool(toolName, args) {
   const auth = _getAuth();
   if (auth.value) {
     try {
-      const data = await _fetchDirect(args);
-      if (data) return { content: [{ type: "text", text: JSON.stringify(data) }] };
+      const direct = await _fetchDirect();
+      if (direct) return { content: [{ type: "text", text: JSON.stringify(direct) }] };
     } catch (e) { console.warn("Direct API failed, trying proxy:", e); }
     // 3. Proxy fallback
     try {
@@ -133,6 +288,23 @@ function _addSettingsBar(headerEl?: HTMLElement) {
   headerEl.appendChild(bar);
 }
 // ── End Data Provider ──────────────────────────────────────────────────
+
+// ── roundRect polyfill (Safari < 16) ───────────────────────────────────
+(function polyfillRoundRect() {
+  if (typeof CanvasRenderingContext2D === "undefined") return;
+  const proto = CanvasRenderingContext2D.prototype as any;
+  if (proto.roundRect) return;
+  proto.roundRect = function (x: number, y: number, w: number, h: number, r: number | number[]) {
+    const rr = Array.isArray(r) ? r : [r, r, r, r];
+    const [tl, tr, br, bl] = [rr[0] ?? 0, rr[1] ?? 0, rr[2] ?? 0, rr[3] ?? 0];
+    this.moveTo(x + tl, y);
+    this.lineTo(x + w - tr, y); this.quadraticCurveTo(x + w, y, x + w, y + tr);
+    this.lineTo(x + w, y + h - br); this.quadraticCurveTo(x + w, y + h, x + w - br, y + h);
+    this.lineTo(x + bl, y + h); this.quadraticCurveTo(x, y + h, x, y + h - bl);
+    this.lineTo(x, y + tl); this.quadraticCurveTo(x, y, x + tl, y);
+    return this;
+  };
+})();
 
 // ── Responsive CSS Injection ───────────────────────────────────────────
 (function injectResponsiveStyles() {
@@ -402,6 +574,13 @@ function generateMockData(): DashboardData {
   };
 }
 
+// ── Mock cache (avoid jitter on filter clicks) ─────────────────────────
+let _mockCache: DashboardData | null = null;
+function getMockCache(): DashboardData {
+  if (!_mockCache) _mockCache = generateMockData();
+  return _mockCache;
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────
 
 function fmt$(v: number): string {
@@ -430,13 +609,12 @@ function trendColor(v: number, invertGood = false): string {
 
 // ── Render ─────────────────────────────────────────────────────────────
 
-let data: DashboardData;
+let data: DashboardData = getMockCache();
 let moverTab: "fastest" | "slowest" = "fastest";
 let stateSortCol: keyof StateRankRow = "volume";
 let stateSortDir: "asc" | "desc" = "desc";
 
 function render() {
-  data = generateMockData();
   document.body.innerHTML = "";
 
   const root = document.createElement("div");
@@ -474,11 +652,15 @@ function render() {
     _db.querySelector("#_banner_key").addEventListener("keydown", (e) => { if (e.key === "Enter") _db.querySelector("#_banner_save").click(); });
   }
 
-  // Title
+  // Header row (title + mode badge + settings)
+  const headerRow = document.createElement("div");
+  headerRow.style.cssText = `display:flex;align-items:center;gap:12px;margin-bottom:16px;`;
   const title = document.createElement("h1");
   title.textContent = "Market Trends Dashboard";
-  title.style.cssText = `font-size:24px;font-weight:700;margin-bottom:16px;color:#f1f5f9;`;
-  root.appendChild(title);
+  title.style.cssText = `font-size:24px;font-weight:700;color:#f1f5f9;margin:0;`;
+  headerRow.appendChild(title);
+  _addSettingsBar(headerRow);
+  root.appendChild(headerRow);
 
   // Filter Bar
   root.appendChild(buildFilterBar());
@@ -1107,24 +1289,37 @@ function buildStateTable(): HTMLElement {
   return wrap;
 }
 
-// ── MCP Data Fetch ─────────────────────────────────────────────────────
-
+// ── Live Data Fetch ────────────────────────────────────────────────────
 
 async function fetchData() {
-  try {
-    await _callTool("market-trends-dashboard", {
-        state: filters.geography,
-        inventoryType: filters.inventoryType,
-        bodyType: filters.bodyType,
-        fuelType: filters.fuelType,
-        period: filters.period,
-      });
-  } catch {
-    // Server tool not available; use mock data
-  }
+  // Render mock immediately (instant first paint)
   render();
+  if (!_getAuth().value) return;
+  try {
+    const live = await _fetchDirect();
+    if (live) {
+      data = live;
+      render();
+    }
+  } catch (e) {
+    console.warn("Live sold-summary fetch failed, keeping mock data:", e);
+  }
 }
 
 // ── Bootstrap ──────────────────────────────────────────────────────────
 
-render();
+(function seedFiltersFromUrl() {
+  const p = _getUrlParams();
+  if (p.state && STATES.includes(p.state)) filters.geography = p.state;
+  const sp = new URLSearchParams(location.search);
+  const period = sp.get("period");
+  if (period && ["30d", "60d", "90d", "6M", "1Y"].includes(period)) filters.period = period;
+  const inv = sp.get("inventory") ?? sp.get("inventoryType");
+  if (inv && ["New", "Used", "Both"].includes(inv)) filters.inventoryType = inv;
+  const body = sp.get("body") ?? sp.get("bodyType");
+  if (body && ["All", "SUV", "Sedan", "Truck"].includes(body)) filters.bodyType = body;
+  const fuel = sp.get("fuel") ?? sp.get("fuelType");
+  if (fuel && ["All", "ICE", "EV", "Hybrid"].includes(fuel)) filters.fuelType = fuel;
+})();
+
+fetchData();

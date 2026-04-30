@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Claims Valuation Workbench — MarketCheck Apps">
-  <meta property="og:description" content="Insurance claims valuation tool for total-loss determinations. Combines VIN decode, fair market value prediction, sold comparables, regional pricing data, and replacement vehicle search.">
+  <meta property="og:description" content="Insurance total-loss workbench for adjusters. Decodes the loss vehicle from VIN, pulls a per-VIN ML fair-market-value prediction, fetches recent sold comparables in the local radius, and surfaces real">
   <meta property="og:url" content="https://apps.marketcheck.com/app/claims-valuation-workbench/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/claims-valuation-workbench.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Claims Valuation Workbench">
-  <meta name="twitter:description" content="Insurance claims valuation tool for total-loss determinations. Combines VIN decode, fair market value prediction, sold comparables, regional pricing data, and replacement vehicle search.">
+  <meta name="twitter:description" content="Insurance total-loss workbench for adjusters. Decodes the loss vehicle from VIN, pulls a per-VIN ML fair-market-value prediction, fetches recent sold comparables in the local radius, and surfaces real">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/claims-valuation-workbench.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Claims Valuation Workbench","description":"Insurance claims valuation tool for total-loss determinations. Combines VIN decode, fair market value prediction, sold comparables, regional pricing data, and replacement vehicle search.","url":"https://apps.marketcheck.com/app/claims-valuation-workbench/","image":"https://apps.marketcheck.com/assets/screenshots/claims-valuation-workbench.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Claims Valuation Workbench","description":"Insurance total-loss workbench for adjusters. Decodes the loss vehicle from VIN, pulls a per-VIN ML fair-market-value prediction, fetches recent sold comparables in the local radius, and surfaces real replacement listings near the loss ZIP — all in a single dual-mode page that works standalone, embedded, or inside an MCP host. Renders a 75%-of-FMV repair-threshold determination (NOT TOTAL / LIKELY TOTAL / TOTAL LOSS) backed by salvage range, condition adjustment, and a defensible comparable-evidence grid. With an Enterprise key the Regional Variance panel also populates with state-level avg pricing; with a standard key it degrades cleanly with an in-panel notice. Auto-runs the analysis when opened with `?api_key=…&vin=…&zip=…` URL params for direct deep-linking from claims systems.","url":"https://apps.marketcheck.com/app/claims-valuation-workbench/","image":"https://apps.marketcheck.com/assets/screenshots/claims-valuation-workbench.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -289,7 +289,7 @@ pre.code-block {
   <div class="breadcrumb"><a href="/">Gallery</a> / <a href="/#insurer">Insurer</a> / Claims Valuation Workbench</div>
   <div class="subtitle">How to Build</div>
   <h1>Claims Valuation Workbench</h1>
-  <p class="tagline">Total-loss determination with market evidence</p>
+  <p class="tagline">Total-loss determination with defensible market evidence</p>
   <span class="segment-badge" style="background:#ec489922;color:#ec4899;border:1px solid #ec489933;">
     Insurer
   </span>
@@ -309,12 +309,55 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Insurance claims valuation tool for total-loss determinations. Combines VIN decode, fair market value prediction, sold comparables, regional pricing data, and replacement vehicle search.</p>
+    <p>Insurance total-loss workbench for adjusters. Decodes the loss vehicle from VIN, pulls a per-VIN ML fair-market-value prediction, fetches recent sold comparables in the local radius, and surfaces real replacement listings near the loss ZIP — all in a single dual-mode page that works standalone, embedded, or inside an MCP host. Renders a 75%-of-FMV repair-threshold determination (NOT TOTAL / LIKELY TOTAL / TOTAL LOSS) backed by salvage range, condition adjustment, and a defensible comparable-evidence grid. With an Enterprise key the Regional Variance panel also populates with state-level avg pricing; with a standard key it degrades cleanly with an in-panel notice. Auto-runs the analysis when opened with `?api_key=…&vin=…&zip=…` URL params for direct deep-linking from claims systems.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Insurance Adjusters</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Paste a VIN from a loss notice; get a defensible total-loss determination, FMV, salvage range, and recent comp evidence in one screen.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Claims Examiners</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Stress-test the adjuster's verdict by adjusting damage severity (Minor/Moderate/Severe/Total) and pre-loss condition (Excellent/Good/Fair/Poor) — the threshold and verdict update live.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Subrogation Teams</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Pull replacement-vehicle candidates near the insured's ZIP with real dealer prices and distances to support replacement-cost recovery.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Auto Lenders</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Validate collateral value at default with the same per-VIN FMV the adjuster uses, plus a 25th-75th percentile settlement band.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Fleet Risk Managers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Quickly value a damaged unit using VIN + ZIP and decide repair-vs-total without engaging an outside appraiser.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (or set via localStorage). Standard tier covers FMV/comps/replacements; Enterprise tier adds Regional Variance.</td></tr><tr><td><code>vin</code></td><td>17-character VIN of the loss vehicle — auto-fills form and triggers the analysis on load</td></tr><tr><td><code>zip</code></td><td>ZIP code of the loss / insured (used for local comparable radius and replacement search)</td></tr><tr><td><code>miles</code></td><td>Pre-loss odometer reading (numeric, drives the per-VIN FMV prediction)</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/claims-valuation-workbench/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/claims-valuation-workbench/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/claims-valuation-workbench/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/claims-valuation-workbench/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -334,7 +377,7 @@ pre.code-block {
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/decode/car/neovin/{vin}/specs</code>
             <div class="flow-api-name">VIN Decode</div>
-          </div></div><div class="flow-note">Get vehicle specs for claims form</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">FMV + Sold + Regional + Replacements</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
+          </div></div><div class="flow-note">Resolve vehicle make/model/year/trim from the VIN</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">FMV + Sold + Regional + Replacements</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
           <div class="flow-api-card">
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/predict/car/us/marketcheck_price/comparables</code>
@@ -354,7 +397,7 @@ pre.code-block {
             <div class="flow-api-method">GET</div>
             <code class="flow-api-path">/v2/search/car/active</code>
             <div class="flow-api-name">Search Active Listings</div>
-          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Four parallel calls: fair market value, sold comps, regional pricing data, and replacement vehicle search</div></div>
+          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Four parallel calls: ML fair-market-value, local sold comps, state-level regional pricing (Enterprise), active replacement listings near ZIP</div></div>
     </div>
   </div>
 
@@ -366,7 +409,7 @@ pre.code-block {
     <table class="param-table">
       <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>vin</code></td><td>string</td><td><span class="required">Yes</span></td><td>17-character VIN</td></tr><tr><td><code>miles</code></td><td>number</td><td>No</td><td>Pre-loss mileage</td></tr><tr><td><code>zip</code></td><td>string</td><td>No</td><td>Loss location ZIP</td></tr><tr><td><code>condition</code></td><td>string</td><td>No</td><td>Pre-loss condition</td></tr><tr><td><code>damageSeverity</code></td><td>string</td><td>No</td><td>minor, moderate, severe, total</td></tr>
+        <tr><td><code>vin</code></td><td>string</td><td><span class="required">Yes</span></td><td>17-character VIN of the loss vehicle</td></tr><tr><td><code>miles</code></td><td>number</td><td>No</td><td>Pre-loss mileage</td></tr><tr><td><code>zip</code></td><td>string</td><td>No</td><td>Loss location ZIP</td></tr><tr><td><code>condition</code></td><td>string</td><td>No</td><td>Pre-loss condition: excellent, good, fair, poor</td></tr><tr><td><code>damageSeverity</code></td><td>string</td><td>No</td><td>minor, moderate, severe, total</td></tr>
       </tbody>
     </table>
   </div>
@@ -468,7 +511,7 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Total loss / repair verdict banner</div><div class="render-item"><div class="render-dot"></div>settlement range bar</div><div class="render-item"><div class="render-dot"></div>FMV breakdown</div><div class="render-item"><div class="render-dot"></div>comparable evidence grid</div><div class="render-item"><div class="render-dot"></div>replacement vehicle options</div><div class="render-item"><div class="render-dot"></div>regional pricing context</div>
+      <div class="render-item"><div class="render-dot"></div>Decoded vehicle bar</div><div class="render-item"><div class="render-dot"></div>total-loss verdict banner with 75% threshold</div><div class="render-item"><div class="render-dot"></div>settlement range with marker</div><div class="render-item"><div class="render-dot"></div>salvage range</div><div class="render-item"><div class="render-dot"></div>comparable sold-evidence grid</div><div class="render-item"><div class="render-dot"></div>real replacement listings with coverage badges</div><div class="render-item"><div class="render-dot"></div>regional state pricing (Enterprise) or empty-state notice (Standard)</div>
     </div>
   </div>
 
@@ -517,7 +560,7 @@ pre.code-block {
     }
   }
 }</pre>
-    <p>Then ask the AI: <em>"Use the claims-valuation tool to total-loss determination with market evidence"</em></p>
+    <p>Then ask the AI: <em>"Use the claims-valuation tool to total-loss determination with defensible market evidence"</em></p>
 
     <h3>3. Embed as an iFrame</h3>
     <pre class="code-block">&lt;iframe

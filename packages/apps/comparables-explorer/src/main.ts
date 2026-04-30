@@ -5,7 +5,7 @@
 import { App } from "@modelcontextprotocol/ext-apps";
 
 let _safeApp: any = null;
-try { _safeApp = new App({ name: "comparables-explorer" }); } catch {}
+try { _safeApp = new App({ name: "comparables-explorer", version: "1.0.0" }); } catch { }
 
 // ── Dual-Mode Data Provider ────────────────────────────────────────────
 function _getAuth(): { mode: "api_key" | "oauth_token" | null; value: string | null } {
@@ -45,7 +45,7 @@ function _proxyBase(): string {
 
 // ── Direct MarketCheck API Client (browser → api.marketcheck.com) ──────
 const _MC = "https://api.marketcheck.com";
-async function _mcApi(path, params = {}) {
+async function _mcApi(path: string, params: Record<string, unknown> = {}) {
   const auth = _getAuth();
   if (!auth.value) return null;
   const prefix = path.startsWith("/api/") ? "" : "/v2";
@@ -54,53 +54,162 @@ async function _mcApi(path, params = {}) {
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
   }
-  const headers = {};
+  const headers: Record<string, string> = {};
   if (auth.mode === "oauth_token") headers["Authorization"] = "Bearer " + auth.value;
   const res = await fetch(url.toString(), { headers });
   if (!res.ok) throw new Error("MC API " + res.status);
   return res.json();
 }
-function _mcDecode(vin) { return _mcApi("/decode/car/neovin/" + vin + "/specs"); }
-function _mcPredict(p) { return _mcApi("/predict/car/us/marketcheck_price/comparables", p); }
-function _mcActive(p) { return _mcApi("/search/car/active", p); }
-function _mcRecent(p) { return _mcApi("/search/car/recents", p); }
-function _mcHistory(vin) { return _mcApi("/history/car/" + vin); }
-function _mcSold(p) { return _mcApi("/api/v1/sold-vehicles/summary", p); }
-function _mcIncentives(p) { const q={...p}; if(q.oem&&!q.make){q.make=q.oem;delete q.oem;} return _mcApi("/search/car/incentive/oem", q); }
-function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
-function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
+function _mcDecode(vin: string) { return _mcApi("/decode/car/neovin/" + vin + "/specs"); }
+function _mcPredict(p: Record<string, unknown>) { return _mcApi("/predict/car/us/marketcheck_price/comparables", p); }
+function _mcActive(p: Record<string, unknown>) { return _mcApi("/search/car/active", p); }
+function _mcRecent(p: Record<string, unknown>) { return _mcApi("/search/car/recents", p); }
+function _mcHistory(vin: string) { return _mcApi("/history/car/" + vin); }
+function _mcSold(p: Record<string, unknown>) { return _mcApi("/api/v1/sold-vehicles/summary", p); }
+function _mcIncentives(p: Record<string, unknown>) { const q = { ...p } as Record<string, unknown>; if (q.oem && !q.make) { q.make = q.oem; delete q.oem; } return _mcApi("/search/car/incentive/oem", q); }
+function _mcUkActive(p: Record<string, unknown>) { return _mcApi("/search/car/uk/active", p); }
+function _mcUkRecent(p: Record<string, unknown>) { return _mcApi("/search/car/uk/recents", p); }
 
-async function _fetchDirect(args) {
+async function _fetchDirect(args: Record<string, unknown>) {
   let decode = null;
-  if (args.vin) decode = await _mcDecode(args.vin);
-  const make = args.make ?? decode?.make, model = args.model ?? decode?.model;
-  const [activeComps,soldComps] = await Promise.all([_mcActive({make,model,year:args.year,zip:args.zip,radius:args.radius??100,stats:"price,miles,dom",rows:50}),_mcRecent({make,model,year:args.year,zip:args.zip,radius:args.radius??100,stats:"price",rows:25})]);
-  const prediction = args.vin ? await _mcPredict({vin:args.vin,zip:args.zip}) : null;
-  return {decode,activeComps,soldComps,prediction};
+  if (args.vin) decode = await _mcDecode(String(args.vin));
+  const make = args.make ?? (decode as any)?.make;
+  const model = args.model ?? (decode as any)?.model;
+  const [activeComps, soldComps] = await Promise.all([
+    _mcActive({
+      make,
+      model,
+      year: args.year,
+      trim: args.trim,
+      zip: args.zip,
+      radius: args.radius ?? 100,
+      miles_range: args.mileage_min && args.mileage_max ? `${args.mileage_min}-${args.mileage_max}` : undefined,
+      stats: "price,miles,dom",
+      rows: 50,
+    }).catch(() => ({ listings: [] })),
+    _mcRecent({
+      make,
+      model,
+      year: args.year,
+      trim: args.trim,
+      zip: args.zip,
+      radius: args.radius ?? 100,
+      stats: "price,miles,dom",
+      rows: 25,
+    }).catch(() => ({ listings: [] })),
+  ]);
+  const prediction = args.vin
+    ? await _mcPredict({ vin: args.vin, miles: args.mileage_min, zip: args.zip }).catch(() => null)
+    : null;
+  return { decode, activeComps, soldComps, prediction };
 }
 
-async function _callTool(toolName, args) {
-  // 1. MCP mode (Claude, VS Code, etc.)
-  if (_safeApp) {
-    try { const r = _safeApp.callServerTool({ name: toolName, arguments: args }); return r; } catch {}
-  }
-  // 2. Direct API mode (browser → api.marketcheck.com)
+function _transformRawToComparablesResult(raw: any, args: Record<string, unknown>): ComparablesResult {
+  const _num = (...vals: any[]): number => {
+    for (const v of vals) {
+      const n = Number(v);
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+    return 0;
+  };
+
+  const decode = raw?.decode ?? {};
+  const activeRaw: any[] = raw?.activeComps?.listings ?? [];
+  const soldRaw: any[] = raw?.soldComps?.listings ?? [];
+  const source = activeRaw.length > 0 ? activeRaw : soldRaw;
+
+  const listings: CompListing[] = source
+    .map((l: any) => ({
+      price: _num(l.price, l.list_price, l.ref_price, l.close_price, l.sold_price),
+      miles: _num(l.miles, l.mileage, l.odometer),
+      trim: String(l.trim ?? l.build?.trim ?? args.trim ?? ""),
+      dealer_name: String(l.dealer?.name ?? l.seller_name ?? "Unknown Dealer"),
+      city: String(l.dealer?.city ?? l.city ?? ""),
+      state: String(l.dealer?.state ?? l.state ?? ""),
+      dom: _num(l.dom, l.days_on_market, l.dom_active),
+      vdp_url: l.vdp_url ?? l.vdpUrl,
+    }))
+    .filter((l: CompListing) => l.price > 0);
+
+  const prices = listings.map((l) => l.price);
+  const sortedPrices = [...prices].sort((a, b) => a - b);
+  const mean = sortedPrices.length > 0
+    ? sortedPrices.reduce((s, p) => s + p, 0) / sortedPrices.length
+    : 0;
+  const median = sortedPrices.length === 0
+    ? 0
+    : (sortedPrices.length % 2 === 0
+      ? (sortedPrices[sortedPrices.length / 2 - 1] + sortedPrices[sortedPrices.length / 2]) / 2
+      : sortedPrices[Math.floor(sortedPrices.length / 2)]);
+  const variance = sortedPrices.length > 0
+    ? sortedPrices.reduce((s, p) => s + (p - mean) ** 2, 0) / sortedPrices.length
+    : 0;
+  const avgDom = listings.length > 0
+    ? Math.round(listings.reduce((s, l) => s + l.dom, 0) / listings.length)
+    : 0;
+
+  const predicted = _num(
+    raw?.prediction?.predicted_price,
+    raw?.prediction?.marketcheck_price,
+    raw?.prediction?.price,
+    raw?.prediction?.comparables?.stats?.price?.mean,
+  );
+
+  const target = {
+    make: String(args.make ?? decode?.make ?? "Unknown"),
+    model: String(args.model ?? decode?.model ?? "Unknown"),
+    year: Number(args.year ?? decode?.year ?? 0),
+    trim: String(args.trim ?? decode?.trim ?? ""),
+    price: predicted > 0 ? Math.round(predicted) : Math.round(median || mean || 0),
+    miles: Number(args.mileage_min ?? 0),
+  };
+
+  return {
+    target,
+    listings,
+    stats: {
+      count: listings.length,
+      mean_price: Math.round(mean),
+      median_price: Math.round(median),
+      std_dev: Math.round(Math.sqrt(variance)),
+      min_price: sortedPrices[0] ?? 0,
+      max_price: sortedPrices[sortedPrices.length - 1] ?? 0,
+      avg_dom: avgDom,
+    },
+  };
+}
+
+async function _callTool(toolName: string, args: Record<string, unknown>) {
+  // 1. Authenticated live mode should always win (matches derivative API docs).
+  // This avoids iframe/MCP hosts accidentally overriding explicit API-key usage.
   const auth = _getAuth();
   if (auth.value) {
-    try {
-      const data = await _fetchDirect(args);
-      if (data) return { content: [{ type: "text", text: JSON.stringify(data) }] };
-    } catch (e) { console.warn("Direct API failed, trying proxy:", e); }
-    // 3. Proxy fallback
+    // 1a. Proxy-first path (documented endpoint: /api/proxy/comparables-explorer)
+    // Works across environments where direct browser CORS calls may fail.
     try {
       const r = await fetch((_proxyBase()) + "/api/proxy/" + toolName, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...args, _auth_mode: auth.mode, _auth_value: auth.value }),
       });
       if (r.ok) { const d = await r.json(); return { content: [{ type: "text", text: JSON.stringify(d) }] }; }
-    } catch {}
+    } catch (e) { console.warn("Proxy API failed, trying direct:", e); }
+
+    // 1b. Direct API mode (browser → api.marketcheck.com)
+    try {
+      const data = await _fetchDirect(args);
+      if (data) return { content: [{ type: "text", text: JSON.stringify(data) }] };
+    } catch (e) { console.warn("Direct API failed:", e); }
   }
-  // 4. Demo mode (null → app uses mock data)
+
+  // 2. MCP mode (Claude, VS Code, etc.) when no explicit auth was provided.
+  if (_safeApp && window.parent !== window) {
+    try {
+      const r = await _safeApp.callServerTool({ name: toolName, arguments: args });
+      return r;
+    } catch { }
+  }
+
+  // 3. Demo mode (null → app uses mock data)
   return null;
 }
 
@@ -331,6 +440,85 @@ function computePercentile(prices: number[], value: number): number {
   return Math.round((count / sorted.length) * 100);
 }
 
+// ── Make-Model-Trim Cascading Dropdown Mapping ─────────────────────────────────
+
+const makeModelTrimMap: Record<string, Record<string, string[]>> = {
+  "Toyota": {
+    "RAV4": ["LE", "XLE", "XLE Premium", "SE", "Limited", "TRD Off-Road", "TRD Pro"],
+    "Camry": ["LE", "SE", "XLE", "Limited", "Hybrid LE", "Hybrid SE", "Hybrid XLE"],
+    "Corolla": ["LE", "SE", "XLE", "Limited", "Hatchback LE", "Hatchback SE", "Hatchback XLE"],
+    "Highlander": ["LE", "XLE", "Limited", "Platinum", "Hybrid LE", "Hybrid XLE", "Hybrid Limited"],
+    "Tacoma": ["SR", "SR5", "TRD Sport", "TRD Off-Road", "Limited", "TRD Pro"],
+    "4Runner": ["SR5", "Limited", "TRD Sport", "TRD Off-Road", "TRD Pro"],
+    "Tundra": ["SR", "SR5", "Limited", "Platinum", "1794 Edition", "TRD Pro"],
+    "Prius": ["LE", "XLE", "Limited", "Prime LE", "Prime XLE", "Prime Limited"],
+  },
+  "Honda": {
+    "CR-V": ["LX", "EX", "EX-L", "Touring", "Sport Touring"],
+    "Accord": ["LX", "EX", "EX-L", "Touring", "Sport", "Sport Touring"],
+    "Civic": ["LX", "EX", "EX-L", "Touring", "Si", "Type R"],
+    "Pilot": ["LX", "EX", "EX-L", "Touring", "Elite"],
+    "Odyssey": ["LX", "EX", "EX-L", "Touring"],
+    "HR-V": ["LX", "EX", "EX-L", "Sport Touring"],
+  },
+  "Ford": {
+    "F-150": ["Regular Cab", "SuperCab", "SuperCrew", "XLT", "Lariat", "King Ranch", "Platinum", "Limited"],
+    "Escape": ["S", "SE", "SEL", "Titanium", "Hybrid SE", "Hybrid Titanium"],
+    "Explorer": ["Base", "XLT", "Limited", "Platinum", "ST"],
+    "Mustang": ["EcoBoost", "GT", "Mach-E Select", "Mach-E Premium", "Mach-E Platinum"],
+    "Edge": ["SE", "SEL", "Titanium"],
+  },
+  "Chevrolet": {
+    "Silverado": ["Regular Cab", "Double Cab", "Crew Cab", "Custom", "LTZ", "High Country", "ZR2"],
+    "Equinox": ["LS", "LT", "RS", "Premier", "Hybrid LT"],
+    "Blazer": ["2.0L", "2.5L", "RS", "SS"],
+    "Trailblazer": ["LS", "LT", "RS"],
+    "Malibu": ["L", "LT", "RS", "Premier"],
+  },
+  "BMW": {
+    "3 Series": ["320i", "330i", "340i", "M340i", "330e", "M3"],
+    "5 Series": ["530i", "540i", "M550i", "530e", "M5"],
+    "X3": ["sDrive30i", "xDrive30i", "xDrive40i", "M40i", "M"],
+    "X5": ["sDrive40i", "xDrive40i", "xDrive50i", "M50i", "M"],
+    "7 Series": ["740i", "750i", "M760i", "750e"],
+  },
+  "Mercedes-Benz": {
+    "C-Class": ["C 300", "C 300 4MATIC", "AMG C 43", "AMG C 63"],
+    "E-Class": ["E 350", "E 350 4MATIC", "AMG E 53", "AMG E 63"],
+    "GLC": ["GLC 300", "GLC 300 4MATIC", "AMG GLC 43", "AMG GLC 63"],
+    "GLE": ["GLE 350", "GLE 350 4MATIC", "AMG GLE 53", "AMG GLE 63"],
+    "S-Class": ["S 500", "S 580", "AMG S 63", "AMG S 73"],
+  },
+  "Nissan": {
+    "Altima": ["2.5L", "2.5L SV", "2.5L SL", "2.5L Platinum"],
+    "Rogue": ["S", "SV", "SL", "Platinum", "e-Power"],
+    "Pathfinder": ["S", "SV", "SL", "Platinum", "Rock Creek"],
+    "Maxima": ["3.5S", "3.5SV", "3.5SL", "3.5 Platinum"],
+    "Sentra": ["S", "SV", "SL", "Platinum"],
+  },
+  "Hyundai": {
+    "Elantra": ["SE", "SEL", "Limited", "N", "Hybrid SE", "Hybrid SEL"],
+    "Sonata": ["SE", "SEL", "Limited", "N Line", "Hybrid SE", "Hybrid Limited"],
+    "Santa Fe": ["SE", "SEL", "Limited", "Calligraphy", "N Line"],
+    "Tucson": ["SE", "SEL", "Limited", "N Line", "N"],
+    "Ioniq": ["SE", "SEL", "Limited", "N Line"],
+  },
+  "Kia": {
+    "Optima": ["LX", "EX", "SX", "SX Turbo", "Hybrid LX", "Hybrid EX"],
+    "Sportage": ["LX", "EX", "SX", "SX Prestige", "EV"],
+    "Sorento": ["LX", "EX", "SX", "SXL", "Hybrid LX"],
+    "K5": ["LX", "EX", "GT-Line", "GT"],
+    "Niro": ["LX", "EX", "SX", "SX Prestige", "EV"],
+  },
+  "Subaru": {
+    "Outback": ["Base", "Premium", "Limited", "Onyx Edition", "Onyx XT"],
+    "Crosstrek": ["Base", "Premium", "Limited", "Sport", "Limited XT"],
+    "Forester": ["Base", "Premium", "Limited", "XT Limited"],
+    "Impreza": ["Base", "Premium", "Limited", "Sport", "Sport Limited"],
+    "Legacy": ["Base", "Premium", "Limited", "XT Limited"],
+  },
+};
+
 // ── App Init ───────────────────────────────────────────────────────────────────
 
 
@@ -342,7 +530,6 @@ document.body.style.cssText =
 let result: ComparablesResult | null = null;
 let sortKey: SortKey = "price";
 let sortDir: SortDir = "asc";
-let useMock = true;
 
 // Form state
 let formMake = "Toyota";
@@ -361,12 +548,12 @@ const container = document.createElement("div");
 container.style.cssText = "max-width:1400px;margin:0 auto;padding:16px 20px;";
 document.body.appendChild(container);
 
-  // ── Demo mode banner ──
-  if (_detectAppMode() === "demo") {
-    const _db = document.createElement("div");
-    _db.id = "_demo_banner";
-    _db.style.cssText = "background:linear-gradient(135deg,#92400e22,#f59e0b11);border:1px solid #f59e0b44;border-radius:10px;padding:14px 20px;margin-bottom:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;";
-    _db.innerHTML = `
+// ── Demo mode banner ──
+if (_detectAppMode() === "demo") {
+  const _db = document.createElement("div");
+  _db.id = "_demo_banner";
+  _db.style.cssText = "background:linear-gradient(135deg,#92400e22,#f59e0b11);border:1px solid #f59e0b44;border-radius:10px;padding:14px 20px;margin-bottom:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;";
+  _db.innerHTML = `
       <div style="flex:1;min-width:200px;">
         <div style="font-size:13px;font-weight:700;color:#fbbf24;margin-bottom:2px;">&#9888; Demo Mode — Showing sample data</div>
         <div style="font-size:12px;color:#d97706;">Enter your MarketCheck API key to see real market data. <a href="https://developers.marketcheck.com" target="_blank" style="color:#fbbf24;text-decoration:underline;">Get a free key</a></div>
@@ -375,18 +562,20 @@ document.body.appendChild(container);
         <input id="_banner_key" type="text" placeholder="Paste your API key" style="padding:8px 12px;border-radius:6px;border:1px solid #f59e0b44;background:#0f172a;color:#e2e8f0;font-size:13px;width:220px;outline:none;" />
         <button id="_banner_save" style="padding:8px 16px;border-radius:6px;border:none;background:#f59e0b;color:#0f172a;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Activate</button>
       </div>`;
-    container.appendChild(_db);
-    _db.querySelector("#_banner_save").addEventListener("click", () => {
-      const k = _db.querySelector("#_banner_key").value.trim();
-      if (!k) return;
-      localStorage.setItem("mc_api_key", k);
-      _db.style.background = "linear-gradient(135deg,#05966922,#10b98111)";
-      _db.style.borderColor = "#10b98144";
-      _db.innerHTML = '<div style="font-size:13px;font-weight:700;color:#10b981;">&#10003; API key saved — reloading with live data...</div>';
-      setTimeout(() => location.reload(), 800);
-    });
-    _db.querySelector("#_banner_key").addEventListener("keydown", (e) => { if (e.key === "Enter") _db.querySelector("#_banner_save").click(); });
-  }
+  container.appendChild(_db);
+  const _bannerSave = _db.querySelector("#_banner_save") as HTMLButtonElement | null;
+  const _bannerKey = _db.querySelector("#_banner_key") as HTMLInputElement | null;
+  _bannerSave?.addEventListener("click", () => {
+    const k = _bannerKey?.value.trim() ?? "";
+    if (!k) return;
+    localStorage.setItem("mc_api_key", k);
+    _db.style.background = "linear-gradient(135deg,#05966922,#10b98111)";
+    _db.style.borderColor = "#10b98144";
+    _db.innerHTML = '<div style="font-size:13px;font-weight:700;color:#10b981;">&#10003; API key saved — reloading with live data...</div>';
+    setTimeout(() => location.reload(), 800);
+  });
+  _bannerKey?.addEventListener("keydown", (e: KeyboardEvent) => { if (e.key === "Enter") _bannerSave?.click(); });
+}
 
 // ── Top Bar ────────────────────────────────────────────────────────────────────
 
@@ -398,6 +587,7 @@ const titleRow = document.createElement("div");
 titleRow.style.cssText = "display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;";
 titleRow.innerHTML = `<h1 style="font-size:20px;font-weight:700;color:#f1f5f9;letter-spacing:-0.3px;">Market Comparables Explorer</h1>
   <span style="font-size:12px;color:#64748b;">Powered by MarketCheck</span>`;
+_addSettingsBar(titleRow);
 topBar.appendChild(titleRow);
 
 // Row 1: Make / Model / Year / Trim / VIN
@@ -517,6 +707,129 @@ container.appendChild(topBar);
 (yearSelect.querySelector("select") as HTMLSelectElement).value = formYear;
 (trimSelect.querySelector("select") as HTMLSelectElement).value = formTrim;
 
+// Prefill from URL params when available.
+const urlParams = _getUrlParams();
+if (urlParams.make) (makeSelect.querySelector("select") as HTMLSelectElement).value = urlParams.make;
+if (urlParams.model) (modelSelect.querySelector("select") as HTMLSelectElement).value = urlParams.model;
+if (urlParams.vin) vinInput.value = urlParams.vin;
+if (urlParams.zip) zipInput.value = urlParams.zip;
+
+// ── Cascading Dropdown Functions ───────────────────────────────────────────────
+
+const makeSelectEl = makeSelect.querySelector("select") as HTMLSelectElement;
+const modelSelectEl = modelSelect.querySelector("select") as HTMLSelectElement;
+const yearSelectEl = yearSelect.querySelector("select") as HTMLSelectElement;
+const trimSelectEl = trimSelect.querySelector("select") as HTMLSelectElement;
+
+function ensureSelectOption(selectEl: HTMLSelectElement, value: string): void {
+  if (!value) return;
+  const exists = Array.from(selectEl.options).some((option) => option.value === value);
+  if (!exists) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = value;
+    selectEl.appendChild(option);
+  }
+}
+
+function updateModelOptions(make: string): void {
+  const models = Object.keys(makeModelTrimMap[make] || {});
+  if (models.length === 0) return;
+
+  // Preserve or reset model
+  let selectedModel = modelSelectEl.value;
+  if (!models.includes(selectedModel)) {
+    selectedModel = models[0];
+  }
+
+  // Update model select options
+  modelSelectEl.innerHTML = "";
+  for (const model of models) {
+    const option = document.createElement("option");
+    option.value = model;
+    option.textContent = model;
+    modelSelectEl.appendChild(option);
+  }
+  modelSelectEl.value = selectedModel;
+
+  // Update trim options based on new model selection
+  updateTrimOptions(selectedModel, make);
+}
+
+function updateTrimOptions(model: string, make: string): void {
+  const trims = makeModelTrimMap[make]?.[model] || [];
+  if (trims.length === 0) return;
+
+  // Preserve or reset trim
+  let selectedTrim = trimSelectEl.value;
+  if (!trims.includes(selectedTrim)) {
+    selectedTrim = trims[0];
+  }
+
+  // Update trim select options
+  trimSelectEl.innerHTML = "";
+  for (const trim of trims) {
+    const option = document.createElement("option");
+    option.value = trim;
+    option.textContent = trim;
+    trimSelectEl.appendChild(option);
+  }
+  trimSelectEl.value = selectedTrim;
+}
+
+function syncVehicleSelectors(vehicle: { make?: string; model?: string; year?: number | string; trim?: string }): void {
+  const make = String(vehicle.make ?? "").trim();
+  const model = String(vehicle.model ?? "").trim();
+  const trim = String(vehicle.trim ?? "").trim();
+  const year = String(vehicle.year ?? "").trim();
+
+  if (make) {
+    ensureSelectOption(makeSelectEl, make);
+    makeSelectEl.value = make;
+    formMake = make;
+    updateModelOptions(make);
+  }
+
+  if (model) {
+    ensureSelectOption(modelSelectEl, model);
+    modelSelectEl.value = model;
+    formModel = model;
+    updateTrimOptions(model, formMake || make);
+  }
+
+  if (trim) {
+    ensureSelectOption(trimSelectEl, trim);
+    trimSelectEl.value = trim;
+    formTrim = trim;
+  }
+
+  if (year) {
+    ensureSelectOption(yearSelectEl, year);
+    yearSelectEl.value = year;
+    formYear = year;
+  }
+}
+
+// Add change listeners for cascading dropdowns
+makeSelectEl.addEventListener("change", (e) => {
+  const selectedMake = (e.target as HTMLSelectElement).value;
+  formMake = selectedMake;
+  updateModelOptions(selectedMake);
+});
+
+modelSelectEl.addEventListener("change", (e) => {
+  const selectedModel = (e.target as HTMLSelectElement).value;
+  formModel = selectedModel;
+  updateTrimOptions(selectedModel, formMake);
+});
+
+trimSelectEl.addEventListener("change", (e) => {
+  formTrim = (e.target as HTMLSelectElement).value;
+});
+
+// Initialize trim options on page load
+updateTrimOptions(formModel, formMake);
+
 // ── Charts Row ─────────────────────────────────────────────────────────────────
 
 const chartsRow = document.createElement("div");
@@ -614,28 +927,70 @@ async function handleSearch(): Promise<void> {
   searchBtn.textContent = "Searching...";
   searchBtn.style.opacity = "0.7";
   searchBtn.disabled = true;
+  const mode = _detectAppMode();
 
   try {
     let data: ComparablesResult;
 
-    if (useMock) {
+    if (mode === "demo") {
       // Simulate delay
       await new Promise((r) => setTimeout(r, 400));
       data = generateMockData();
     } else {
       const args: Record<string, unknown> = {
-        make: formMake,
-        model: formModel,
-        year: parseInt(formYear),
         zip: formZip,
         radius: formRadius,
       };
-      if (formVin) args.vin = formVin;
-      if (formTrim) args.trim = formTrim;
+      if (formVin) {
+        args.vin = formVin;
+      } else {
+        args.make = formMake;
+        args.model = formModel;
+        args.year = parseInt(formYear);
+        if (formTrim) args.trim = formTrim;
+      }
       if (formMileMin) args.mileage_min = parseInt(formMileMin.replace(/,/g, ""));
       if (formMileMax) args.mileage_max = parseInt(formMileMax.replace(/,/g, ""));
 
-      data = await _callTool("comparables-explorer", args);
+      const response = await _callTool("comparables-explorer", args);
+      // Handle null response from failed API calls in live mode
+      if (!response) {
+        throw new Error("Live API call returned no data (proxy and direct API calls failed)");
+      }
+      if (!Array.isArray(response.content)) {
+        throw new Error("Invalid response structure from comparables-explorer tool");
+      }
+      const text = response.content
+        .filter((c: { type: string }) => c.type === "text")
+        .map((c: { text: string }) => c.text)
+        .join("");
+      if (!text.trim()) {
+        throw new Error("Empty response payload from comparables-explorer tool");
+      }
+      const raw = JSON.parse(text);
+      data = (raw?.target && Array.isArray(raw?.listings) && raw?.stats)
+        ? raw
+        : _transformRawToComparablesResult(raw, args);
+
+      if (formVin) {
+        syncVehicleSelectors({
+          make: raw?.decode?.make ?? data.target.make,
+          model: raw?.decode?.model ?? data.target.model,
+          year: raw?.decode?.year ?? data.target.year,
+          trim: raw?.decode?.trim ?? data.target.trim,
+        });
+      }
+
+      // In live mode, keep live UX even when zero results come back.
+      if (mode === "live" && !data.listings.length) {
+        result = data;
+        emptyState.style.display = "block";
+        chartsRow.style.display = "none";
+        statsBar.style.display = "none";
+        tableWrapper.style.display = "none";
+        emptyState.innerHTML = `<div style="font-size:48px;margin-bottom:12px;opacity:0.5;">&#128269;</div><div style="font-size:16px;font-weight:500;margin-bottom:6px;">No live comparables found</div><div style="font-size:13px;">Try a broader radius, remove trim, or search by VIN.</div>`;
+        return;
+      }
     }
 
     result = data;
@@ -651,13 +1006,22 @@ async function handleSearch(): Promise<void> {
     renderAll();
   } catch (err) {
     console.error("Search failed:", err);
-    // Fall back to mock
+    // Always fall back to demo mode on any error
     result = generateMockData();
     emptyState.style.display = "none";
     chartsRow.style.display = "flex";
     statsBar.style.display = "grid";
     tableWrapper.style.display = "block";
     renderAll();
+
+    // Show warning banner if in live mode
+    if (_detectAppMode() === "live") {
+      const row = document.getElementById("decode-row");
+      if (row) {
+        const reason = err instanceof Error ? err.message : "Unknown error";
+        row.innerHTML = `<span style="font-size:12px;color:#fca5a5;">⚠ Live API error — showing demo data instead: ${reason.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</span>`;
+      }
+    }
   } finally {
     searchBtn.textContent = "Search";
     searchBtn.style.opacity = "1";
@@ -692,6 +1056,16 @@ function renderHistogram(): void {
   ctx.clearRect(0, 0, W, H);
 
   const prices = result.listings.map((l) => l.price);
+  if (prices.length === 0) {
+    ctx.fillStyle = "#1e293b";
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "13px -apple-system, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("No priced comparables available", W / 2, H / 2);
+    return;
+  }
   const minP = Math.min(...prices);
   const maxP = Math.max(...prices);
   const targetPrice = result.target.price;
@@ -867,6 +1241,16 @@ function renderScatter(): void {
   ctx.clearRect(0, 0, W, H);
 
   const listings = result.listings;
+  if (listings.length === 0) {
+    ctx.fillStyle = "#1e293b";
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "13px -apple-system, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("No comparables available for scatter plot", W / 2, H / 2);
+    return;
+  }
   const allMiles = listings.map((l) => l.miles);
   const allPrices = listings.map((l) => l.price);
 

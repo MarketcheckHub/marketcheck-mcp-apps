@@ -251,33 +251,56 @@ async function _callTool(toolName, args) {
   return null;
 }
 
+// Module-level state to clean up between buildUI() rebuilds
+let _mcSettingsCleanup: (() => void) | null = null;
+
 function _addSettingsBar(headerEl?: HTMLElement) {
   if (_isEmbedMode() || !headerEl) return;
+
+  // Tear down any previous instance (panel + outside-click listener) before rebuilding.
+  if (_mcSettingsCleanup) {
+    _mcSettingsCleanup();
+    _mcSettingsCleanup = null;
+  }
+
   const mode = _detectAppMode();
-  const bar = document.createElement("div");
-  bar.style.cssText = "display:flex;align-items:center;gap:8px;margin-left:auto;";
   const colors: Record<string, { bg: string; fg: string; label: string }> = {
     mcp: { bg: "#1e40af22", fg: "#60a5fa", label: "MCP" },
     live: { bg: "#05966922", fg: "#34d399", label: "LIVE" },
     demo: { bg: "#92400e88", fg: "#fbbf24", label: "DEMO" },
   };
   const c = colors[mode];
+
+  // Anchor the badge + gear absolutely in the top-right of the header so they
+  // never break to a new line when the control bar wraps.
+  const bar = document.createElement("div");
+  bar.style.cssText = "display:flex;align-items:center;gap:8px;position:absolute;top:50%;right:16px;transform:translateY(-50%);z-index:5;";
   bar.innerHTML = `<span style="padding:3px 10px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:0.5px;background:${c.bg};color:${c.fg};border:1px solid ${c.fg}33;">${c.label}</span>`;
-  if (mode !== "mcp") {
-    const gear = document.createElement("button");
-    gear.innerHTML = "&#9881;";
-    gear.title = "API Settings";
-    gear.style.cssText = "background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:4px;";
-    const panel = document.createElement("div");
-    const modeBadgeColor = mode === "live" ? { bg: "#05966922", fg: "#34d399" } : { bg: "#92400e88", fg: "#fbbf24" };
-    panel.style.cssText = "display:none;position:fixed;top:50px;right:16px;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;z-index:1000;width:320px;box-shadow:0 8px 32px rgba(0,0,0,0.6);";
-    panel.innerHTML = `
+
+  if (mode === "mcp") {
+    headerEl.appendChild(bar);
+    return;
+  }
+
+  const gear = document.createElement("button");
+  gear.innerHTML = "&#9881;";
+  gear.title = "API Settings";
+  gear.style.cssText = "background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:4px;line-height:1;";
+  bar.appendChild(gear);
+  headerEl.appendChild(bar);
+
+  const modeBadgeColor = mode === "live" ? { bg: "#05966922", fg: "#34d399" } : { bg: "#92400e88", fg: "#fbbf24" };
+  const panel = document.createElement("div");
+  panel.id = "_mc_settings_panel";
+  panel.style.cssText = "display:none;position:fixed;top:60px;right:16px;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;z-index:1000;width:320px;box-shadow:0 8px 32px rgba(0,0,0,0.6);";
+  const currentKey = _getAuth().mode === "api_key" ? _getAuth().value ?? "" : "";
+  panel.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
         <div style="font-size:14px;font-weight:700;color:#f8fafc;">API Configuration</div>
         <span style="padding:3px 10px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:0.5px;background:${modeBadgeColor.bg};color:${modeBadgeColor.fg};border:1px solid ${modeBadgeColor.fg}33;">${mode.toUpperCase()}</span>
       </div>
       <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:6px;font-weight:500;">MarketCheck API Key</label>
-      <input id="_mc_key_inp" type="password" placeholder="Enter your API key" value="${_getAuth().mode === 'api_key' ? _getAuth().value ?? '' : ''}"
+      <input id="_mc_key_inp" type="password" placeholder="Enter your API key" value="${currentKey}"
         style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:13px;margin-bottom:8px;box-sizing:border-box;outline:none;" />
       <div style="font-size:11px;color:#64748b;margin-bottom:16px;">Get a free key at <a href="https://developers.marketcheck.com" target="_blank" style="color:#60a5fa;text-decoration:none;">developers.marketcheck.com</a></div>
       <div style="display:flex;gap:8px;margin-bottom:12px;">
@@ -287,16 +310,30 @@ function _addSettingsBar(headerEl?: HTMLElement) {
       <div style="font-size:10px;color:#475569;text-align:center;border-top:1px solid #1e293b;padding-top:10px;">
         <em>Demo Mode</em> clears the key and shows sample data
       </div>`;
-    gear.addEventListener("click", () => { panel.style.display = panel.style.display === "none" ? "block" : "none"; });
-    document.addEventListener("click", (e) => { if (!panel.contains(e.target as Node) && e.target !== gear) panel.style.display = "none"; });
-    document.body.appendChild(panel);
-    setTimeout(() => {
-      document.getElementById("_mc_save")?.addEventListener("click", () => { const k = (document.getElementById("_mc_key_inp") as HTMLInputElement)?.value?.trim(); if (k) { localStorage.setItem("mc_api_key", k); location.reload(); } });
-      document.getElementById("_mc_clear")?.addEventListener("click", () => { localStorage.removeItem("mc_api_key"); localStorage.removeItem("mc_access_token"); location.reload(); });
-    }, 0);
-    bar.appendChild(gear);
-  }
-  headerEl.appendChild(bar);
+  document.body.appendChild(panel);
+
+  gear.addEventListener("click", (e) => {
+    e.stopPropagation();
+    panel.style.display = panel.style.display === "none" ? "block" : "none";
+  });
+  panel.addEventListener("click", (e) => e.stopPropagation());
+  panel.querySelector<HTMLButtonElement>("#_mc_save")!.addEventListener("click", () => {
+    const k = panel.querySelector<HTMLInputElement>("#_mc_key_inp")?.value?.trim();
+    if (k) { localStorage.setItem("mc_api_key", k); location.reload(); }
+  });
+  panel.querySelector<HTMLButtonElement>("#_mc_clear")!.addEventListener("click", () => {
+    localStorage.removeItem("mc_api_key");
+    localStorage.removeItem("mc_access_token");
+    location.reload();
+  });
+
+  const outsideListener = () => { panel.style.display = "none"; };
+  document.addEventListener("click", outsideListener);
+
+  _mcSettingsCleanup = () => {
+    document.removeEventListener("click", outsideListener);
+    panel.remove();
+  };
 }
 // ── End Data Provider ──────────────────────────────────────────────────
 
@@ -389,13 +426,21 @@ const TEXT_SECONDARY = "#94a3b8";
 const TEXT_MUTED = "#64748b";
 const ACCENT = "#38bdf8";
 
-const US_STATES = [
-  "National", "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
-  "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI",
-  "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND",
-  "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA",
-  "WA", "WV", "WI", "WY"
-];
+const STATE_NAMES: Record<string, string> = {
+  National: "National (all states)",
+  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
+  CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia",
+  HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa",
+  KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
+  MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri",
+  MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey",
+  NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio",
+  OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina",
+  SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont",
+  VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
+};
+
+const US_STATES = Object.keys(STATE_NAMES);
 
 const MAKES_MODELS: Record<string, string[]> = {
   "Toyota": ["RAV4", "Camry", "Corolla", "Highlander", "Tacoma", "4Runner", "Tundra"],
@@ -581,17 +626,22 @@ async function fetchData() {
 
 // ── Build UI ───────────────────────────────────────────────────────────────
 function buildUI() {
+  // Clear before constructing so any module-level elements appended to body
+  // (e.g. settings panel from _addSettingsBar) survive the rebuild.
+  document.body.innerHTML = "";
   document.body.style.cssText = `
     background: ${BG_COLOR}; color: ${TEXT_PRIMARY}; font-family: -apple-system, BlinkMacSystemFont,
     'Segoe UI', Roboto, sans-serif; display: flex; flex-direction: column; height: 100vh;
     overflow: hidden;
   `;
 
-  // Control bar
+  // Control bar — position:relative so the badge+gear can be absolutely placed
+  // top-right; padding-right reserves space for them so wrapped controls don't
+  // run underneath.
   const controlBar = el("div", {
-    style: `display:flex; align-items:center; gap:12px; padding:12px 20px;
+    style: `display:flex; align-items:center; gap:12px; padding:12px 120px 12px 20px;
       background:${SURFACE_COLOR}; border-bottom:1px solid ${BORDER_COLOR}; flex-wrap:wrap;
-      min-height:56px;`,
+      min-height:56px; position:relative;`,
   });
 
   // Mode toggle
@@ -627,16 +677,23 @@ function buildUI() {
   });
   controlBar.appendChild(timeContainer);
 
-  // State dropdown
+  // State dropdown — `title` shows full state name on hover (browser-native tooltip)
   const stateSelect = el("select", {
     style: selectStyle(),
+    title: STATE_NAMES[selectedState] ?? selectedState,
     onchange: (e: Event) => {
-      selectedState = (e.target as HTMLSelectElement).value;
+      const sel = e.target as HTMLSelectElement;
+      selectedState = sel.value;
+      sel.title = STATE_NAMES[selectedState] ?? selectedState;
       fetchData();
     },
   }) as HTMLSelectElement;
   US_STATES.forEach((s) => {
-    const opt = el("option", { value: s, textContent: s }) as HTMLOptionElement;
+    const opt = el("option", {
+      value: s,
+      textContent: s,
+      title: STATE_NAMES[s] ?? s,
+    }) as HTMLOptionElement;
     if (s === selectedState) opt.selected = true;
     stateSelect.appendChild(opt);
   });
@@ -757,8 +814,7 @@ function buildUI() {
   });
   ticker.textContent = "Loading depreciation data...";
 
-  // Assemble
-  document.body.innerHTML = "";
+  // Assemble — body was cleared at the top of buildUI
   document.body.appendChild(controlBar);
 
   // ── Demo mode banner ──
@@ -1271,47 +1327,41 @@ function renderSegmentBars() {
   const barH = Math.min(28, (chartH - (segments.length - 1) * 6) / segments.length);
   const gap = (chartH - barH * segments.length) / Math.max(segments.length - 1, 1);
 
-  // Current model segments
-  const modelSegments = currentData.models.map((md) => md.segment);
-
+  // Every segment is rendered in full-emphasis styling so the chart compares
+  // all body types at once. The previous "highlight only the selected model's
+  // segment" treatment dimmed the rest of the chart and made cross-segment
+  // comparison hard.
   segments.forEach((seg, i) => {
     const y = pad.top + i * (barH + gap);
     const barW = (seg.monthlyDepreciationPct / maxRate) * chartW;
-    const isHighlighted = modelSegments.includes(seg.bodyType);
 
-    // Label
-    ctx.fillStyle = isHighlighted ? TEXT_PRIMARY : TEXT_SECONDARY;
-    ctx.font = `${isHighlighted ? "600" : "400"} 12px -apple-system, sans-serif`;
+    // Bar fill colour: green (slow depreciation) → red (fast)
+    const t = seg.monthlyDepreciationPct / maxRate;
+    const barColor = `rgb(${Math.round(34 + t * 205)},${Math.round(211 - t * 143)},${Math.round(153 - t * 85)})`;
+
+    // Body-type label
+    ctx.fillStyle = TEXT_PRIMARY;
+    ctx.font = "600 12px -apple-system, sans-serif";
     ctx.textAlign = "right";
     ctx.textBaseline = "middle";
     ctx.fillText(seg.bodyType, pad.left - 10, y + barH / 2);
 
-    // Bar background
+    // Track + filled bar + outline
     ctx.fillStyle = BORDER_COLOR + "40";
     roundRect(ctx, pad.left, y, chartW, barH, 4);
     ctx.fill();
 
-    // Bar fill -- green for slow depreciation, red for fast
-    const t = seg.monthlyDepreciationPct / maxRate;
-    const r = Math.round(34 + t * (239 - 34));
-    const g = Math.round(211 - t * (211 - 68));
-    const b = Math.round(153 - t * (153 - 68));
-    const barColor = `rgb(${r},${g},${b})`;
-
-    ctx.fillStyle = isHighlighted ? barColor : barColor + "88";
+    ctx.fillStyle = barColor;
     roundRect(ctx, pad.left, y, barW, barH, 4);
     ctx.fill();
 
-    // Highlight border
-    if (isHighlighted) {
-      ctx.strokeStyle = barColor;
-      ctx.lineWidth = 1.5;
-      roundRect(ctx, pad.left, y, barW, barH, 4);
-      ctx.stroke();
-    }
+    ctx.strokeStyle = barColor;
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, pad.left, y, barW, barH, 4);
+    ctx.stroke();
 
     // Value label
-    ctx.fillStyle = isHighlighted ? TEXT_PRIMARY : TEXT_SECONDARY;
+    ctx.fillStyle = TEXT_PRIMARY;
     ctx.font = "11px -apple-system, sans-serif";
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";

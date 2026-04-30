@@ -1,4 +1,4 @@
-/**
+   /**
  * Claims Valuation Workbench
  * MCP App 18 — Dark-themed insurance claims total-loss valuation tool
  */
@@ -120,19 +120,25 @@ async function _fetchDirect(args) {
     high = Math.round(fmv * 1.10);
   }
 
-  // ── Sold comps (recents endpoint) — listings have NO top-level price in standard tier;
-  // use last_seen_price if present, otherwise fall back to the response-level mean. ──
+  // ── Sold comps (recents endpoint) ──
+  // The standard MarketCheck tier returns `price: null` on most recents listings;
+  // only some have `last_seen_price`. Rather than fake a per-listing price by
+  // repeating the response-level mean (which would mislead the user into thinking
+  // they're seeing real per-row data), we use 0 as a sentinel and the comps
+  // table renders "—" for missing prices. The market mean is still surfaced in
+  // the Statistics row at the bottom of the table.
   const rawListings: any[] = soldComps?.listings ?? [];
-  const fallbackPrice = Math.round(recentMean || fmv);
   const mappedSoldComps = rawListings.slice(0, 10).map((l: any) => {
     const b = _listingBuild(l);
+    const rawPrice = l.price ?? l.sale_price ?? l.last_seen_price;
+    const salePrice = typeof rawPrice === "number" && rawPrice > 0 ? rawPrice : 0;
     return {
       vin: l.vin ?? "",
       year: b.year || decode?.year || 0,
       make: b.make || decode?.make || "",
       model: b.model || decode?.model || "",
       trim: b.trim || "",
-      salePrice: l.price ?? l.sale_price ?? l.last_seen_price ?? fallbackPrice,
+      salePrice,
       miles: l.miles ?? l.mileage ?? 0,
       dateSold: (l.last_seen_at_date ?? l.sold_at ?? "").slice(0, 10),
       state: l.dealer?.state ?? l.seller_info?.state ?? l.state ?? "",
@@ -490,8 +496,11 @@ function getDetermination(damageSeverity: DamageSeverity, fmv: number): { verdic
 }
 
 function compStats(comps: SoldComp[]): { mean: number; median: number; count: number } {
-  const prices = comps.map(c => c.salePrice).sort((a, b) => a - b);
+  // Only include rows with a real positive price — recents listings without
+  // a price would otherwise drag the mean toward 0.
+  const prices = comps.map(c => c.salePrice).filter(p => p > 0).sort((a, b) => a - b);
   const count = prices.length;
+  if (count === 0) return { mean: 0, median: 0, count: 0 };
   const mean = Math.round(prices.reduce((s, p) => s + p, 0) / count);
   const mid = Math.floor(count / 2);
   const median = count % 2 === 0 ? Math.round((prices[mid - 1] + prices[mid]) / 2) : prices[mid];
@@ -1202,8 +1211,8 @@ function buildCompsPanel(comps: SoldComp[], stats: { mean: number; median: numbe
     tableHtml += `<tr>
       <td>${vinLast6}</td>
       <td style="font-family:var(--font)">${c.year} ${c.make} ${c.model} ${c.trim}</td>
-      <td>${fmt(c.salePrice)}</td>
-      <td>${c.miles.toLocaleString()}</td>
+      <td>${c.salePrice > 0 ? fmt(c.salePrice) : '<span style="color:var(--text-dim)" title="Per-listing price not available in this API tier; market mean shown in Statistics row">&mdash;</span>'}</td>
+      <td>${c.miles > 0 ? c.miles.toLocaleString() : '<span style="color:var(--text-dim)">&mdash;</span>'}</td>
       <td>${c.dateSold}</td>
       <td>${c.state}</td>
     </tr>`;

@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Insurance Premium Benchmarker — MarketCheck Apps">
-  <meta property="og:description" content="Segment-level analysis for insurance premium benchmarking. Breaks down replacement costs and sold volumes by body type, fuel type, and state — giving underwriters data to calibrate premiums.">
+  <meta property="og:description" content="Underwriting-grade replacement-cost benchmarker. Pulls ~1000 monthly state×make×model×body-type sold rows from the MarketCheck Sold Summary endpoint plus four parallel per-fuel-type aggregates from ac">
   <meta property="og:url" content="https://apps.marketcheck.com/app/insurance-premium-benchmarker/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/insurance-premium-benchmarker.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Insurance Premium Benchmarker">
-  <meta name="twitter:description" content="Segment-level analysis for insurance premium benchmarking. Breaks down replacement costs and sold volumes by body type, fuel type, and state — giving underwriters data to calibrate premiums.">
+  <meta name="twitter:description" content="Underwriting-grade replacement-cost benchmarker. Pulls ~1000 monthly state×make×model×body-type sold rows from the MarketCheck Sold Summary endpoint plus four parallel per-fuel-type aggregates from ac">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/insurance-premium-benchmarker.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Insurance Premium Benchmarker","description":"Segment-level analysis for insurance premium benchmarking. Breaks down replacement costs and sold volumes by body type, fuel type, and state — giving underwriters data to calibrate premiums.","url":"https://apps.marketcheck.com/app/insurance-premium-benchmarker/","image":"https://apps.marketcheck.com/assets/screenshots/insurance-premium-benchmarker.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Insurance Premium Benchmarker","description":"Underwriting-grade replacement-cost benchmarker. Pulls ~1000 monthly state×make×model×body-type sold rows from the MarketCheck Sold Summary endpoint plus four parallel per-fuel-type aggregates from active listings, then derives weighted-average replacement cost, price volatility (std/mean), state rankings, top-volatility (make, model) pairs, a sold-count-weighted price distribution, and a real EV-vs-ICE risk comparison. Body × fuel matrix and claims heatmap are illustrative reference data clearly badged as such — the API does not expose fuel-type within the sold-summary aggregates. State / Year From / Year To filters narrow the live API call. Works standalone, embedded, or inside an MCP host.","url":"https://apps.marketcheck.com/app/insurance-premium-benchmarker/","image":"https://apps.marketcheck.com/assets/screenshots/insurance-premium-benchmarker.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -289,7 +289,7 @@ pre.code-block {
   <div class="breadcrumb"><a href="/">Gallery</a> / <a href="/#insurer">Insurer</a> / Insurance Premium Benchmarker</div>
   <div class="subtitle">How to Build</div>
   <h1>Insurance Premium Benchmarker</h1>
-  <p class="tagline">Segment-level replacement cost and risk analysis</p>
+  <p class="tagline">Segment-level replacement cost & risk for underwriting</p>
   <span class="segment-badge" style="background:#ec489922;color:#ec4899;border:1px solid #ec489933;">
     Insurer
   </span>
@@ -309,12 +309,55 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Segment-level analysis for insurance premium benchmarking. Breaks down replacement costs and sold volumes by body type, fuel type, and state — giving underwriters data to calibrate premiums.</p>
+    <p>Underwriting-grade replacement-cost benchmarker. Pulls ~1000 monthly state×make×model×body-type sold rows from the MarketCheck Sold Summary endpoint plus four parallel per-fuel-type aggregates from active listings, then derives weighted-average replacement cost, price volatility (std/mean), state rankings, top-volatility (make, model) pairs, a sold-count-weighted price distribution, and a real EV-vs-ICE risk comparison. Body × fuel matrix and claims heatmap are illustrative reference data clearly badged as such — the API does not expose fuel-type within the sold-summary aggregates. State / Year From / Year To filters narrow the live API call. Works standalone, embedded, or inside an MCP host.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Underwriters</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Calibrate base premiums by segment: real avg replacement cost and volatility per state, body type, and EV-vs-ICE — sourced from MarketCheck sold-vehicle aggregates.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Pricing Actuaries</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Quantify EV exposure: real EV vs ICE avg cost and volatility differentials from the active-listings endpoint, used to size premium loadings for electric collateral.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Insurance Product Managers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Identify high-volatility makes/models for tier rules — the High-Volatility Models table ranks by std/mean using real sold data.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Reinsurance Analysts</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Stress-test geographic concentration with real state-level avg replacement costs and volume.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Claims Strategy</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Anticipate severity trends: weighted-average replacement cost across the portfolio is a leading indicator of claim payouts.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key (or set via localStorage). Sold Summary endpoint requires Enterprise tier; without it the page renders illustrative demo data with a clear notice.</td></tr><tr><td><code>state</code></td><td>State code (e.g. CA) — narrows the sold-summary call to that state</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/insurance-premium-benchmarker/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/insurance-premium-benchmarker/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/insurance-premium-benchmarker/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/insurance-premium-benchmarker/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -329,30 +372,46 @@ pre.code-block {
     <h2>API Call Flow</h2>
     <p>Here's the exact sequence of MarketCheck API calls this app makes, and which ones run in parallel:</p>
     <div class="flow-diagram">
-      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">Three-Way Market Breakdown</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
+      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">Sold Summary by State</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
           <div class="flow-api-card enterprise">
             <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
             <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
             <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
+          </div></div><div class="flow-note">Single call to /api/v1/sold-vehicles/summary?summary_by=state — returns ~1000 rows of (month, state, make, model, body_type) sold counts and price stats. Drives KPIs / state rankings / model rankings / distribution.</div></div><div class="flow-arrow">&#8595;</div><div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">2</div><div class="flow-step-label">Per-Fuel Active Stats × 4</div><span class="flow-parallel-badge">PARALLEL</span></div><div class="flow-api-cards flow-parallel">
+          <div class="flow-api-card">
+            <div class="flow-api-method">GET</div>
+            <code class="flow-api-path">/v2/search/car/active</code>
+            <div class="flow-api-name">Search Active Listings</div>
           </div>
-          <div class="flow-api-card enterprise">
-            <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
-            <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
-            <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
+          <div class="flow-api-card">
+            <div class="flow-api-method">GET</div>
+            <code class="flow-api-path">/v2/search/car/active</code>
+            <div class="flow-api-name">Search Active Listings</div>
           </div>
-          <div class="flow-api-card enterprise">
-            <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
-            <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
-            <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
-          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Fetch sold summary by body_type, by body_type+fuel_type, and by state — all in parallel</div></div>
+          <div class="flow-api-card">
+            <div class="flow-api-method">GET</div>
+            <code class="flow-api-path">/v2/search/car/active</code>
+            <div class="flow-api-name">Search Active Listings</div>
+          </div>
+          <div class="flow-api-card">
+            <div class="flow-api-method">GET</div>
+            <code class="flow-api-path">/v2/search/car/active</code>
+            <div class="flow-api-name">Search Active Listings</div>
+          </div></div><div class="flow-parallel-line"></div><div class="flow-note">Four parallel calls to /v2/search/car/active filtered by fuel_type=Unleaded/Diesel/Hybrid/Electric, each with stats=price&rows=0. Drives the real EV-vs-ICE comparison panel.</div></div>
     </div>
   </div>
 
   <!-- Input Parameters -->
   <div class="section">
     <h2>Input Parameters</h2>
-    <p></p>
-    <p style="color:#64748b;">This app requires no input parameters — it aggregates market-wide data automatically.</p>
+    <p>Pass these parameters to build this app (or call the <code>benchmark-insurance-premiums</code> composite endpoint):</p>
+    
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>body_type</code></td><td>string</td><td>No</td><td>SUV / Sedan / Truck / Coupe / Van / Convertible / Wagon</td></tr><tr><td><code>fuel_type</code></td><td>string</td><td>No</td><td>Gasoline / Diesel / Hybrid / Electric</td></tr><tr><td><code>state</code></td><td>string</td><td>No</td><td>Two-letter state code</td></tr><tr><td><code>year_from</code></td><td>string</td><td>No</td><td>Start year (passed through to API)</td></tr><tr><td><code>year_to</code></td><td>string</td><td>No</td><td>End year (passed through to API)</td></tr>
+      </tbody>
+    </table>
   </div>
 
   <!-- API Endpoints — Detailed -->
@@ -377,6 +436,23 @@ pre.code-block {
       <div class="api-returns"><strong>Returns:</strong> rankings[] with dimension values, sold_count, average_sale_price, market_share</div>
       <a href="https://apidocs.marketcheck.com/#sold-summary" target="_blank" class="api-doc-link">View full API documentation &#8599;</a>
     </div>
+    <div class="api-detail-card">
+      <div class="api-detail-header">
+        <span class="api-method-badge">GET</span>
+        <code>/v2/search/car/active</code>
+        
+      </div>
+      <h4>Search Active Listings</h4>
+      <p>Search currently active car listings across 95%+ of US dealer inventory. Supports filters by make, model, year, ZIP, radius, price range, body type, and more. Returns listing details with photos, dealer info, and computed statistics.</p>
+      <table class="param-table">
+        <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>make</code></td><td>string</td><td>No</td><td>Vehicle make (e.g., Toyota)</td></tr><tr><td><code>model</code></td><td>string</td><td>No</td><td>Vehicle model (e.g., Camry)</td></tr><tr><td><code>year</code></td><td>string</td><td>No</td><td>Year or range (e.g., 2020-2022)</td></tr><tr><td><code>zip</code></td><td>string</td><td>No</td><td>Center ZIP for radius search</td></tr><tr><td><code>radius</code></td><td>number</td><td>No</td><td>Search radius in miles</td></tr><tr><td><code>rows</code></td><td>number</td><td>No</td><td>Number of results (max 50)</td></tr><tr><td><code>stats</code></td><td>string</td><td>No</td><td>Aggregate stats: price,miles,dom</td></tr><tr><td><code>sort_by</code></td><td>string</td><td>No</td><td>Sort field: price, miles, dom</td></tr><tr><td><code>sort_order</code></td><td>string</td><td>No</td><td>asc or desc</td></tr><tr><td><code>dealer_id</code></td><td>string</td><td>No</td><td>Filter by dealer ID</td></tr><tr><td><code>facets</code></td><td>string</td><td>No</td><td>Facet fields: make,model,body_type</td></tr>
+        </tbody>
+      </table>
+      <div class="api-returns"><strong>Returns:</strong> num_found, listings[] with id, vin, price, miles, dom, dealer{}, media{}, stats{}</div>
+      <a href="https://apidocs.marketcheck.com/#search-active" target="_blank" class="api-doc-link">View full API documentation &#8599;</a>
+    </div>
   </div>
 
   <!-- What the App Renders -->
@@ -384,7 +460,7 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Replacement cost by segment</div><div class="render-item"><div class="render-dot"></div>EV vs ICE cost comparison</div><div class="render-item"><div class="render-dot"></div>state-level risk heatmap</div><div class="render-item"><div class="render-dot"></div>premium adequacy indicators</div>
+      <div class="render-item"><div class="render-dot"></div>KPI ribbon (avg cost / volatility / sample / highest-risk segment — all real)</div><div class="render-item"><div class="render-dot"></div>Segment Risk Matrix (illustrative — fuel breakdown unavailable)</div><div class="render-item"><div class="render-dot"></div>distribution histogram (real)</div><div class="render-item"><div class="render-dot"></div>state rankings (real)</div><div class="render-item"><div class="render-dot"></div>real EV vs ICE comparison</div><div class="render-item"><div class="render-dot"></div>real high-volatility (make</div><div class="render-item"><div class="render-dot"></div>model) leaderboard</div><div class="render-item"><div class="render-dot"></div>premium-impact tiers (reference)</div><div class="render-item"><div class="render-dot"></div>claims heatmap (illustrative)</div><div class="render-item"><div class="render-dot"></div>portfolio composition cards</div>
     </div>
   </div>
 
@@ -398,7 +474,7 @@ pre.code-block {
         <span class="api-method-badge" style="background:#dbeafe;color:#1e40af;">POST</span>
         <code>https://apps.marketcheck.com/api/proxy/benchmark-insurance-premiums</code>
       </div>
-      <p>This single endpoint runs all 3 API calls in the optimal sequence and returns the combined result.</p>
+      <p>This single endpoint runs all 5 API calls in the optimal sequence and returns the combined result.</p>
       <p><a href="/docs/derivative-apis/#benchmark-insurance-premiums">View full composite endpoint documentation &#8599;</a></p>
     </div>
     
@@ -407,7 +483,8 @@ pre.code-block {
   -H "Content-Type: application/json" \
   -d '{
   "_auth_mode": "api_key",
-  "_auth_value": "YOUR_API_KEY"
+  "_auth_value": "YOUR_API_KEY",
+  "state": "CA"
 }'</pre>
   </div>
 
@@ -428,7 +505,7 @@ pre.code-block {
     }
   }
 }</pre>
-    <p>Then ask the AI: <em>"Use the benchmark-insurance-premiums tool to segment-level replacement cost and risk analysis"</em></p>
+    <p>Then ask the AI: <em>"Use the benchmark-insurance-premiums tool to segment-level replacement cost & risk for underwriting"</em></p>
 
     <h3>3. Embed as an iFrame</h3>
     <pre class="code-block">&lt;iframe

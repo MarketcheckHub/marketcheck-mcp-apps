@@ -49,26 +49,49 @@ function _mcIncentives(p) { const q={...p}; if(q.oem&&!q.make){q.make=q.oem;dele
 function _mcUkActive(p) { return _mcApi("/search/car/uk/active", p); }
 function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
 
-// One real call: summary_by=state returns ~1000 rows of (month, state, make, model, body_type, sold_count, avg/std/total price).
-// That single payload is enough to populate KPIs, state rankings, high-volatility models, and distribution buckets.
-// (The body-type × fuel-type matrix and EV-vs-ICE panel keep mock data — fuel_type isn't exposed by this endpoint.)
-async function _fetchDirect(_args: any) {
-  return _mcSold({ summary_by: "state" });
+// Fetch real-data inputs in parallel:
+//  • summary_by=state → ~1000 rows of monthly state/make/model/body_type sold counts + price stats.
+//    Drives the KPIs, state rankings, model rankings, and distribution histogram.
+//  • Per-fuel-type active-listing stats × 4 (Unleaded/Diesel/Hybrid/Electric).
+//    Drives a real EV-vs-ICE comparison (avg replacement cost + std/avg volatility).
+//  Args from the UI (state, year_from/to) flow through as filters where applicable.
+async function _fetchDirect(args: any = {}) {
+  const summaryArgs: Record<string, any> = { summary_by: "state" };
+  if (args.state) summaryArgs.state = args.state;
+  if (args.year_from) summaryArgs.year_from = args.year_from;
+  if (args.year_to) summaryArgs.year_to = args.year_to;
+
+  const fuelTypes = ["Unleaded", "Diesel", "Hybrid", "Electric"];
+  const [sold, ...fuelStats] = await Promise.all([
+    _mcSold(summaryArgs).catch(() => null),
+    ...fuelTypes.map(ft => _mcActive({ fuel_type: ft, stats: "price", rows: 0 }).catch(() => null)),
+  ]);
+  const fuelData: Record<string, any> = {};
+  fuelTypes.forEach((ft, i) => { fuelData[ft] = fuelStats[i]; });
+  return { sold, fuelData };
 }
-async function _callTool(_toolName: string, args: any) {
+async function _callTool(toolName: string, args: any) {
   const auth = _getAuth();
-  // 1. Direct API — when the user has provided an api_key, hit api.marketcheck.com directly.
   if (auth.value) {
+    // 1. Direct API first — hits api.marketcheck.com from the browser.
     try {
       const data = await _fetchDirect(args);
       if (data) return { content: [{ type: "text", text: JSON.stringify(data) }] };
     } catch {}
+    // 2. Proxy fallback — same-origin server tool, if a future build registers it.
+    try {
+      const r = await fetch((_proxyBase()) + "/api/proxy/" + toolName, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...args, _auth_mode: auth.mode, _auth_value: auth.value }),
+      });
+      if (r.ok) { const d = await r.json(); return { content: [{ type: "text", text: JSON.stringify(d) }] }; }
+    } catch {}
   }
-  // 2. MCP mode — only when actually iframed into an MCP host with no auth.
+  // 3. MCP mode — only when actually iframed into an MCP host with no auth.
   if (_safeApp && window.parent !== window) {
-    try { return await _safeApp.callServerTool({ name: _toolName, arguments: args }); } catch {}
+    try { return await _safeApp.callServerTool({ name: toolName, arguments: args }); } catch {}
   }
-  // 3. Demo mode (caller falls back to mock when this returns null).
+  // 4. Demo mode (caller falls back to mock when this returns null).
   return null;
 }
 
@@ -229,8 +252,12 @@ function getMockData(): BenchmarkResult {
 // response, so segmentMatrix and evIceComparison fall back to mock for those
 // dimensions while everything else (KPIs, state rankings, high-volatility
 // models, distribution buckets) is real.
-function _mapBenchmark(raw: any): BenchmarkResult | null {
-  const rows: any[] = Array.isArray(raw?.data) ? raw.data : [];
+function _mapBenchmark(payload: any): BenchmarkResult | null {
+  // payload is the new shape from _fetchDirect: { sold: {...}, fuelData: {...} }
+  // (or the old single-summary shape for backwards-compat with cached/MCP responses)
+  const sold = payload?.sold ?? payload;
+  const fuelData = payload?.fuelData ?? null;
+  const rows: any[] = Array.isArray(sold?.data) ? sold.data : [];
   if (!rows.length) return null;
   const num = (v: any) => { const n = typeof v === "number" ? v : parseFloat(v); return Number.isFinite(n) ? n : 0; };
   const mock = getMockData();
@@ -340,15 +367,43 @@ function _mapBenchmark(raw: any): BenchmarkResult | null {
     buckets[i].count += sold;
   }
 
+  // EV vs ICE comparison — REAL data via 4 calls to /search/car/active filtered by fuel_type.
+  // ICE = Unleaded + Diesel pooled by sample size. Hybrid shown as a reference row.
+  const ev = fuelData?.Electric?.stats?.price;
+  const hyb = fuelData?.Hybrid?.stats?.price;
+  const unl = fuelData?.Unleaded?.stats?.price;
+  const dsl = fuelData?.Diesel?.stats?.price;
+  const evIceComparison: EvIceComparison[] = (ev && unl)
+    ? (() => {
+        const evMean = num(ev.mean), evStd = num(ev.stddev), evCount = num(ev.count);
+        const iceCount = num(unl?.count) + num(dsl?.count);
+        const iceMean = iceCount > 0
+          ? (num(unl.mean) * num(unl.count) + num(dsl?.mean) * num(dsl?.count)) / iceCount
+          : num(unl.mean);
+        const iceStd = iceCount > 0
+          ? (num(unl.stddev) * num(unl.count) + num(dsl?.stddev) * num(dsl?.count)) / iceCount
+          : num(unl.stddev);
+        const evVol = evMean > 0 ? evStd / evMean : 0;
+        const iceVol = iceMean > 0 ? iceStd / iceMean : 0;
+        const out: EvIceComparison[] = [
+          { label: "Avg Replacement Cost", evValue: Math.round(evMean), iceValue: Math.round(iceMean) },
+          { label: "Price Volatility", evValue: +evVol.toFixed(3), iceValue: +iceVol.toFixed(3) },
+          { label: "Sample Size", evValue: evCount, iceValue: iceCount },
+        ];
+        if (hyb?.mean) out.push({ label: "Avg Hybrid Cost (reference)", evValue: Math.round(num(hyb.mean)), iceValue: Math.round(iceMean) });
+        return out;
+      })()
+    : mock.evIceComparison;
+
   return {
     avgReplacementCost,
     priceVolatility: +priceVolatility.toFixed(3),
     totalSampleSize: totalSold,
     highestRiskSegment,
-    // segmentMatrix and evIceComparison need fuel_type (not in this endpoint) —
-    // keep illustrative mock data so those panels still render meaningfully.
+    // segmentMatrix needs body × fuel cells (~28 combinations) — too expensive to
+    // call live. Kept as illustrative reference data with a UI label so users know.
     segmentMatrix: mock.segmentMatrix,
-    evIceComparison: mock.evIceComparison,
+    evIceComparison,
     distributionBuckets: buckets.some(b => b.count > 0) ? buckets : mock.distributionBuckets,
     stateRankings: stateRankings.length ? stateRankings : mock.stateRankings,
     highVolatilityModels: highVolatilityModels.length ? highVolatilityModels : mock.highVolatilityModels,
@@ -708,7 +763,9 @@ async function main() {
     // ── Segment Risk Matrix ──
     const matrixSection = document.createElement("div");
     matrixSection.style.cssText = "background:#1e293b;border:1px solid #334155;border-radius:10px;padding:18px 20px;margin-bottom:16px;";
-    matrixSection.innerHTML = `<h2 style="margin:0 0 14px 0;font-size:15px;font-weight:700;color:#f8fafc;">Segment Risk Matrix</h2>`;
+    matrixSection.innerHTML = `<h2 style="margin:0 0 4px 0;font-size:15px;font-weight:700;color:#f8fafc;display:flex;align-items:center;gap:8px;">Segment Risk Matrix
+      <span style="font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;padding:2px 8px;border-radius:10px;background:#7c2d1244;color:#fbbf24;border:1px solid #f59e0b66;">Illustrative</span></h2>
+      <p style="margin:0 0 14px 0;font-size:11px;color:#64748b;">Body-type × fuel-type cells are illustrative reference data. Live API does not expose fuel_type breakdown for sold-summary aggregates &mdash; see EV vs ICE panel for real fuel-comparison data.</p>`;
 
     const bodyTypes = [...new Set(data.segmentMatrix.map(s => s.bodyType))];
     const fuelTypes = [...new Set(data.segmentMatrix.map(s => s.fuelType))];
@@ -918,8 +975,9 @@ async function main() {
     // ── Premium Impact Estimator ──
     const premiumSection = document.createElement("div");
     premiumSection.style.cssText = "background:#1e293b;border:1px solid #334155;border-radius:10px;padding:18px 20px;margin-bottom:16px;";
-    premiumSection.innerHTML = `<h2 style="margin:0 0 4px 0;font-size:15px;font-weight:700;color:#f8fafc;">Premium Impact Estimator</h2>
-      <p style="margin:0 0 14px 0;font-size:12px;color:#94a3b8;">Estimated premium adjustments based on segment risk factors</p>`;
+    premiumSection.innerHTML = `<h2 style="margin:0 0 4px 0;font-size:15px;font-weight:700;color:#f8fafc;display:flex;align-items:center;gap:8px;">Premium Impact Estimator
+      <span style="font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;padding:2px 8px;border-radius:10px;background:#7c2d1244;color:#fbbf24;border:1px solid #f59e0b66;">Reference</span></h2>
+      <p style="margin:0 0 14px 0;font-size:12px;color:#94a3b8;">Estimated premium adjustments based on segment risk factors. Tier multipliers should be calibrated with your organization's claims experience.</p>`;
 
     const premiumTiers = [
       { tier: "Tier 1 - Low Risk", segments: "Sedan (Gasoline), Wagon (Gasoline), Van (Gasoline)", baseMultiplier: 1.0, color: "#10b981", description: "Standard premium. Low replacement cost, low volatility. Stable claims history." },
@@ -946,7 +1004,8 @@ async function main() {
     // ── Claims Frequency Heatmap ──
     const heatmapSection = document.createElement("div");
     heatmapSection.style.cssText = "background:#1e293b;border:1px solid #334155;border-radius:10px;padding:18px 20px;margin-bottom:16px;";
-    heatmapSection.innerHTML = `<h2 style="margin:0 0 4px 0;font-size:15px;font-weight:700;color:#f8fafc;">Segment Claims Risk Heatmap</h2>
+    heatmapSection.innerHTML = `<h2 style="margin:0 0 4px 0;font-size:15px;font-weight:700;color:#f8fafc;display:flex;align-items:center;gap:8px;">Segment Claims Risk Heatmap
+      <span style="font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;padding:2px 8px;border-radius:10px;background:#7c2d1244;color:#fbbf24;border:1px solid #f59e0b66;">Illustrative</span></h2>
       <p style="margin:0 0 14px 0;font-size:12px;color:#94a3b8;">Estimated claims frequency and severity by body type and age bracket</p>`;
 
     const ageBrackets = ["0-2 yr", "3-5 yr", "6-8 yr", "9+ yr"];

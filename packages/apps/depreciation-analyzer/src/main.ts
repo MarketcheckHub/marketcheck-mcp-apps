@@ -269,15 +269,23 @@ function _addSettingsBar(headerEl?: HTMLElement) {
     gear.title = "API Settings";
     gear.style.cssText = "background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:4px;";
     const panel = document.createElement("div");
-    panel.style.cssText = "display:none;position:fixed;top:50px;right:16px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:16px;z-index:1000;min-width:300px;box-shadow:0 8px 32px rgba(0,0,0,0.5);";
-    panel.innerHTML = `<div style="font-size:13px;font-weight:600;color:#f8fafc;margin-bottom:12px;">API Configuration</div>
-      <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:4px;">MarketCheck API Key</label>
+    const modeBadgeColor = mode === "live" ? { bg: "#05966922", fg: "#34d399" } : { bg: "#92400e88", fg: "#fbbf24" };
+    panel.style.cssText = "display:none;position:fixed;top:50px;right:16px;background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;z-index:1000;width:320px;box-shadow:0 8px 32px rgba(0,0,0,0.6);";
+    panel.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="font-size:14px;font-weight:700;color:#f8fafc;">API Configuration</div>
+        <span style="padding:3px 10px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:0.5px;background:${modeBadgeColor.bg};color:${modeBadgeColor.fg};border:1px solid ${modeBadgeColor.fg}33;">${mode.toUpperCase()}</span>
+      </div>
+      <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:6px;font-weight:500;">MarketCheck API Key</label>
       <input id="_mc_key_inp" type="password" placeholder="Enter your API key" value="${_getAuth().mode === 'api_key' ? _getAuth().value ?? '' : ''}"
-        style="width:100%;padding:8px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:13px;margin-bottom:8px;box-sizing:border-box;" />
-      <div style="font-size:10px;color:#64748b;margin-bottom:12px;">Get a free key at <a href="https://developers.marketcheck.com" target="_blank" style="color:#60a5fa;">developers.marketcheck.com</a></div>
-      <div style="display:flex;gap:8px;">
-        <button id="_mc_save" style="flex:1;padding:8px;border-radius:6px;border:none;background:#3b82f6;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Save & Reload</button>
-        <button id="_mc_clear" style="padding:8px 12px;border-radius:6px;border:1px solid #334155;background:transparent;color:#94a3b8;font-size:13px;cursor:pointer;">Clear</button>
+        style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:13px;margin-bottom:8px;box-sizing:border-box;outline:none;" />
+      <div style="font-size:11px;color:#64748b;margin-bottom:16px;">Get a free key at <a href="https://developers.marketcheck.com" target="_blank" style="color:#60a5fa;text-decoration:none;">developers.marketcheck.com</a></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button id="_mc_save" style="flex:1;padding:10px;border-radius:8px;border:none;background:#3b82f6;color:#fff;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.2px;">Save &amp; Reload</button>
+        <button id="_mc_clear" style="padding:10px 16px;border-radius:8px;border:1px solid #334155;background:transparent;color:#94a3b8;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;">Demo Mode</button>
+      </div>
+      <div style="font-size:10px;color:#475569;text-align:center;border-top:1px solid #1e293b;padding-top:10px;">
+        <em>Demo Mode</em> clears the key and shows sample data
       </div>`;
     gear.addEventListener("click", () => { panel.style.display = panel.style.display === "none" ? "block" : "none"; });
     document.addEventListener("click", (e) => { if (!panel.contains(e.target as Node) && e.target !== gear) panel.style.display = "none"; });

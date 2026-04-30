@@ -74,8 +74,8 @@ function _mcUkRecent(p) { return _mcApi("/search/car/uk/recents", p); }
 async function _fetchDirect(args) {
   const makes = (args.makes??"Toyota,Honda,Ford,Chevrolet,Hyundai,Kia,Nissan,BMW,Mercedes-Benz,Volkswagen").split(",");
   const results = await Promise.all(makes.map(async (make) => {
-    try { const data = await _mcIncentives({oem:make.trim(),zip:args.zip}); return {make:make.trim(),data}; }
-    catch { return {make:make.trim(),data:null}; }
+    try { const data = await _mcIncentives({oem:make.trim(), zip:args.zip}); return {make:make.trim(),data}; }
+    catch (e) { console.warn(`[incentive-deal-finder] direct fetch make=${make} failed:`, (e as Error)?.message); return {make:make.trim(),data:null}; }
   }));
   return {results};
 }

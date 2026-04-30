@@ -87,40 +87,61 @@ function _mapApiIncentives(make: string, raw: any): Incentive[] {
 
   return listings.map((item: any, idx: number): Incentive => {
     const offer = item.offer || item;
-    const rawType = String(offer.type || offer.incentive_type || offer.program_type || "").toLowerCase().replace(/[\s-]+/g, "_");
+    const rawType = String(offer.offer_type || offer.type || offer.incentive_type || offer.program_type || "")
+      .toLowerCase().replace(/[\s-]+/g, "_");
     const type: IncentiveType = typeMap[rawType] || "CASH_BACK";
 
-    const amountsField = offer.amounts ?? offer.amount ?? offer.value;
-    const firstAmount = Array.isArray(amountsField)
-      ? (amountsField[0]?.value ?? amountsField[0]?.amount ?? amountsField[0] ?? 0)
-      : (typeof amountsField === "number" ? amountsField : Number(amountsField) || 0);
-    const amount = Number(firstAmount) || 0;
+    const firstAmount: any = Array.isArray(offer.amounts) ? (offer.amounts[0] || {}) : {};
+    let amount = 0;
+    if (type === "LOW_APR") {
+      amount = Number(firstAmount.apr ?? offer.apr ?? 0);
+    } else if (type === "LEASE_SPECIAL") {
+      amount = Number(firstAmount.monthly ?? firstAmount.monthly_payment ?? offer.monthly_payment ?? 0);
+    } else {
+      amount = Number(
+        offer.cashback_amount ?? firstAmount.cashback ?? firstAmount.amount ?? firstAmount.value ?? offer.amount ?? offer.value ?? 0,
+      );
+    }
+    if (!isFinite(amount)) amount = 0;
+    const term = Number(firstAmount.term ?? offer.term ?? 0) || 0;
 
     const vehiclesField = offer.vehicles || offer.eligible_vehicles || offer.models || [];
-    const eligibleModels = Array.isArray(vehiclesField)
-      ? vehiclesField.map((v: any) => String(v.model || v.name || v)).filter(Boolean)
-      : [];
+    const vehiclesArr: any[] = Array.isArray(vehiclesField) ? vehiclesField : [];
+    const eligibleModels = vehiclesArr
+      .map((v: any) => String(v.model || v.name || v))
+      .filter(Boolean);
+    const firstVehicle = vehiclesArr[0] || {};
 
     let amountDisplay: string;
-    if (type === "LOW_APR") amountDisplay = `${amount}% APR${offer.term ? ` for ${offer.term} months` : ""}`;
-    else if (type === "LEASE_SPECIAL") amountDisplay = `$${amount.toLocaleString()}/mo${offer.term ? ` for ${offer.term} months` : ""}`;
+    if (type === "LOW_APR") amountDisplay = `${amount}% APR${term ? ` for ${term} months` : ""}`;
+    else if (type === "LEASE_SPECIAL") amountDisplay = `$${amount.toLocaleString()}/mo${term ? ` for ${term} months` : ""}`;
     else if (type === "LOYALTY") amountDisplay = `$${amount.toLocaleString()} Loyalty Cash`;
     else if (type === "CONQUEST") amountDisplay = `$${amount.toLocaleString()} Conquest Cash`;
     else amountDisplay = `$${amount.toLocaleString()} Cash Back`;
 
-    const disclaimersField = offer.disclaimers || offer.disclaimer || offer.fine_print || offer.terms;
+    const typeLabel = type === "LEASE_SPECIAL" ? "Lease"
+      : type === "LOW_APR" ? "Finance"
+      : type === "LOYALTY" ? "Loyalty Cash"
+      : type === "CONQUEST" ? "Conquest Cash"
+      : "Cash Back";
+    const fallbackTitle = [make, firstVehicle.year, firstVehicle.model, typeLabel].filter(Boolean).join(" ");
+    const title = String(offer.title || offer.name || offer.headline || offer.titles?.[0] || offer.oem_program_name || fallbackTitle);
+
+    const disclaimersField = offer.disclaimers || offer.disclaimer || offer.fine_print || offer.terms || offer.offers;
     const finePrint = Array.isArray(disclaimersField) ? disclaimersField.join(" ") : String(disclaimersField || "");
 
     return {
       id: String(offer.id || item.id || `${make.toLowerCase()}-${idx}`),
       make,
       type,
-      title: String(offer.title || offer.name || offer.headline || `${make} ${type.replace(/_/g, " ").toLowerCase()} offer`),
-      description: String(offer.description || offer.summary || ""),
+      title,
+      description: String(offer.description || offer.summary || offer.cashback_target_group || ""),
       amount,
       amountDisplay,
       eligibleModels: eligibleModels.length > 0 ? eligibleModels : [make],
-      expirationDate: String(offer.valid_through || offer.expiration_date || offer.end_date || offer.expires || ""),
+      expirationDate: String(
+        offer.valid_through || offer.valid_to || offer.expiration_date || offer.end_date || offer.expires || "",
+      ),
       stackable: Boolean(offer.stackable ?? offer.is_stackable ?? false),
       finePrint,
     };

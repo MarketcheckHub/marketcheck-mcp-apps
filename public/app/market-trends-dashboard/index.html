@@ -20,19 +20,19 @@
   <!-- Open Graph -->
   <meta property="og:type" content="article">
   <meta property="og:title" content="How to Build: Market Trends Dashboard — MarketCheck Apps">
-  <meta property="og:description" content="Macro-level market trends dashboard using sold vehicle summaries. Shows price trends, volume shifts, and segment dynamics across the automotive market.">
+  <meta property="og:description" content="Macro-level automotive market intelligence dashboard powered by sold-vehicle summary data. Tracks market health across five lenses: KPI cards (total sold volume, average sale price, average days on ma">
   <meta property="og:url" content="https://apps.marketcheck.com/app/market-trends-dashboard/">
   <meta property="og:image" content="https://apps.marketcheck.com/assets/screenshots/market-trends-dashboard.png">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="How to Build: Market Trends Dashboard">
-  <meta name="twitter:description" content="Macro-level market trends dashboard using sold vehicle summaries. Shows price trends, volume shifts, and segment dynamics across the automotive market.">
+  <meta name="twitter:description" content="Macro-level automotive market intelligence dashboard powered by sold-vehicle summary data. Tracks market health across five lenses: KPI cards (total sold volume, average sale price, average days on ma">
   <meta name="twitter:image" content="https://apps.marketcheck.com/assets/screenshots/market-trends-dashboard.png">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Market Trends Dashboard","description":"Macro-level market trends dashboard using sold vehicle summaries. Shows price trends, volume shifts, and segment dynamics across the automotive market.","url":"https://apps.marketcheck.com/app/market-trends-dashboard/","image":"https://apps.marketcheck.com/assets/screenshots/market-trends-dashboard.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
+  {"@context":"https://schema.org","@type":"TechArticle","name":"How to Build: Market Trends Dashboard","description":"Macro-level automotive market intelligence dashboard powered by sold-vehicle summary data. Tracks market health across five lenses: KPI cards (total sold volume, average sale price, average days on market, and price vs MSRP %), fastest and slowest moving models with month-over-month comparison, biggest price movers by make/model, segment mix donut chart (body type share of total sold volume), brand residual value bar chart (average sale price as % of MSRP per brand), and a sortable state ranking table. All sections update in real time when period, geography, inventory type, body type, or fuel filters change. Segment Mix and Brand Residual Value use a two-tier data strategy: primary data from dedicated API calls, with automatic fallback aggregation from the make+model rows so real data always renders.","url":"https://apps.marketcheck.com/app/market-trends-dashboard/","image":"https://apps.marketcheck.com/assets/screenshots/market-trends-dashboard.png","author":{"@type":"Organization","name":"MarketCheck","url":"https://www.marketcheck.com"}}
   </script>
 
   <style>
@@ -309,12 +309,55 @@ pre.code-block {
   <!-- What This App Does -->
   <div class="section">
     <h2>What This App Does</h2>
-    <p>Macro-level market trends dashboard using sold vehicle summaries. Shows price trends, volume shifts, and segment dynamics across the automotive market.</p>
+    <p>Macro-level automotive market intelligence dashboard powered by sold-vehicle summary data. Tracks market health across five lenses: KPI cards (total sold volume, average sale price, average days on market, and price vs MSRP %), fastest and slowest moving models with month-over-month comparison, biggest price movers by make/model, segment mix donut chart (body type share of total sold volume), brand residual value bar chart (average sale price as % of MSRP per brand), and a sortable state ranking table. All sections update in real time when period, geography, inventory type, body type, or fuel filters change. Segment Mix and Brand Residual Value use a two-tier data strategy: primary data from dedicated API calls, with automatic fallback aggregation from the make+model rows so real data always renders.</p>
   </div>
 
-  
+  <!-- Who Can Use This -->
+  <div class="section">
+    <h2>Who Can Use This</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Market Analysts</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Track national or state-level volume, pricing, and DOM trends over custom periods (30d–1Y) to identify market inflection points.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">OEM / Brand Teams</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Monitor brand residual value (sale price as % of MSRP) across competitors to benchmark pricing strength and incentive impact.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Auction Houses</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Identify the fastest and slowest moving segments by body type and fuel type to plan lane assignments and reserve pricing.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Auto Lenders</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Assess state-level volume and average price trends to inform regional underwriting guidelines and collateral risk.</div>
+      </div><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">Dealers</div>
+        <div style="font-size:13px;color:#475569;line-height:1.5;">Spot price movers early — models with significant month-over-month price shifts signal inventory or demand changes to act on.</div>
+      </div>
+    </div>
+  </div>
 
-  
+  <!-- URL Parameters -->
+  <div class="section">
+    <h2>URL Parameters</h2>
+    <p>Pass parameters directly in the URL to pre-fill the form and auto-generate the report:</p>
+    <table class="param-table">
+      <thead><tr><th>Parameter</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>api_key</code></td><td>Your MarketCheck API key — triggers live data mode</td></tr><tr><td><code>state</code></td><td>2-letter state code (e.g. CA, TX) — pre-selects the Geography filter and scopes all data to that state</td></tr><tr><td><code>period</code></td><td>Time window: 30d | 60d | 90d | 6M | 1Y — pre-selects the Period filter</td></tr><tr><td><code>inventory</code></td><td>Inventory type: New | Used | Both — pre-selects the Inventory filter</td></tr><tr><td><code>body</code></td><td>Body type: All | SUV | Sedan | Truck — pre-selects the Body Type filter</td></tr><tr><td><code>fuel</code></td><td>Fuel type: All | ICE | EV | Hybrid — pre-selects the Fuel filter</td></tr>
+      </tbody>
+    </table>
+    <h3>URL Examples</h3>
+    <pre class="code-block"># Basic — auto-generate a report for a VIN
+https://apps.marketcheck.com/apps/market-trends-dashboard/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658
+
+# Full — with asking price, mileage, and ZIP for deal scoring
+https://apps.marketcheck.com/apps/market-trends-dashboard/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;price=25000&amp;miles=35000&amp;zip=90044
+
+# Compact widget — for iframe embeds (400px width)
+https://apps.marketcheck.com/apps/market-trends-dashboard/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;compact=true&amp;embed=true
+
+# Using aliases
+https://apps.marketcheck.com/apps/market-trends-dashboard/dist/index.html?api_key=YOUR_KEY&amp;vin=KNDCB3LC9L5359658&amp;askingPrice=25000&amp;mileage=35000&amp;zipcode=90044</pre>
+  </div>
 
   <!-- Screenshot -->
   <div class="section">
@@ -329,12 +372,12 @@ pre.code-block {
     <h2>API Call Flow</h2>
     <p>Here's the exact sequence of MarketCheck API calls this app makes, and which ones run in parallel:</p>
     <div class="flow-diagram">
-      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">Market Data</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
+      <div class="flow-step"><div class="flow-step-header"><div class="flow-step-num">1</div><div class="flow-step-label">5 Parallel Sold-Summary Calls</div><span class="flow-sequential-badge">SEQUENTIAL</span></div><div class="flow-api-cards flow-sequential">
           <div class="flow-api-card enterprise">
             <div class="flow-api-method">GET</div><span class="enterprise-badge">Enterprise API</span>
             <code class="flow-api-path">/api/v1/sold-vehicles/summary</code>
             <div class="flow-api-name">Sold Vehicle Summary (Market Intelligence)</div>
-          </div></div><div class="flow-note">Fetch sold summary with make and body type dimensions</div></div>
+          </div></div><div class="flow-note">All five calls fire simultaneously: (1) make+model ranked by sold_count — current period, for fastest/slowest movers and price mover comparison; (2) make+model — prior period, for month-over-month delta; (3) body_type ranked by sold_count — segment mix donut chart; (4) make ranked by sold_count — brand residual value bar chart using average_sale_price / avg_msrp; (5) summary_by=state — state ranking table sorted by volume, price, or DOM</div></div>
     </div>
   </div>
 
@@ -346,7 +389,7 @@ pre.code-block {
     <table class="param-table">
       <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>state</code></td><td>string</td><td>No</td><td>State for regional trends</td></tr>
+        <tr><td><code>state</code></td><td>string</td><td>No</td><td>2-letter US state code for regional filtering</td></tr><tr><td><code>period</code></td><td>string</td><td>No</td><td>Time window: 30d, 60d, 90d, 6M, or 1Y</td></tr><tr><td><code>inventoryType</code></td><td>string</td><td>No</td><td>New, Used, or Both</td></tr><tr><td><code>bodyType</code></td><td>string</td><td>No</td><td>All, SUV, Sedan, or Truck</td></tr><tr><td><code>fuelType</code></td><td>string</td><td>No</td><td>All, ICE, EV, or Hybrid</td></tr>
       </tbody>
     </table>
   </div>
@@ -380,7 +423,7 @@ pre.code-block {
     <h2>What to Render</h2>
     <p>Once you have the API responses, build these UI components:</p>
     <div class="renders-list">
-      <div class="render-item"><div class="render-dot"></div>Price trend charts</div><div class="render-item"><div class="render-dot"></div>volume bars</div><div class="render-item"><div class="render-dot"></div>segment market share pie</div><div class="render-item"><div class="render-dot"></div>top movers</div><div class="render-item"><div class="render-dot"></div>regional comparison</div>
+      <div class="render-item"><div class="render-dot"></div>KPI row (total sold</div><div class="render-item"><div class="render-dot"></div>avg price with MoM delta</div><div class="render-item"><div class="render-dot"></div>avg DOM</div><div class="render-item"><div class="render-dot"></div>price vs MSRP %); Fastest Movers table (top 10 by volume with rank</div><div class="render-item"><div class="render-dot"></div>make/model</div><div class="render-item"><div class="render-dot"></div>sold count</div><div class="render-item"><div class="render-dot"></div>avg price</div><div class="render-item"><div class="render-dot"></div>avg DOM</div><div class="render-item"><div class="render-dot"></div>MoM change); Slowest Movers table (top 10 by days on market); Price Movers table (biggest avg price shifts vs prior period</div><div class="render-item"><div class="render-dot"></div>dollar and percent); Segment Mix interactive donut chart (up to 6 body types</div><div class="render-item"><div class="render-dot"></div>click slice to filter); Brand Residual Value horizontal bar chart (up to 15 brands</div><div class="render-item"><div class="render-dot"></div>color-coded by retention tier: >95% green</div><div class="render-item"><div class="render-dot"></div>90-95% blue</div><div class="render-item"><div class="render-dot"></div>85-90% yellow</div><div class="render-item"><div class="render-dot"></div><85% red); State Ranking sortable table (state abbreviation with full-name tooltip</div><div class="render-item"><div class="render-dot"></div>avg price</div><div class="render-item"><div class="render-dot"></div>volume</div><div class="render-item"><div class="render-dot"></div>avg DOM — click any header to sort)</div>
     </div>
   </div>
 

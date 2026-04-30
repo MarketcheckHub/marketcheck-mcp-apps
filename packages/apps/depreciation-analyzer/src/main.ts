@@ -1150,12 +1150,11 @@ function renderCurveChart() {
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Tooltip — measure text first so the box always fits
-    const ROW_H = 20;
-    const PAD_X = 12;  // horizontal inner padding each side
-    const DOT_W = 18;  // dot + gap before text
+    // Tooltip — measure first, then draw with uniform padding on all four sides
+    const TT_PAD = 12;  // uniform padding: top / right / bottom / left
+    const TT_ROW = 22;  // height of each row (header + every data row)
+    const TT_DOT = 16;  // dot diameter + gap before text label
 
-    // Measure widest content line
     ctx.font = "bold 11px -apple-system, sans-serif";
     let maxTextW = ctx.measureText(`Month ${hoveredMonth}`).width;
     ctx.font = "11px -apple-system, sans-serif";
@@ -1164,12 +1163,14 @@ function renderCurveChart() {
       if (!pt) return;
       const label = `${md.model.make} ${md.model.model}`;
       const val = showPctOfMsrp ? `${pt.pctOfMsrp}%` : `$${pt.avgPrice.toLocaleString()}`;
-      const w2 = ctx.measureText(`${label}: ${val}`).width;
-      if (w2 > maxTextW) maxTextW = w2;
+      const tw = ctx.measureText(`${label}: ${val}`).width;
+      if (tw > maxTextW) maxTextW = tw;
     });
 
-    const tooltipW = DOT_W + maxTextW + PAD_X * 2;
-    const tooltipH = 12 + ROW_H + currentData.models.length * ROW_H + 8; // header + rows + bottom pad
+    const totalRows = 1 + currentData.models.length; // header row + one row per model
+    const tooltipW = TT_PAD * 2 + TT_DOT + maxTextW;
+    const tooltipH = TT_PAD * 2 + totalRows * TT_ROW;
+
     let tx = x + 12;
     if (tx + tooltipW > w - pad.right) tx = x - tooltipW - 12;
     const ty = pad.top + 10;
@@ -1181,37 +1182,35 @@ function renderCurveChart() {
     ctx.fill();
     ctx.stroke();
 
-    // Header row — middle-aligned within the header slot
-    const headerCY = ty + ROW_H / 2;
+    // Row center helper: row 0 = header, rows 1..n = data
+    const rowCY = (i: number) => ty + TT_PAD + (i + 0.5) * TT_ROW;
+
     ctx.fillStyle = TEXT_PRIMARY;
     ctx.font = "bold 11px -apple-system, sans-serif";
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText(`Month ${hoveredMonth}`, tx + PAD_X, headerCY);
+    ctx.fillText(`Month ${hoveredMonth}`, tx + TT_PAD, rowCY(0));
 
     currentData.models.forEach((md, idx) => {
       const pt = md.monthlyData.find((p) => p.month === hoveredMonth);
       if (!pt) return;
       const color = COLORS[idx % COLORS.length];
-      // Center y for this data row, sitting below the header slot
-      const rowCY = ty + ROW_H + (idx + 0.5) * ROW_H;
+      const cy = rowCY(idx + 1); // data rows start at row index 1
 
-      // Dot — centered on rowCY
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.arc(tx + PAD_X + 4, rowCY, 4, 0, Math.PI * 2);
+      ctx.arc(tx + TT_PAD + 4, cy, 4, 0, Math.PI * 2);
       ctx.fill();
 
-      // Text — middle-aligned to the same rowCY so dot and label sit on the same axis
       ctx.fillStyle = TEXT_SECONDARY;
       ctx.font = "11px -apple-system, sans-serif";
       ctx.textBaseline = "middle";
       const label = `${md.model.make} ${md.model.model}`;
       const val = showPctOfMsrp ? `${pt.pctOfMsrp}%` : `$${pt.avgPrice.toLocaleString()}`;
-      ctx.fillText(`${label}: ${val}`, tx + PAD_X + DOT_W, rowCY);
+      ctx.fillText(`${label}: ${val}`, tx + TT_PAD + TT_DOT, cy);
     });
 
-    ctx.textBaseline = "alphabetic"; // restore default
+    ctx.textBaseline = "alphabetic";
   }
 
   // Mouse tracking

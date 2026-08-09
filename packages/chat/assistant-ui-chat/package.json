@@ -8,8 +8,8 @@
     "start": "next start -p 3012"
   },
   "dependencies": {
-    "@assistant-ui/react": "^0.10.0",
-    "@assistant-ui/react-markdown": "^0.10.0",
+    "@assistant-ui/react": "^0.15.12",
+    "@assistant-ui/react-markdown": "^0.14.10",
     "@ai-sdk/anthropic": "^4.0.1",
     "@ai-sdk/react": "^4.0.5",
     "ai": "^7.0.4",

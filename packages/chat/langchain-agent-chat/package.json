@@ -11,7 +11,7 @@
     "@langchain/anthropic": "^1.5.1",
     "@langchain/core": "^1.2.1",
     "@langchain/langgraph": "^1.4.7",
-    "ai": "^4.0.0",
+    "ai": "^7.0.93",
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
